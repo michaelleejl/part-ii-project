@@ -1,0 +1,5 @@
+trip_id,cardnum,person,bonus
+0,101,Alice,5
+1,101,Alice,15
+2,111,Bob,10
+3,100,Charlie,20
