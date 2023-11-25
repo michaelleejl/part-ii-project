@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 
 from schema.exceptions import KeyDuplicationException
-from schema.helpers.check_for_duplicate_keys import check_for_duplicate_keys
+from backend.helpers.check_for_duplicate_keys import check_for_duplicate_keys
 
 
 class TestCheckForDuplicateKeys(unittest.TestCase):

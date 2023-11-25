@@ -1,8 +1,3 @@
-class KeyDuplicationException(Exception):
-    def __init__(self, msg):
-        super().__init__(f"Duplicate key/s detected: {msg}.")
-
-
 class FamilyAlreadyExistsException(Exception):
     def __init__(self, family):
         super().__init__(f"Family {family} already exists. Use `update` instead.")

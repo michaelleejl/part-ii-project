@@ -3,7 +3,7 @@ import unittest
 import pandas as pd
 
 from schema.cardinality import Cardinality
-from schema.helpers.determine_cardinality import determine_cardinality
+from backend.helpers.determine_cardinality import determine_cardinality
 
 
 class TestDetermineCardinality(unittest.TestCase):

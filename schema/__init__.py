@@ -7,3 +7,4 @@ from schema.graph import *
 from schema.node import *
 from schema.type import *
 from schema.edge_list import *
+from schema.schema import *

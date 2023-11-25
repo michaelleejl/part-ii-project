@@ -8,7 +8,7 @@ class SchemaGraph:
         self.adjacencyList = {}
         self.schema_nodes = frozenset()
 
-    def add_relation(self, edge: SchemaEdge):
+    def add_edge(self, edge: SchemaEdge):
         from_node = edge.from_node
         to_node = edge.to_node
 
@@ -21,14 +21,6 @@ class SchemaGraph:
 
         self.adjacencyList[from_node] = SchemaEdgeList.add_edge(self.adjacencyList[from_node], edge)
         self.adjacencyList[to_node] = SchemaEdgeList.add_edge(self.adjacencyList[to_node], edge)
-
-    def extend_relation(self, relation: SchemaEdge, with_mapping):
-        self.adjacencyList[relation.from_node] = SchemaEdgeList.replace_edge(self.adjacencyList[relation.from_node],
-                                                                             SchemaEdge.extend_mapping(relation, with_mapping))
-
-    def replace_relation(self, relation: SchemaEdge, with_mapping):
-        self.adjacencyList[relation.from_node] = SchemaEdgeList.replace_edge(self.adjacencyList[relation.from_node],
-                                                                             SchemaEdge.update_mapping(relation, with_mapping))
 
     def add_node(self, node: SchemaNode):
         if node not in self.schema_nodes:
