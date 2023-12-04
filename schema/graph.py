@@ -1,12 +1,31 @@
 from schema.edge import SchemaEdge
 from schema.edge_list import SchemaEdgeList
 from schema.node import SchemaNode
+from union_find.union_find import UnionFind
 
 
 class SchemaGraph:
     def __init__(self):
+
         self.adjacencyList = {}
         self.schema_nodes = frozenset()
+        self.equivalence_class = UnionFind.initialise()
+
+    def add_node(self, node: SchemaNode):
+        if node not in self.schema_nodes:
+            self.schema_nodes = self.schema_nodes.union([node])
+            self.equivalence_class = UnionFind.add_singleton(self.equivalence_class, node)
+
+    def add_nodes(self, nodes: frozenset[SchemaNode]):
+        new_nodes = nodes.difference(self.schema_nodes)
+        self.schema_nodes = self.schema_nodes.union(new_nodes)
+        self.equivalence_class = UnionFind.add_singletons(self.equivalence_class, new_nodes)
+
+    def blend_nodes(self, node1, node2):
+        self.equivalence_class = UnionFind.union(self.equivalence_class, node1, node2)
+
+    def are_nodes_equal(self, node1, node2):
+        return self.equivalence_class.find_leader(node1) == self.equivalence_class.find_leader(node2)
 
     def add_edge(self, edge: SchemaEdge):
         from_node = edge.from_node
@@ -21,23 +40,6 @@ class SchemaGraph:
 
         self.adjacencyList[from_node] = SchemaEdgeList.add_edge(self.adjacencyList[from_node], edge)
         self.adjacencyList[to_node] = SchemaEdgeList.add_edge(self.adjacencyList[to_node], edge)
-
-    def add_node(self, node: SchemaNode):
-        if node not in self.schema_nodes:
-            self.schema_nodes = self.schema_nodes.union([node])
-
-    def add_nodes(self, nodes: frozenset[SchemaNode]):
-        if len(nodes.difference(self.schema_nodes)) == len(nodes):
-            self.schema_nodes = self.schema_nodes.union(nodes)
-
-    def replace_node(self, node: SchemaNode):
-        if node in self.schema_nodes:
-            self.schema_nodes = self.schema_nodes.difference([node]).union([node])
-
-    def get_node(self, name: str, family: str) -> SchemaNode:
-        ns = list(filter(lambda x: x.get_key() == (name, family), self.schema_nodes))
-        if len(ns) > 0:
-            return ns[0]
 
     def does_relation_exist(self, node1: SchemaNode, node2: SchemaNode):
         return node1 in self.adjacencyList and len(list(filter(lambda e: e.to_node == node2, self.adjacencyList[node1]))) > 0

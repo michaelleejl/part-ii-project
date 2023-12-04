@@ -12,6 +12,15 @@ class SchemaEdge:
     def __key(self):
         return self.from_node, self.to_node
 
+    def traverse(self, start):
+        if start == self.from_node:
+            return self.to_node
+        else:
+            return self.from_node
+
+    def is_equality(self):
+        return False
+
     def __hash__(self):
         return hash(self.__key())
 
@@ -32,4 +41,4 @@ class SchemaEdge:
             arrow = "<---"
         else:
             arrow = "---"
-        return f"{self.from_node.name} [{self.from_node.family}] {arrow} {self.to_node.name} [{self.to_node.family}]"
+        return f"{self.from_node.name} {arrow} {self.to_node.name}"

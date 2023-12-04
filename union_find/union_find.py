@@ -1,7 +1,5 @@
 from collections import deque
 
-from schema import SchemaNode
-
 
 class UnionFindAlreadyContainsItemException(Exception):
     def __init__(self, item):
@@ -14,25 +12,27 @@ class UnionFindDoesNotContainItemException(Exception):
 
 
 class UnionFindItem:
-    def __init__(self, val: any, node: SchemaNode):
+    def __init__(self, val: any):
         self.val = val
-        self.node = node
 
     def __eq__(self, other):
-        return self.val == other.val and self.node == other.node
+        return self.val == other.val
 
     def __hash__(self):
-        return hash((self.val, self.node))
+        return hash(self.val)
 
     def __repr__(self):
-        return str(self.val) + f"({self.node})"
+        return str(self.val)
 
     def __str__(self):
         return self.__repr__()
 
 
 class UnionFind:
-    def __init__(self, leaders: dict[UnionFindItem, UnionFindItem], rank: dict[UnionFindItem, int], graph: dict[UnionFindItem, frozenset[UnionFindItem]]):
+    def __init__(self,
+                 leaders: dict[UnionFindItem, UnionFindItem],
+                 rank: dict[UnionFindItem, int],
+                 graph: dict[UnionFindItem, frozenset[UnionFindItem]]):
         self.leaders = leaders
         self.rank = rank
         self.graph = graph
@@ -48,8 +48,8 @@ class UnionFind:
         return UnionFind({}, {}, {})
 
     @classmethod
-    def add_singleton(cls, uf, v, node):
-        item = UnionFindItem(v, node)
+    def add_singleton(cls, uf, v):
+        item = UnionFindItem(v)
         if item in uf.leaders.keys():
             return uf
         leaders = uf.leaders | {item: item}
@@ -58,15 +58,16 @@ class UnionFind:
         return UnionFind(leaders, rank, graph)
 
     @classmethod
-    def add_singletons(cls, uf, vs, node):
-        items = frozenset([UnionFindItem(v, node) for v in vs])
+    def add_singletons(cls, uf, vs):
+        items = frozenset([UnionFindItem(v) for v in vs])
         new_items = items.difference(uf.leaders.keys())
         leaders = uf.leaders | {item: item for item in new_items}
         rank = uf.rank | {item: 0 for item in new_items}
         graph = uf.graph | {item: frozenset() for item in new_items}
         return UnionFind(leaders, rank, graph)
 
-    def find_leader(self, item: UnionFindItem) -> UnionFindItem:
+    def find_leader(self, val):
+        item = UnionFindItem(val)
         if item not in self.leaders.keys():
             raise UnionFindDoesNotContainItemException(item)
         u = item
@@ -78,10 +79,12 @@ class UnionFind:
             self.leaders[node] = u
             self.graph[u] = self.graph[u].union([node])
             self.graph[node] = frozenset()
-        return u
+        return u.val
 
     @classmethod
-    def union(cls, uf, item1: UnionFindItem, item2: UnionFindItem):
+    def union(cls, uf, val1, val2):
+        item1 = UnionFindItem(val1)
+        item2 = UnionFindItem(val2)
         if item1 not in uf.rank.keys():
             raise UnionFindDoesNotContainItemException(item1)
         if item2 not in uf.rank.keys():
@@ -103,13 +106,14 @@ class UnionFind:
             rank[item1] += 1
         return UnionFind(leaders, rank, graph)
 
-    def get_equivalence_class(self, item: UnionFindItem) -> frozenset[UnionFindItem]:
+    def get_equivalence_class(self, val) -> frozenset[UnionFindItem]:
+        item = UnionFindItem(val)
         ldr = self.find_leader(item)
         es = set()
         to_explore = deque([ldr])
         while len(to_explore) > 0:
             u = to_explore.popleft()
-            es = es.union([u])
+            es = es.union([u.val])
             ns = self.graph[u]
             for n in ns:
                 to_explore.appendleft(n)

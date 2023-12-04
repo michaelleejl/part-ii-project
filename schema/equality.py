@@ -12,3 +12,7 @@ class SchemaEquality(SchemaEdge):
 
     def __str__(self):
         return self.__repr__()
+
+    def is_equality(self):
+        return True
+

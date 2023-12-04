@@ -1,15 +1,11 @@
-import pandas as pd
-
 from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.relation import DataRelation
 from schema import Cardinality
 from schema.edge import SchemaEdge
-from schema.equality import SchemaEquality
 from schema.exceptions import FamilyAlreadyExistsException
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode
-from schema.type import SchemaType
-from union_find.union_find import UnionFindItem
+from schema.schema_class import SchemaClass
 from backend.pandas_backend.pandas_backend import PandasBackend
 
 
@@ -69,6 +65,8 @@ class Schema:
             return n, m
 
         key_values = [create_nodes_and_mappings(k, keys) for k in key_names]
+        key_node_children = [n for (n, m) in key_values]
+        key_node.children = key_node_children
         values = [create_nodes_and_mappings(v, df) for v in val_names]
 
         v_nodes = []
@@ -84,13 +82,16 @@ class Schema:
     def get_node(self, name: str, family: str):
         return self.schema_graph.get_node(name, family)
 
+    def get_edges_attached_to_node(self, node: SchemaNode):
+        return self.schema_graph.adjacencyList[node].get_edge_list()
+
     def blend(self, node1: SchemaNode, node2: SchemaNode, under_type: str):
         name = under_type
 
         if name not in self.schema_types:
-            self.schema_types[name] = SchemaType.construct(name, node1, node2)
+            self.schema_types[name] = SchemaClass.construct(name, node1, node2)
         else:
-            self.schema_types[name] = SchemaType.update(self.schema_types[name], [node1, node2])
+            self.schema_types[name] = SchemaClass.update(self.schema_types[name], [node1, node2])
         #
         # schema_type = self.schema_types[name]
         #
@@ -120,11 +121,11 @@ class Schema:
                 i += 1
                 name = f"{node.name} {i}"
             if node.clone_type is None:
-                clone_type = SchemaType(node.name, frozenset([node, candidate]))
+                clone_type = SchemaClass(node.name, frozenset([node, candidate]))
                 node.clone_type = clone_type
             else:
                 clone_type = node.clone_type
-            candidate = SchemaNode(name, node.family, clone_type)
+            candidate = SchemaNode(name, node.family, clone_type=clone_type)
             self.blend(candidate, node, under_type=clone_type.name)
 
     def __repr__(self):
