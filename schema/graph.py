@@ -1,3 +1,4 @@
+from schema.fully_connected import FullyConnected
 from schema.edge import SchemaEdge
 from schema.edge_list import SchemaEdgeList
 from schema.node import SchemaNode
@@ -6,9 +7,9 @@ from union_find.union_find import UnionFind
 
 class SchemaGraph:
     def __init__(self):
-
         self.adjacencyList = {}
         self.schema_nodes = frozenset()
+        self.fully_connected_clusters = {}
         self.equivalence_class = UnionFind.initialise()
 
     def add_node(self, node: SchemaNode):
@@ -25,7 +26,11 @@ class SchemaGraph:
         self.equivalence_class = UnionFind.union(self.equivalence_class, node1, node2)
 
     def are_nodes_equal(self, node1, node2):
-        return self.equivalence_class.find_leader(node1) == self.equivalence_class.find_leader(node2)
+        return self.equivalence_class.find_leader(node1).atomic_exact_equal(self.equivalence_class.find_leader(node2))
+
+    def add_fully_connected_cluster(self, nodes, key_node, family):
+        assert nodes <= self.schema_nodes
+        self.fully_connected_clusters[family] = FullyConnected(nodes, key_node)
 
     def add_edge(self, edge: SchemaEdge):
         from_node = edge.from_node
@@ -41,11 +46,15 @@ class SchemaGraph:
         self.adjacencyList[from_node] = SchemaEdgeList.add_edge(self.adjacencyList[from_node], edge)
         self.adjacencyList[to_node] = SchemaEdgeList.add_edge(self.adjacencyList[to_node], edge)
 
-    def does_relation_exist(self, node1: SchemaNode, node2: SchemaNode):
-        return node1 in self.adjacencyList and len(list(filter(lambda e: e.to_node == node2, self.adjacencyList[node1]))) > 0
-
-    def get_edge_between_nodes(self, node1: SchemaNode, node2: SchemaNode):
-        return list(filter(lambda e: e.to_node == node2, self.adjacencyList[node1]))[0]
+    def get_edge_between_nodes(self, node1: SchemaNode, node2: SchemaNode) -> (bool, SchemaEdge):
+        if node1.cluster is not None and node2.cluster is not None and node1.cluster == node2.cluster:
+            cluster = self.fully_connected_clusters[node1]
+            return True, cluster.get_edge(node1, node2)
+        opt = list(filter(lambda e: e.to_node == node2, self.adjacencyList[node1]))
+        if len(opt) > 0:
+            return True, opt[0]
+        else:
+            return False, None
 
     def __repr__(self):
         divider = "==========================\n"

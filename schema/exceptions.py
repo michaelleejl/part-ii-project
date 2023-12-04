@@ -21,3 +21,19 @@ class EdgeDoesNotExistException(Exception):
 class EdgeIsNotConnectedToNodeException(Exception):
     def __init__(self, edge, node):
         super().__init__(f"Node {node} is not connected to edge {edge}")
+
+
+class EdgeDoesNotExistBetweenNodes(Exception):
+    def __init__(self, node1, node2):
+        super().__init__(f"{node1} is not connected to {node2} by an edge")
+
+
+class NodesDoNotExistInGraph(Exception):
+    def __init__(self, nodes):
+        super().__init__(f"{nodes} do not exist in graph")
+
+
+class TableShouldNotHaveDuplicateKeys(Exception):
+    def __init__(self):
+        super().__init__("Table should not have duplicate keys")
+

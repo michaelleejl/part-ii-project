@@ -72,7 +72,7 @@ class UnionFind:
             raise UnionFindDoesNotContainItemException(item)
         u = item
         path = frozenset()
-        while u != self.leaders[u]:
+        while not (u.val.atomic_exact_equal(self.leaders[u].val)):
             path = path.union([u])
             u = self.leaders[u]
         for node in path:

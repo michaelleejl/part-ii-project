@@ -2,11 +2,14 @@ from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.relation import DataRelation
 from schema import Cardinality
 from schema.edge import SchemaEdge
-from schema.exceptions import FamilyAlreadyExistsException
+from schema.exceptions import FamilyAlreadyExistsException, NodesDoNotExistInGraph, EdgeDoesNotExistBetweenNodes
+from schema.fully_connected import FullyConnected
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode
 from schema.schema_class import SchemaClass
 from backend.pandas_backend.pandas_backend import PandasBackend
+from tables.node import DerivationNode
+from tables.table import Table
 
 
 def check_for_duplicate_keys(keys):
@@ -43,90 +46,58 @@ class Schema:
 
         key_names = keys.columns.to_list()
         val_names = df.columns.to_list()
-        key_node = SchemaNode(', '.join(key_names), family)
-        self.backend.map_node_to_domain(key_node, keys)
 
-        def create_nodes_and_mappings(v, tbl):
-            n = SchemaNode(v, family)
-            is_v_a_key = v in set(key_names)
-            if is_v_a_key:
-                project = key_names
-            else:
-                project = key_names + [v]
-            m = tbl.reset_index()[project].drop_duplicates()
-            val_col_name = n.prepend_id(v)
+        key_nodes = [SchemaNode(name, cluster=family) for name in key_names]
+        val_nodes = [SchemaNode(name, cluster=family) for name in val_names]
 
-            if is_v_a_key:
-                m[val_col_name] = m[v]
-                m = m.rename({k: key_node.prepend_id(k) for k in key_names}, axis=1)
-            else:
-                m = m.rename({k: key_node.prepend_id(k) for k in key_names}, axis=1)
-                m = m.rename({v: val_col_name}, axis=1)
-            return n, m
+        key_node = SchemaNode.product(frozenset(key_nodes))
+        nodes = frozenset(key_nodes + val_nodes)
+        self.schema_graph.add_nodes(nodes)
+        self.schema_graph.add_fully_connected_cluster(nodes, key_node, family)
 
-        key_values = [create_nodes_and_mappings(k, keys) for k in key_names]
-        key_node_children = [n for (n, m) in key_values]
-        key_node.children = key_node_children
-        values = [create_nodes_and_mappings(v, df) for v in val_names]
+    def blend(self, node1: SchemaNode, node2: SchemaNode):
+        self.schema_graph.blend_nodes(node1, node2)
 
-        v_nodes = []
-        for (val_node, mapping) in key_values + values:
-            edge = SchemaEdge(key_node, val_node, Cardinality.MANY_TO_MANY)
-            self.backend.map_edge_to_relation(edge, DataRelation(mapping))
-            cardinality = self.backend.get_cardinality(edge, key_node)
-            self.schema_graph.add_edge(SchemaEdge(key_node, val_node, cardinality))
-            v_nodes += [val_node]
-
-        self.schema_graph.add_nodes(frozenset(v_nodes + [key_node]))
-
-    def get_node(self, name: str, family: str):
-        return self.schema_graph.get_node(name, family)
-
-    def get_edges_attached_to_node(self, node: SchemaNode):
-        return self.schema_graph.adjacencyList[node].get_edge_list()
-
-    def blend(self, node1: SchemaNode, node2: SchemaNode, under_type: str):
-        name = under_type
-
-        if name not in self.schema_types:
-            self.schema_types[name] = SchemaClass.construct(name, node1, node2)
-        else:
-            self.schema_types[name] = SchemaClass.update(self.schema_types[name], [node1, node2])
-        #
-        # schema_type = self.schema_types[name]
-        #
-        # edge1 = node1.data
-        # edge1[f"{hash(schema_type)}_class"] = pd.Series(node1.get_values()).apply(lambda v: schema_type.get_class(UnionFindItem(v, node1)))
-        #
-        # edge2 = node2.data
-        # edge2[f"{hash(schema_type)}_class"] = pd.Series(node2.get_values()).apply(lambda v: schema_type.get_class(UnionFindItem(v, node2)))
-        #
-        # if self.schema_graph.does_relation_exist(schema_type, node1):
-        #     e1 = self.schema_graph.get_edge_between_nodes(schema_type, node1)
-        #     self.schema_graph.extend_relation(e1, edge1)
-        # else:
-        #     self.schema_graph.add_edge(SchemaEquality(schema_type, node1, edge1))
-        # if self.schema_graph.does_relation_exist(schema_type, node2):
-        #     e2 = self.schema_graph.get_edge_between_nodes(schema_type, node2)
-        #     self.schema_graph.extend_relation(e2, edge2)
-        # else:
-        #     self.schema_graph.add_edge(SchemaEquality(schema_type, node2, edge2))
-
-    def clone(self, node: SchemaNode, name=None):
+    def clone(self, node: SchemaNode, name: str = None):
+        i = 1
         if name is None:
-            i = 1
-            name = f"{node.name} {i}"
-            candidate = SchemaNode(name, node.family)
-            while candidate in self.schema_graph:
-                i += 1
-                name = f"{node.name} {i}"
-            if node.clone_type is None:
-                clone_type = SchemaClass(node.name, frozenset([node, candidate]))
-                node.clone_type = clone_type
+            name = node.name
+            candidate = SchemaNode(f"{node.name} {i}", node.cluster)
+        else:
+            candidate = SchemaNode(name, node.cluster)
+            i = 0
+        while candidate in self.schema_graph:
+            i += 1
+            candidate = SchemaNode(f"{name} {i}", node.cluster)
+
+        self.schema_graph.add_node(candidate)
+        self.blend(candidate, node)
+        return candidate
+
+    def query(self, keys: list[SchemaNode], values: list[SchemaNode]):
+        key_set = frozenset(keys)
+        val_set = frozenset(values)
+
+        diff = (key_set.union(val_set)).difference(self.schema_graph.schema_nodes)
+        if len(diff) > 0:
+            raise NodesDoNotExistInGraph(list(diff))
+        key_node = SchemaNode.product(key_set)
+        root = key_node
+        derivation_nodes = []
+        for val_node in val_set:
+            edge_exists, edge = self.schema_graph.get_edge_between_nodes(key_node, val_node)
+            if not edge_exists:
+                raise EdgeDoesNotExistBetweenNodes(key_node, val_node)
+            cardinality = edge.get_cardinality(key_node)
+            if cardinality == Cardinality.MANY_TO_ONE or cardinality == Cardinality.MANY_TO_MANY:
+                node = SchemaNode.product(frozenset([key_node, val_node]))
+                derivation_node = DerivationNode(node, frozenset([val_node]))
+                root = SchemaNode.product(frozenset([root, val_node]))
             else:
-                clone_type = node.clone_type
-            candidate = SchemaNode(name, node.family, clone_type=clone_type)
-            self.blend(candidate, node, under_type=clone_type.name)
+                derivation_node = DerivationNode(val_node, frozenset())
+            derivation_nodes += [derivation_node]
+        derivation = DerivationNode(root, frozenset(derivation_nodes))
+        return Table(keys, values, derivation)
 
     def __repr__(self):
         return self.schema_graph.__repr__()

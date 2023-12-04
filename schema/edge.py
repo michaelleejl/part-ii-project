@@ -3,8 +3,18 @@ from schema.cardinality import Cardinality
 from schema.node import SchemaNode
 
 
+def reverse_cardinality(cardinality: Cardinality):
+    match cardinality:
+        case Cardinality.ONE_TO_MANY:
+            return Cardinality.MANY_TO_ONE
+        case Cardinality.MANY_TO_ONE:
+            return Cardinality.ONE_TO_MANY
+        case _:
+            return cardinality
+
+
 class SchemaEdge:
-    def __init__(self, from_node: SchemaNode, to_node: SchemaNode, cardinality: Cardinality):
+    def __init__(self, from_node: SchemaNode, to_node: SchemaNode, cardinality: Cardinality = Cardinality.MANY_TO_MANY):
         self.from_node = from_node
         self.to_node = to_node
         self.cardinality = cardinality
@@ -20,6 +30,12 @@ class SchemaEdge:
 
     def is_equality(self):
         return False
+
+    def get_cardinality(self, starting_from: SchemaNode):
+        if starting_from == self.from_node:
+            return self.cardinality
+        elif starting_from == self.to_node:
+            return reverse_cardinality(self.cardinality)
 
     def __hash__(self):
         return hash(self.__key())
