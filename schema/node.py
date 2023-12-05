@@ -1,10 +1,13 @@
+import numpy as np
+
+
 class SchemaNodeNameShouldNotContainSemicolonException(Exception):
     def __init__(self, name):
-        super().__init__(f"Schema node name should not contain a semicolon. Name: f{name}")
+        super().__init__(f"Schema node name should not contain a semicolon. Name: {name}")
 
 
 class SchemaNode:
-    def __init__(self, name: str, constituents: frozenset[any] = None, cluster: str = None, graph = None):
+    def __init__(self, name: str, constituents: list[any] = None, cluster: str = None, graph=None):
         if ";" in name and constituents is None:
             raise SchemaNodeNameShouldNotContainSemicolonException(name)
         self.name = name
@@ -20,14 +23,18 @@ class SchemaNode:
         return self.key
 
     @classmethod
-    def product(cls, nodes: frozenset[any]):
-        atomics = frozenset()
+    def product(cls, nodes: list[any]):
+        atomics_set = frozenset()
+        atomics = []
         for node in nodes:
-            atomics = atomics.union(SchemaNode.get_constituents(node))
-        if len(atomics) == 1:
-            x, = atomics
+            cs = SchemaNode.get_constituents(node)
+            new_cs = list(filter(lambda c: c not in atomics_set, cs))
+            atomics_set = atomics_set.union(cs)
+            atomics += new_cs
+        if len(atomics_set) == 1:
+            x, = atomics_set
             return x
-        name = "; ".join([a.name for a in atomics])
+        name = ";".join([a.name for a in atomics])
         clusters = frozenset([n.cluster for n in nodes])
         cluster = None
         if len(clusters) == 1:
@@ -39,9 +46,20 @@ class SchemaNode:
     def get_constituents(cls, node):
         c = node.constituents
         if c is None:
-            return frozenset([node])
+            return [node]
         else:
             return c
+
+    @classmethod
+    def is_atomic(cls, node):
+        return len(SchemaNode.get_constituents(node)) == 1
+
+    @classmethod
+    def is_equivalent(cls, node1, node2, equivalence_class):
+        c1 = SchemaNode.get_constituents(node1)
+        c2 = SchemaNode.get_constituents(node2)
+        eq = np.all(np.array(list(map(lambda x: equivalence_class.find_leader(x[0]) == equivalence_class.find_leader(x[1]), zip(c1, c2)))))
+        return len(c1) == len(c2) and eq
 
     def __hash__(self):
         if self.constituents is None:
@@ -49,40 +67,37 @@ class SchemaNode:
         else:
             return hash(self.constituents)
 
-    def atomic_exact_equal(self, other):
-        return self.constituents is None and other.constituents is None and (self.get_key() == other.get_key())
-
     def __eq__(self, other):
         if isinstance(other, SchemaNode):
             # check if it's atomic
-            if self.constituents is None:
-                return other.constituents is None and self.get_key() == other.get_key()
+            if SchemaNode.is_atomic(self):
+                return SchemaNode.is_atomic(other) and self.get_key() == other.get_key()
             else:
-                return self.constituents == other.constituents
+                return frozenset(self.constituents) == frozenset(other.constituents)
         return NotImplemented
 
     def __le__(self, other):
         if isinstance(other, SchemaNode):
-            return SchemaNode.get_constituents(self) <= SchemaNode.get_constituents(other)
+            return frozenset(SchemaNode.get_constituents(self)) <= frozenset(SchemaNode.get_constituents(other))
         return NotImplemented
 
     def __lt__(self, other):
         if isinstance(other, SchemaNode):
-            return SchemaNode.get_constituents(self) < SchemaNode.get_constituents(other)
+            return frozenset(SchemaNode.get_constituents(self)) < frozenset(SchemaNode.get_constituents(other))
         return NotImplemented
 
     def __ge__(self, other):
         if isinstance(other, SchemaNode):
-            return SchemaNode.get_constituents(self) >= SchemaNode.get_constituents(other)
+            return frozenset(SchemaNode.get_constituents(self)) >= frozenset(SchemaNode.get_constituents(other))
         return NotImplemented
 
     def __gt__(self, other):
         if isinstance(other, SchemaNode):
-            return SchemaNode.get_constituents(self) > SchemaNode.get_constituents(other)
+            return frozenset(SchemaNode.get_constituents(self)) > frozenset(SchemaNode.get_constituents(other))
         return NotImplemented
 
     def __repr__(self):
-        return f"{self.cluster}.{self.name}" if self.cluster is not None else self.name
+        return f"{self.cluster}.({self.name})" if self.cluster is not None else self.name
 
     def __str__(self):
         return self.__repr__()

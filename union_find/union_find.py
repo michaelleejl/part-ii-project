@@ -32,7 +32,7 @@ class UnionFind:
     def __init__(self,
                  leaders: dict[UnionFindItem, UnionFindItem],
                  rank: dict[UnionFindItem, int],
-                 graph: dict[UnionFindItem, frozenset[UnionFindItem]]):
+                 graph: dict[UnionFindItem, list[UnionFindItem]]):
         self.leaders = leaders
         self.rank = rank
         self.graph = graph
@@ -54,7 +54,7 @@ class UnionFind:
             return uf
         leaders = uf.leaders | {item: item}
         rank = uf.rank | {item: 0}
-        graph = uf.graph | {item: frozenset()}
+        graph = uf.graph | {item: []}
         return UnionFind(leaders, rank, graph)
 
     @classmethod
@@ -63,7 +63,7 @@ class UnionFind:
         new_items = items.difference(uf.leaders.keys())
         leaders = uf.leaders | {item: item for item in new_items}
         rank = uf.rank | {item: 0 for item in new_items}
-        graph = uf.graph | {item: frozenset() for item in new_items}
+        graph = uf.graph | {item: [] for item in new_items}
         return UnionFind(leaders, rank, graph)
 
     def find_leader(self, val):
@@ -72,13 +72,13 @@ class UnionFind:
             raise UnionFindDoesNotContainItemException(item)
         u = item
         path = frozenset()
-        while not (u.val.atomic_exact_equal(self.leaders[u].val)):
+        while not (u == self.leaders[u]):
             path = path.union([u])
             u = self.leaders[u]
         for node in path:
             self.leaders[node] = u
-            self.graph[u] = self.graph[u].union([node])
-            self.graph[node] = frozenset()
+            self.graph[u] += [node]
+            self.graph[node] = []
         return u.val
 
     @classmethod
@@ -96,25 +96,27 @@ class UnionFind:
         rank = uf.rank
         if rank1 > rank2:
             leaders[item2] = item1
-            graph[item1] = graph[item1].union([item2])
+            graph[item1] += [item2]
         elif rank2 > rank1:
             leaders[item1] = item2
-            graph[item2] = graph[item2].union([item1])
+            graph[item2] += [item1]
         else:
             leaders[item2] = item1
-            graph[item1] = graph[item1].union([item2])
+            graph[item1] += [item2]
             rank[item1] += 1
         return UnionFind(leaders, rank, graph)
 
-    def get_equivalence_class(self, val) -> frozenset[UnionFindItem]:
-        item = UnionFindItem(val)
-        ldr = self.find_leader(item)
+    def get_equivalence_class(self, val) -> list[UnionFindItem]:
+        ldr = self.find_leader(val)
         es = set()
-        to_explore = deque([ldr])
+        esl = []
+        to_explore = deque([UnionFindItem(ldr)])
         while len(to_explore) > 0:
             u = to_explore.popleft()
-            es = es.union([u.val])
+            if u.val not in es:
+                es = es.union([u.val])
+                esl += [u.val]
             ns = self.graph[u]
             for n in ns:
                 to_explore.appendleft(n)
-        return frozenset(es)
+        return esl

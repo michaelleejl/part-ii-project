@@ -10,7 +10,7 @@ class ExtendMappingShouldConflictWithOldMapping(Exception):
 
 class EdgeAlreadyExistsException(Exception):
     def __init__(self, edge):
-        super().__init__(f"Edge {edge} already exists. Use `replace` instead.")
+        super().__init__(f"Edge between {edge.from_node} and {edge.to_node} already exists. Use `replace` instead.")
 
 
 class EdgeDoesNotExistException(Exception):

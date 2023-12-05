@@ -50,8 +50,8 @@ class Schema:
         key_nodes = [SchemaNode(name, cluster=family) for name in key_names]
         val_nodes = [SchemaNode(name, cluster=family) for name in val_names]
 
-        key_node = SchemaNode.product(frozenset(key_nodes))
-        nodes = frozenset(key_nodes + val_nodes)
+        key_node = SchemaNode.product(key_nodes)
+        nodes = key_nodes + val_nodes
         self.schema_graph.add_nodes(nodes)
         self.schema_graph.add_fully_connected_cluster(nodes, key_node, family)
 
@@ -74,30 +74,15 @@ class Schema:
         self.blend(candidate, node)
         return candidate
 
-    def query(self, keys: list[SchemaNode], values: list[SchemaNode]):
+    def get(self, keys: list[SchemaNode]):
         key_set = frozenset(keys)
-        val_set = frozenset(values)
-
-        diff = (key_set.union(val_set)).difference(self.schema_graph.schema_nodes)
+        diff = key_set.difference(self.schema_graph.schema_nodes)
         if len(diff) > 0:
             raise NodesDoNotExistInGraph(list(diff))
-        key_node = SchemaNode.product(key_set)
+        key_node = SchemaNode.product(keys)
         root = key_node
-        derivation_nodes = []
-        for val_node in val_set:
-            edge_exists, edge = self.schema_graph.get_edge_between_nodes(key_node, val_node)
-            if not edge_exists:
-                raise EdgeDoesNotExistBetweenNodes(key_node, val_node)
-            cardinality = edge.get_cardinality(key_node)
-            if cardinality == Cardinality.MANY_TO_ONE or cardinality == Cardinality.MANY_TO_MANY:
-                node = SchemaNode.product(frozenset([key_node, val_node]))
-                derivation_node = DerivationNode(node, frozenset([val_node]))
-                root = SchemaNode.product(frozenset([root, val_node]))
-            else:
-                derivation_node = DerivationNode(val_node, frozenset())
-            derivation_nodes += [derivation_node]
-        derivation = DerivationNode(root, frozenset(derivation_nodes))
-        return Table(keys, values, derivation)
+        derivation = DerivationNode(root, frozenset([]))
+        return Table(keys, [], derivation)
 
     def __repr__(self):
         return self.schema_graph.__repr__()

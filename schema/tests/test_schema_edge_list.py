@@ -1,39 +1,38 @@
-import unittest
-
-import numpy as np
-import pandas as pd
+import expecttest
 
 from schema import SchemaNode, SchemaEdge, Cardinality, SchemaEdgeList, EdgeAlreadyExistsException
 
 
-class TestSchemaEdgeList(unittest.TestCase):
-    def test_schemaEdgeList_addingToEdgeListSucceedsIfEdgeDoesNotAlreadyExist(self):
-        u = SchemaNode("name", pd.DataFrame([0, 1, 2]), family="1")
-        v = SchemaNode("name2", pd.DataFrame([3, 2, 1]), family="1")
-        e = SchemaEdge(u, v, pd.DataFrame({f"{hash(u)}_name": [0, 1, 2], f"{hash(v)}_name2": [3, 2, 1]}))
+class TestSchemaEdgeList(expecttest.TestCase):
+    def test_schemaEdgeList_addingToEdgeListSucceedsIfEdgeDoesNotAlreadyExistAndEdgeListEmpty(self):
+        u = SchemaNode("name", cluster="1")
+        v = SchemaNode("name2", cluster="1")
+        e = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
+        es = SchemaEdgeList(frozenset([]))
+        self.assertExpectedInline(str(SchemaEdgeList.add_edge(es, e)), """name <--- name2""")
+
+    def test_schemaEdgeList_addingToEdgeListDoesNotMutate(self):
+        u = SchemaNode("name", cluster="1")
+        v = SchemaNode("name2", cluster="1")
+        w = SchemaNode("name3", cluster="1")
+        e = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
+        e2 = SchemaEdge(u, w, Cardinality.ONE_TO_ONE)
         es = SchemaEdgeList(frozenset([e]))
-        updated = pd.DataFrame({f"{hash(u)}_name": [0, 1, 2], f"{hash(v)}_name2": [1, 2, 3]})
-        e2 = SchemaEdge(v, u, updated)
-        esl = SchemaEdgeList.add_edge(es, e2)
-        self.assertEqual(2, len(esl))
+        es2 = SchemaEdgeList.add_edge(es, e2)
+        self.assertExpectedInline(str(es), """name <--- name2""")
 
     def test_schemaEdgeList_addingToEdgeListRaisesExceptionIfEdgeAlreadyExists(self):
-        u = SchemaNode("name", pd.DataFrame([0, 1, 2]), family="1")
-        v = SchemaNode("name2", pd.DataFrame([3, 2, 1]), family="1")
-        e = SchemaEdge(u, v, pd.DataFrame({f"{hash(u)}_name": [0, 1, 2], f"{hash(v)}_name2": [3, 2, 1]}))
+        u = SchemaNode("name", cluster="1")
+        v = SchemaNode("name2", cluster="1")
+        e = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
         es = SchemaEdgeList(frozenset([e]))
-        updated = pd.DataFrame({f"{hash(u)}_name": [0, 1, 2], f"{hash(v)}_name2": [1, 2, 3]})
-        e2 = SchemaEdge(u, v, updated)
-        self.assertRaises(EdgeAlreadyExistsException, lambda: SchemaEdgeList.add_edge(es, e2))
+        e2 = SchemaEdge(u, v, Cardinality.ONE_TO_ONE)
+        self.assertExpectedRaisesInline(EdgeAlreadyExistsException, lambda: SchemaEdgeList.add_edge(es, e2), """Edge between 1.(name) and 1.(name2) already exists. Use `replace` instead.""")
 
     def test_schemaEdgeList_updatingEdgeListSucceeds(self):
-        u = SchemaNode("name", pd.DataFrame([0, 1, 2]), family="1")
-        v = SchemaNode("name2", pd.DataFrame([3, 2, 1]), family="1")
-        e = SchemaEdge(u, v, pd.DataFrame({f"{hash(u)}_name": [0, 1, 2], f"{hash(v)}_name2": [3, 2, 1]}))
+        u = SchemaNode("name", cluster="1")
+        v = SchemaNode("name2", cluster="1")
+        e = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
         es = SchemaEdgeList(frozenset([e]))
-        updated = pd.DataFrame({f"{hash(u)}_name": [0, 0, 2], f"{hash(v)}_name2": [1, 2, 1]})
-        e2 = SchemaEdge(u, v, updated)
-        esl = SchemaEdgeList.replace_edge(es, e2).get_edge_list()
-        self.assertEqual(1, len(esl))
-        self.assertEqual(Cardinality.MANY_TO_MANY, esl[0].cardinality)
-        self.assertTrue(np.all(updated == esl[0].mapping))
+        e2 = SchemaEdge(u, v, Cardinality.ONE_TO_ONE)
+        self.assertExpectedInline(str(SchemaEdgeList.replace_edge(es, e2)), """name <--> name2""")

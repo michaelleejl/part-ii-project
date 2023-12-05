@@ -3,7 +3,7 @@ from schema import SchemaNode, SchemaEdge, Cardinality
 
 class FullyConnected:
     def __init__(self,
-                 nodes: frozenset[SchemaNode],
+                 nodes: list[SchemaNode],
                  key_node: SchemaNode):
         self.nodes = nodes
         self.key_node = key_node
@@ -12,12 +12,12 @@ class FullyConnected:
         from_node_c = SchemaNode.get_constituents(from_node)
         to_node_c = SchemaNode.get_constituents(to_node)
 
-        assert from_node_c <= self.nodes
-        assert to_node_c <= self.nodes
+        assert frozenset(from_node_c) <= frozenset(self.nodes)
+        assert frozenset(to_node_c) <= frozenset(self.nodes)
 
         edge = SchemaEdge(from_node, to_node)
 
-        if from_node == self.key_node or from_node < to_node:
+        if from_node == self.key_node:
             edge.cardinality = Cardinality.MANY_TO_ONE
         if from_node == to_node:
             edge.cardinality = Cardinality.ONE_TO_ONE
@@ -27,3 +27,8 @@ class FullyConnected:
     def __contains__(self, node):
         constituents = SchemaNode.get_constituents(node)
         return constituents.issubset(self.nodes)
+
+    def __repr__(self):
+        return "\n".join(list(map(str, self.nodes)))
+
+
