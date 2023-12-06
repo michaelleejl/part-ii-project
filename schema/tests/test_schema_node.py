@@ -93,7 +93,7 @@ class TestSchemaNode(expecttest.TestCase):
         v = SchemaNode("v", cluster="1")
         w = SchemaNode("a", cluster="1")
         p = SchemaNode.product([u, v, w])
-        self.assertExpectedInline(str(p), """1.(u;v;a)""")
+        self.assertExpectedInline(str(p), """1.u;v;a""")
 
     def test_schemaNodeProduct_isAssociative(self):
         u = SchemaNode("u", cluster="1")
@@ -103,18 +103,18 @@ class TestSchemaNode(expecttest.TestCase):
         p2 = SchemaNode.product([p1, w])
         p3 = SchemaNode.product([v, w])
         p4 = SchemaNode.product([p3, u])
-        self.assertExpectedInline(str(p2), """1.(u;v;a)""")
+        self.assertExpectedInline(str(p2), """1.u;v;a""")
         self.assertEqual(p2, p4)
 
     def test_getConstituents_returnsSingleton_ifNodeAtomic(self):
         u = SchemaNode("u", cluster="1")
-        self.assertExpectedInline(str(SchemaNode.get_constituents(u)), """[1.(u)]""")
+        self.assertExpectedInline(str(SchemaNode.get_constituents(u)), """[1.u]""")
 
     def test_getConstituents_returnsSet_ifNodeNotAtomic(self):
         u = SchemaNode("u", cluster="1")
         v = SchemaNode("v", cluster="2")
         p = SchemaNode.product([u, v])
-        self.assertExpectedInline(str(SchemaNode.get_constituents(p)), """[1.(u), 2.(v)]""")
+        self.assertExpectedInline(str(SchemaNode.get_constituents(p)), """[1.u, 2.v]""")
 
     def test_isEquivalent_onAtomicNodes_returnsTrueIfSameEquivalenceClass(self):
         u = SchemaNode("u", cluster="1")

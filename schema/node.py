@@ -65,7 +65,7 @@ class SchemaNode:
         if self.constituents is None:
             return hash(self.get_key())
         else:
-            return hash(self.constituents)
+            return hash(frozenset(self.constituents))
 
     def __eq__(self, other):
         if isinstance(other, SchemaNode):
@@ -73,7 +73,7 @@ class SchemaNode:
             if SchemaNode.is_atomic(self):
                 return SchemaNode.is_atomic(other) and self.get_key() == other.get_key()
             else:
-                return frozenset(self.constituents) == frozenset(other.constituents)
+                return other.constituents is not None and frozenset(self.constituents) == frozenset(other.constituents)
         return NotImplemented
 
     def __le__(self, other):
@@ -97,7 +97,10 @@ class SchemaNode:
         return NotImplemented
 
     def __repr__(self):
-        return f"{self.cluster}.({self.name})" if self.cluster is not None else self.name
+        if self.cluster is not None:
+            return f"{self.cluster}.{self.name}"
+        else:
+            return self.name
 
     def __str__(self):
         return self.__repr__()

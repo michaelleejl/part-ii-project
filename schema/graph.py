@@ -1,11 +1,24 @@
 from collections import deque
+from dataclasses import dataclass
+
+import numpy as np
 
 from schema import Cardinality
+from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
+    AllNodesInFullyConnectedClusterMustHaveSameClusterException, NodeNotInSchemaGraphException, \
+    FindingEdgeViaNodeMustRespectEquivalence
 from schema.fully_connected import FullyConnected
 from schema.edge import SchemaEdge
 from schema.edge_list import SchemaEdgeList
 from schema.node import SchemaNode
 from union_find.union_find import UnionFind
+
+
+@dataclass
+class Transform:
+    from_node: SchemaNode
+    to_node: SchemaNode
+    via: SchemaNode = None
 
 
 class SchemaGraph:
@@ -27,18 +40,33 @@ class SchemaGraph:
         self.equivalence_class = UnionFind.add_singletons(self.equivalence_class, new_nodes)
 
     def blend_nodes(self, node1, node2):
+        self.check_nodes_in_graph([node1, node2])
         self.equivalence_class = UnionFind.union(self.equivalence_class, node1, node2)
 
     def are_nodes_equal(self, node1, node2):
-        return self.equivalence_class.find_leader(node1) == (self.equivalence_class.find_leader(node2))
+        self.check_nodes_in_graph([node1, node2])
+        return SchemaNode.is_equivalent(node1, node2, self.equivalence_class)
 
-    def add_fully_connected_cluster(self, nodes, key_node, family):
-        assert frozenset(nodes) <= frozenset(self.schema_nodes)
-        self.fully_connected_clusters[family] = FullyConnected(nodes, key_node)
+    def add_fully_connected_cluster(self, nodes, key_node):
+        if not (frozenset(nodes) <= frozenset(self.schema_nodes)):
+            not_in_graph = frozenset(nodes).difference(frozenset(self.schema_nodes))
+            raise AllNodesInClusterMustAlreadyBeInGraphException(not_in_graph)
+        clusters = list(map(lambda x: x.cluster, nodes+[key_node]))
+        if clusters.count(clusters[0]) != len(clusters):
+            raise AllNodesInFullyConnectedClusterMustHaveSameClusterException()
+        else:
+            cluster = clusters[0]
+        self.fully_connected_clusters[cluster] = FullyConnected(nodes, key_node)
 
-    def add_edge(self, edge: SchemaEdge):
-        from_node = edge.from_node
-        to_node = edge.to_node
+    def check_nodes_in_graph(self, nodes: list[SchemaNode]):
+        for node in nodes:
+            for c in SchemaNode.get_constituents(node):
+                if c and c not in self.schema_nodes:
+                    raise NodeNotInSchemaGraphException(c)
+
+    def add_edge(self, from_node: SchemaNode, to_node: SchemaNode, cardinality: Cardinality = Cardinality.MANY_TO_MANY):
+
+        self.check_nodes_in_graph([from_node, to_node])
 
         if from_node == to_node:
             return
@@ -47,51 +75,63 @@ class SchemaGraph:
         if to_node not in self.adjacencyList:
             self.adjacencyList[to_node] = SchemaEdgeList()
 
+        edge = SchemaEdge(from_node, to_node, cardinality)
+
         self.adjacencyList[from_node] = SchemaEdgeList.add_edge(self.adjacencyList[from_node], edge)
         self.adjacencyList[to_node] = SchemaEdgeList.add_edge(self.adjacencyList[to_node], edge)
 
-    def get_direct_edge_between_nodes(self, node1: SchemaNode, node2: SchemaNode) -> (bool, SchemaEdge):
-        # Looking for direct edges.
-
+    def get_direct_edge_between_nodes(self, node1: SchemaNode, node2: SchemaNode, via: SchemaNode = None) -> (bool, SchemaEdge):
+        self.check_nodes_in_graph([node1, node2])
+        n1 = node1
+        if via is not None:
+            if not self.are_nodes_equal(node1, via):
+                raise FindingEdgeViaNodeMustRespectEquivalence(node1, via)
+            n1 = via
         # case 1. node 1 = node 2 (identity)
-        if node1 == node2:
+        if n1 == node2:
             return True, SchemaEdge(node1, node2, Cardinality.ONE_TO_ONE)
 
         # case 2. node 1 > node 2 (projection)
-        if node1 > node2:
+        if n1 > node2:
             return True, SchemaEdge(node1, node2, Cardinality.MANY_TO_ONE)
 
         # case 3. node 1 < node 2 (expansion)
-        if node1 < node2:
+        if n1 < node2:
             return True, SchemaEdge(node1, node2, Cardinality.ONE_TO_MANY)
 
         # case 4. node 1 and node 2 equivalent
-        if self.are_nodes_equal(node1, node2):
-            return True, SchemaEdge(node1, node2, Cardinality.ONE_TO_ONE)
+        if SchemaNode.is_equivalent(n1, node2, self.equivalence_class):
+            return True, SchemaEdge(n1, node2, Cardinality.ONE_TO_ONE)
 
         # case 5. node 1 and node 2 are in the same cluster
-        if node1.cluster is not None and node2.cluster is not None and node1.cluster == node2.cluster:
-            cluster = self.fully_connected_clusters[node1]
-            return True, cluster.get_edge(node1, node2)
+        if n1.cluster is not None and node2.cluster is not None and n1.cluster == node2.cluster and n1.cluster in self.fully_connected_clusters.keys():
+            cluster = self.fully_connected_clusters[n1.cluster]
+            return True, cluster.get_edge(n1, node2)
 
         # case 6. edge between node 1 and node 2
-        opt = list(filter(lambda e: e.to_node == node2 or e.from_node == node2, self.adjacencyList[node1]))
-        if len(opt) > 0:
-            return True, opt[0]
+        if n1 in self.adjacencyList:
+            opt = list(filter(lambda e: e.to_node == node2 or e.from_node == node2, self.adjacencyList[n1]))
+            if len(opt) > 0:
+                return True, opt[0]
         else:
             return False, None
 
-    def get_edge_between_nodes(self, with_transform: list[tuple[SchemaNode, SchemaNode]]) -> (bool, SchemaEdge):
+    def get_edge_between_nodes(self, with_transform: list[Transform]) -> (bool, SchemaEdge):
         nodes = with_transform
-        max_cardinality = Cardinality.ONE_TO_ONE
-        edge_exists = True
+        max_cardinality = Cardinality.MANY_TO_ONE
         edge = None
-        for (node1, node2) in nodes:
-            b, c = self.get_direct_edge_between_nodes(node1, node2)
-            edge_exists = edge_exists and b
-            max_cardinality = max(max_cardinality, c)
+        edge_exists = True
+        for transform in nodes:
+            node1 = transform.from_node
+            node2 = transform.to_node
+            via = transform.via
+            b, e = self.get_direct_edge_between_nodes(node1, node2, via)
+            if not e:
+                edge_exists = False
+                break
+            max_cardinality = Cardinality.MANY_TO_MANY if e.cardinality == Cardinality.ONE_TO_MANY or e.cardinality == Cardinality.MANY_TO_MANY else max_cardinality
         if edge_exists:
-            nodes1, nodes2 = map(list, zip(*nodes))
+            nodes1, nodes2 = map(list, zip(*[(n.from_node, n.to_node) for n in nodes]))
             n1 = SchemaNode.product(nodes1)
             n2 = SchemaNode.product(nodes2)
             edge = SchemaEdge(n1, n2, max_cardinality)

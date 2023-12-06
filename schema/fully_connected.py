@@ -19,8 +19,8 @@ class FullyConnected:
 
         if from_node == self.key_node:
             edge.cardinality = Cardinality.MANY_TO_ONE
-        if from_node == to_node:
-            edge.cardinality = Cardinality.ONE_TO_ONE
+        if to_node == self.key_node:
+            edge.cardinality = Cardinality.ONE_TO_MANY
 
         return edge
 

@@ -27,7 +27,7 @@ class TestSchemaEdgeList(expecttest.TestCase):
         e = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
         es = SchemaEdgeList(frozenset([e]))
         e2 = SchemaEdge(u, v, Cardinality.ONE_TO_ONE)
-        self.assertExpectedRaisesInline(EdgeAlreadyExistsException, lambda: SchemaEdgeList.add_edge(es, e2), """Edge between 1.(name) and 1.(name2) already exists. Use `replace` instead.""")
+        self.assertExpectedRaisesInline(EdgeAlreadyExistsException, lambda: SchemaEdgeList.add_edge(es, e2), """Edge between 1.name and 1.name2 already exists. Use `replace` instead.""")
 
     def test_schemaEdgeList_updatingEdgeListSucceeds(self):
         u = SchemaNode("name", cluster="1")
