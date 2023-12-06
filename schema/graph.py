@@ -50,7 +50,7 @@ class SchemaGraph:
         self.adjacencyList[from_node] = SchemaEdgeList.add_edge(self.adjacencyList[from_node], edge)
         self.adjacencyList[to_node] = SchemaEdgeList.add_edge(self.adjacencyList[to_node], edge)
 
-    def get_edge_between_nodes(self, node1: SchemaNode, node2: SchemaNode) -> (bool, SchemaEdge):
+    def get_direct_edge_between_nodes(self, node1: SchemaNode, node2: SchemaNode) -> (bool, SchemaEdge):
         # Looking for direct edges.
 
         # case 1. node 1 = node 2 (identity)
@@ -65,17 +65,37 @@ class SchemaGraph:
         if node1 < node2:
             return True, SchemaEdge(node1, node2, Cardinality.ONE_TO_MANY)
 
-        # case 4. node 1 and node 2 are in the same cluster
+        # case 4. node 1 and node 2 equivalent
+        if self.are_nodes_equal(node1, node2):
+            return True, SchemaEdge(node1, node2, Cardinality.ONE_TO_ONE)
+
+        # case 5. node 1 and node 2 are in the same cluster
         if node1.cluster is not None and node2.cluster is not None and node1.cluster == node2.cluster:
             cluster = self.fully_connected_clusters[node1]
             return True, cluster.get_edge(node1, node2)
 
-        # case 5. edge between node 1 and node 2
+        # case 6. edge between node 1 and node 2
         opt = list(filter(lambda e: e.to_node == node2 or e.from_node == node2, self.adjacencyList[node1]))
         if len(opt) > 0:
             return True, opt[0]
         else:
             return False, None
+
+    def get_edge_between_nodes(self, with_transform: list[tuple[SchemaNode, SchemaNode]]) -> (bool, SchemaEdge):
+        nodes = with_transform
+        max_cardinality = Cardinality.ONE_TO_ONE
+        edge_exists = True
+        edge = None
+        for (node1, node2) in nodes:
+            b, c = self.get_direct_edge_between_nodes(node1, node2)
+            edge_exists = edge_exists and b
+            max_cardinality = max(max_cardinality, c)
+        if edge_exists:
+            nodes1, nodes2 = map(list, zip(*nodes))
+            n1 = SchemaNode.product(nodes1)
+            n2 = SchemaNode.product(nodes2)
+            edge = SchemaEdge(n1, n2, max_cardinality)
+        return edge_exists, edge
 
     def __repr__(self):
         divider = "==========================\n"
@@ -95,11 +115,14 @@ class SchemaGraph:
         while len(ns) > 0:
             u = ns.popleft()
             while u in visited:
+                if len(ns) == 0:
+                    break
                 u = ns.popleft()
-            clss = self.equivalence_class.get_equivalence_class(u)
-            equiv_class[i] = clss
-            visited = visited.union(clss)
-            i += 1
+            if u not in visited:
+                clss = self.equivalence_class.get_equivalence_class(u)
+                equiv_class[i] = clss
+                visited = visited.union(clss)
+                i += 1
 
         clsses = [divider + f"Class {k}" + "\n" + small_divider + "\n".join([str(x) for x in v]) + "\n" + divider for k, v in
                   equiv_class.items()]
