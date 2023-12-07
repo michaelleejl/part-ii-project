@@ -7,6 +7,8 @@ from schema.schema import Schema
 
 
 class TestSchema(expecttest.TestCase):
+    # [cardnum trip_id || bonus t_start]
+
     def test_schema_insert(self):
         test = pd.read_csv("./test_schema.csv").dropna()
         test = test.set_index(["trip_id", "cardnum"])

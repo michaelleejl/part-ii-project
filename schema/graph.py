@@ -87,6 +87,7 @@ class SchemaGraph:
             if not self.are_nodes_equal(node1, via):
                 raise FindingEdgeViaNodeMustRespectEquivalence(node1, via)
             n1 = via
+
         # case 1. node 1 = node 2 (identity)
         if n1 == node2:
             return True, SchemaEdge(node1, node2, Cardinality.ONE_TO_ONE)
