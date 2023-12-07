@@ -48,13 +48,13 @@ class Schema:
         key_node = SchemaNode.product(key_nodes)
         nodes = key_nodes + val_nodes
         self.schema_graph.add_nodes(nodes)
-        self.schema_graph.add_fully_connected_cluster(nodes, key_node)
+        self.schema_graph.add_cluster(nodes, key_node)
 
     def add_node(self, name, cluster):
         self.schema_graph.add_node(SchemaNode(name, cluster=cluster))
 
-    def blend(self, node1: SchemaNode, node2: SchemaNode):
-        self.schema_graph.blend_nodes(node1, node2)
+    def blend(self, node1: SchemaNode, node2: SchemaNode, under: str):
+        self.schema_graph.blend_nodes(node1, node2, under)
 
     def clone(self, node: SchemaNode, name: str = None):
         i = 1

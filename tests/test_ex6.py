@@ -25,9 +25,9 @@ class TestEx6(expecttest.TestCase):
         b_billing_address = SchemaNode("billing_address", cluster="billing")
         d_delivery_address = SchemaNode("delivery_address", cluster="delivery")
 
-        s.blend(p_order, d_order, as ="Order")
-        s.blend(p_payment_method, b_payment_method, as="Payment_Method")
-        s.blend(d_delivery_address, b_billing_address, as="Address")
+        s.blend(p_order, d_order, under ="Order")
+        s.blend(p_payment_method, b_payment_method, under="Payment_Method")
+        s.blend(d_delivery_address, b_billing_address, under="Address")
 
         # ========================================================================
         # ========================================================================

@@ -20,8 +20,8 @@ class TestEx8(expecttest.TestCase):
         p_pet = SchemaNode("pet", cluster="persons")
         a_pet = SchemaNode("pet", cluster="allergies")
 
-        s.blend(p_person, a_person, as ="Person")
-        s.blend(p_pet, a_pet, as="Pet")
+        s.blend(p_person, a_person, under ="Person")
+        s.blend(p_pet, a_pet, under = "Pet")
 
         # ========================================================================
         # ========================================================================

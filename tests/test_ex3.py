@@ -24,9 +24,9 @@ class TestEx3(expecttest.TestCase):
         b_val_id = SchemaNode("val_id", cluster="bonus")
         t_tstart = SchemaNode("tstart", cluster="tstart")
 
-        s.blend(c_val_id, t_val_id, as="Val_id")
+        s.blend(c_val_id, t_val_id, under="Val_id")
         s.blend(c_val_id, b_val_id)
-        s.blend(c_cardnum, b_cardnum, as="Cardnum")
+        s.blend(c_cardnum, b_cardnum, under="Cardnum")
 
         # ========================================================================
         # ========================================================================

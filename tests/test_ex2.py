@@ -17,7 +17,7 @@ class TestEx2(expecttest.TestCase):
         t_val_id = SchemaNode("val_id", cluster="tstart")
         t_tstart = SchemaNode("tstart", cluster="tstart")
 
-        s.blend(c_val_id, t_val_id, as="Val_id")
+        s.blend(c_val_id, t_val_id, under="Val_id")
 
 
         # ========================================================================

@@ -17,7 +17,7 @@ class TestEx5(expecttest.TestCase):
         p_role = SchemaNode("role", cluster="person")
         t_role = SchemaNode("role", cluster="task")
 
-        s.blend(p_role, t_role, as ="Role")
+        s.blend(p_role, t_role, under ="Role")
 
         # ========================================================================
         # ========================================================================

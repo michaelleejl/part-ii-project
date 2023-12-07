@@ -23,7 +23,7 @@ class TestEx1(expecttest.TestCase):
         p_cardnum = SchemaNode("cardnum", cluster="person")
         p_person = SchemaNode("person", cluster="person")
 
-        s.blend(c_cardnum, p_cardnum, as="Cardnum")
+        s.blend(c_cardnum, p_cardnum, under="Cardnum")
 
         # ========================================================================
         # ========================================================================

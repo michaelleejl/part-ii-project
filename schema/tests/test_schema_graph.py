@@ -4,7 +4,8 @@ import pandas as pd
 
 from schema import SchemaGraph, SchemaNode, SchemaEdge, AllNodesInClusterMustAlreadyBeInGraphException, \
     AllNodesInFullyConnectedClusterMustHaveSameClusterException, NodeNotInSchemaGraphException, \
-    FindingEdgeViaNodeMustRespectEquivalence, Transform
+    FindingEdgeViaNodeMustRespectEquivalence, Transform, NoShortestPathBetweenNodesException, \
+    MultipleShortestPathsBetweenNodesException
 from schema.cardinality import Cardinality
 
 
@@ -140,7 +141,7 @@ Class 0
         w = SchemaNode("name3", cluster="1")
         g.add_nodes([u, v])
         self.assertExpectedRaisesInline(AllNodesInClusterMustAlreadyBeInGraphException,
-                                        lambda: g.add_fully_connected_cluster([u, v, w], u),
+                                        lambda: g.add_cluster([u, v, w], u),
                                         """When adding a cluster, all nodes in the cluster must already exist in the graph. The following nodes are not in the graph: 1.name3""")
 
     def test_schemaGraph_addFullyConnectedCluster_raisesExceptionIfNodesDoNotShareACluster(self):
@@ -149,7 +150,7 @@ Class 0
         v = SchemaNode("name2", cluster="2")
         g.add_nodes([u, v])
         self.assertExpectedRaisesInline(AllNodesInFullyConnectedClusterMustHaveSameClusterException,
-                                        lambda: g.add_fully_connected_cluster([u, v], u),
+                                        lambda: g.add_cluster([u, v], u),
                                         """All nodes in a fully connected cluster must have the same cluster attribute""")
 
     def test_schemaGraph_addFullyConnectedCluster_succeeds(self):
@@ -157,7 +158,7 @@ Class 0
         u = SchemaNode("name", cluster="1")
         v = SchemaNode("name2", cluster="1")
         g.add_nodes([u, v])
-        g.add_fully_connected_cluster([u, v], u)
+        g.add_cluster([u, v], u)
         self.assertExpectedInline(str(g), """\
 FULLY CONNECTED CLUSTERS 
 ==========================
@@ -289,152 +290,92 @@ Class 1
 ==========================
 """)
 
-    def test_schemaGraph_getDirectEdgeBetweenNodes_passesEquivalenceCheckIfNodesAreEquivalent(self):
+    def test_findAllEquivalentNodesSuccessfullyFindsAllEquivalentNodesForAtomicNode(self):
         g = SchemaGraph()
-        u = SchemaNode("u", cluster='1')
-        v = SchemaNode("v", cluster="2")
-        w = SchemaNode("w", cluster="3")
-        g.add_nodes([u, v, w])
-        g.blend_nodes(u, v)
-        g.add_edge(v, w)
-        e = g.get_direct_edge_between_nodes(u, w, via=v)
-        self.assertExpectedInline(str(e), """(True, v --- w)""")
+        u = SchemaNode("u", cluster="1")
+        v = SchemaNode("v", cluster="1")
+        g.add_nodes([u, v])
+        g.blend_nodes(u, v, "")
+        self.assertExpectedInline(str(g.find_all_equivalent_nodes(u)), """[1.u, 1.v]""")
 
-    def test_schemaGraph_getDirectEdgeBetweenNodes_failsEquivalenceCheckIfNodesAreNotEquivalent(self):
+    def test_findAllEquivalentNodesSuccessfullyFindsAllEquivalentNodesForProductNode(self):
         g = SchemaGraph()
-        u = SchemaNode("u", cluster='1')
-        v = SchemaNode("v", cluster="2")
-        w = SchemaNode("w", cluster="3")
-        g.add_nodes([u, v, w])
-        g.add_edge(v, w)
-        self.assertExpectedRaisesInline(FindingEdgeViaNodeMustRespectEquivalence, lambda: g.get_direct_edge_between_nodes(u, w, via=v),
-                                        """When finding an edge between node1 and node2 via node3, node1 and node3 must be equivalent. 1.u and 2.v are not equivalent.""")
+        u1 = SchemaNode("u1", cluster="1")
+        u2 = SchemaNode("u2", cluster="1")
+        v1 = SchemaNode("v1", cluster="1")
+        v2 = SchemaNode("v2", cluster="1")
+        w = SchemaNode("w", cluster="1")
+        x = SchemaNode("x", cluster="1")
+        y = SchemaNode("y", cluster="1")
+        g.add_nodes([u1, u2, v1, v2, w, x, y])
+        g.blend_nodes(u1, u2, "U")
+        g.blend_nodes(v1, v2, "V")
+        g.blend_nodes(x, y, "X")
+        p = SchemaNode.product([u1, v2, w, x, y])
+        self.assertExpectedInline(str(list(sorted(g.find_all_equivalent_nodes(p)))),
+                                  """[1.u1;v2;w;x;y, 1.u2;v1;w;x, 1.u2;v2;w;x;y, 1.u1;v1;w;y, 1.u2;v1;w;y, 1.u1;v2;w;x, 1.u1;v1;w;x;y, 1.u2;v2;w;x, 1.u1;v2;w;y, 1.u2;v1;w;x;y, 1.u1;v1;w;x, 1.u2;v2;w;y]""")
 
-    def test_schemaGraph_getDirectEdgeBetweenNodes_findsIdentityRelationBetweenNodeAndItself(self):
+    def test_findAllShortestPathsBetweenNodes_findsShortestPathOfLengthZero(self):
         g = SchemaGraph()
         u = SchemaNode("u", cluster="1")
         g.add_node(u)
-        self.assertExpectedInline(str(g.get_direct_edge_between_nodes(u, u)), """(True, u <--> u)""")
+        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, u)), """([], [])""")
 
-    def test_schemaGraph_getDirectEdgeBetweenNodes_findsProjectionIfEndNodeProjectionOfStartNode(self):
+    def test_findAllShortestPathsBetweenNodes_findsShortestPathUsingEquivalenceClass(self):
         g = SchemaGraph()
         u = SchemaNode("u", cluster="1")
-        v = SchemaNode("v", cluster="2")
+        v = SchemaNode("v", cluster="1")
+        g.add_nodes([u, v])
+        g.blend_nodes(u, v, "")
+        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, v)), """([1.v], [u === v])""")
+
+    def test_findAllShortestPathsBetweenNodes_FindsProjectionEdgeIfLastEdgeInPath(self):
+        g = SchemaGraph()
+        u = SchemaNode("u", cluster="1")
+        v = SchemaNode("v", cluster="1")
+        g.add_nodes([u, v])
         p = SchemaNode.product([u, v])
-        g.add_nodes([u, v])
-        self.assertExpectedInline(str(g.get_direct_edge_between_nodes(p, u)),
-                                  """(True, u;v ---> u)""")
+        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(p, v)), """([1.v], [u;v ---> v])""")
 
-    def test_schemaGraph_getDirectEdgeBetweenNodes_findsExpansionIfStartNodeProjectionOfEndNode(self):
+    def test_findAllShortestPathsBetweenNodes_FindsMultiHopPath(self):
         g = SchemaGraph()
         u = SchemaNode("u", cluster="1")
-        v = SchemaNode("v", cluster="2")
-        p = SchemaNode.product([u, v])
-        g.add_nodes([u, v])
-        self.assertExpectedInline(str(g.get_direct_edge_between_nodes(u, p)),
-                                  """(True, u <--- u;v)""")
+        v1 = SchemaNode("v1", cluster="1")
+        v2 = SchemaNode("v2", cluster="1")
+        w = SchemaNode("w", cluster="1")
+        g.add_nodes([u, v1, v2, w])
+        g.blend_nodes(v1, v2, "V")
+        p = SchemaNode.product([u, v2])
+        g.add_edge(p, w)
+        start = SchemaNode.product([u, v1])
+        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(start, w)), """([1.u;v2, 1.w], [u;v1 === u;v2, u;v2 --- w])""")
 
-    def test_schemaGraph_getDirectEdgeBetweenNodes_findsBijectionIfNodesAreEquivalent(self):
-        g = SchemaGraph()
-        u = SchemaNode("u", cluster="1")
-        v = SchemaNode("v", cluster="2")
-        g.add_nodes([u, v])
-        g.blend_nodes(u, v)
-        self.assertExpectedInline(str(g.get_direct_edge_between_nodes(u, v)),
-                                  """(True, u <--> v)""")
-
-    def test_schemaGraph_getDirectEdgeBetweenNodes_findsManyToOneRelation_ifNodesAreInClusterAndStartNodeIsKey(self):
+    def test_findAllShortestPathsBetweenNodes_DoesNotFindProjectionEdgeIfProjectionNotLastEdgeInPath(self):
         g = SchemaGraph()
         u = SchemaNode("u", cluster="1")
         v = SchemaNode("v", cluster="1")
         w = SchemaNode("w", cluster="1")
         g.add_nodes([u, v, w])
         p = SchemaNode.product([u, v])
-        g.add_fully_connected_cluster([u, v, w], p)
-        e = g.get_direct_edge_between_nodes(p, w)
-        self.assertExpectedInline(str(e), """(True, u;v ---> w)""")
+        g.add_edge(v, w)
+        self.assertExpectedRaisesInline(
+            NoShortestPathBetweenNodesException,
+            lambda: str(g.find_all_shortest_paths_between_nodes(p, w)),
+            """No paths found between nodes 1.u;v and 1.w.If the path involves a projection that isn't the last edge in the path,The projection will need to be specified as a waypoint.""")
 
-    def test_schemaGraph_getDirectEdgeBetweenNodes_findsOneToManyRelation_ifNodesAreInClusterAndEndNodeIsKey(self):
+    def test_findAllShortestPathsBetweenNodes_RaisesExceptionIfMultipleShortestPathsFound(self):
         g = SchemaGraph()
         u = SchemaNode("u", cluster="1")
         v = SchemaNode("v", cluster="1")
-        w = SchemaNode("w", cluster="1")
-        g.add_nodes([u, v, w])
-        p = SchemaNode.product([u, v])
-        g.add_fully_connected_cluster([u, v, w], p)
-        e = g.get_direct_edge_between_nodes(w, p)
-        self.assertExpectedInline(str(e), """(True, w <--- u;v)""")
-
-    def test_schemaGraph_getDirectEdgeBetweenNodes_findsManyToManyRelation_ifNodesAreInClusterAndStartAndEndNodesNotKey(self):
-        g = SchemaGraph()
-        u = SchemaNode("u", cluster="1")
-        v = SchemaNode("v", cluster="1")
-        w = SchemaNode("w", cluster="1")
-        g.add_nodes([u, v, w])
-        p = SchemaNode.product([u, v])
-        g.add_fully_connected_cluster([u, v, w], p)
-        e = g.get_direct_edge_between_nodes(u, w)
-        self.assertExpectedInline(str(e), """(True, u --- w)""")
-
-    def test_schemaGraph_getDirectEdgeBetweenNodes_findsEdge_ifInAdjacencyList(self):
-        g = SchemaGraph()
-        u = SchemaNode("u", cluster="1")
-        v = SchemaNode("v", cluster="1")
-        g.add_nodes([u, v])
+        w = SchemaNode("w", cluster="2")
+        x = SchemaNode("x", cluster="2")
+        g.add_nodes([u, v, w, x])
         g.add_edge(u, v)
-        e = g.get_direct_edge_between_nodes(u, v)
-        self.assertExpectedInline(str(e), """(True, u --- v)""")
-
-    def test_schemaGraph_getEdgeBetweenNodes_actsElementwise_andCorrectlyComputesManyToManyCardinality(self):
-        g = SchemaGraph()
-        u = SchemaNode("u", cluster="1")
-        v = SchemaNode("v", cluster="1")
-        w = SchemaNode("w", cluster="1")
-        x = SchemaNode("x", cluster="2")
-        y = SchemaNode("y", cluster="3")
-        z = SchemaNode("z", cluster="4")
-        g.add_nodes([u, v, w, x, y, z])
-        p = SchemaNode.product([u, v])
-        g.add_fully_connected_cluster([u, v, w], p)
-        g.blend_nodes(u, x)
-        g.add_edge(y, z)
-        e = g.get_edge_between_nodes([
-            Transform(SchemaNode.product([x, v]), w, p),
-            Transform(y, z)
-        ])
-        self.assertExpectedInline(str(e), """(True, x;v;y --- w;z)""")
-
-    def test_schemaGraph_getEdgeBetweenNodes_actsElementwise_andCorrectlyComputesManyToOneCardinality(self):
-        g = SchemaGraph()
-        u = SchemaNode("u", cluster="1")
-        v = SchemaNode("v", cluster="1")
-        w = SchemaNode("w", cluster="1")
-        x = SchemaNode("x", cluster="2")
-        y = SchemaNode("y", cluster="3")
-        g.add_nodes([u, v, w, x, y])
-        p = SchemaNode.product([u, v])
-        g.add_fully_connected_cluster([u, v, w], p)
-        g.blend_nodes(u, x)
-        g.add_edge(x, y, Cardinality.MANY_TO_ONE)
-        e = g.get_edge_between_nodes([
-            Transform(SchemaNode.product([x, v]), w, p),
-            Transform(x, y)
-        ])
-        self.assertExpectedInline(str(e), """(True, x;v ---> w;y)""")
-
-    def test_schemaGraph_getEdgeBetweenNodes_failsIfAnyTransformDoesNotExist(self):
-        g = SchemaGraph()
-        u = SchemaNode("u", cluster="1")
-        v = SchemaNode("v", cluster="1")
-        w = SchemaNode("w", cluster="1")
-        x = SchemaNode("x", cluster="2")
-        y = SchemaNode("y", cluster="3")
-        g.add_nodes([u, v, w, x, y])
-        p = SchemaNode.product([u, v])
-        g.add_fully_connected_cluster([u, v, w], p)
-        g.blend_nodes(u, x)
-        e = g.get_edge_between_nodes([
-            Transform(SchemaNode.product([x, v]), w, p),
-            Transform(x, y)
-        ])
-        self.assertExpectedInline(str(e), """(False, None)""")
+        g.add_edge(u, w)
+        g.add_edge(v, x)
+        g.add_edge(w, x)
+        self.assertExpectedRaisesInline(
+            MultipleShortestPathsBetweenNodesException,
+            lambda: str(g.find_all_shortest_paths_between_nodes(u, x)),
+            """Multiple shortest paths found between nodes 1.u and 2.x.Please specify one or more waypoints!"""
+        )
