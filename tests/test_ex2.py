@@ -97,7 +97,7 @@ class TestEx2(expecttest.TestCase):
         # STRESS TEST
 
         # What if the user accidentally makes cardnum a key, so gets the cross product?
-        t31 = s.get([t_val_id, c_cardnum])
+        t31 = s.get([SchemaNode(["Val_id"]), c_cardnum])
         # [Val_id cardnum.cardnum || ]
         #  1      5172
         #  1      2354

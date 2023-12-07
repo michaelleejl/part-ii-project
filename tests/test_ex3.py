@@ -94,7 +94,7 @@ class TestEx3(expecttest.TestCase):
 
         # Did anyone actually get a bonus?
         # might be worth adding a sprinkling of syntactic sugar here
-        t5 = t4.filter(lambda r: r["bonus.bonus"] is not np.NAN and r["tstart.tstart"] is not np.NAN)
+        t5 = t4.infer(["Val_id"], c_cardnum).filter(lambda r: r["bonus.bonus"] is not np.NAN and r["tstart.tstart"] is not np.NAN)
         # Values populate keys. Since we use the same values, we will end up with the same keys.
         # [Val_id Cardnum || bonus.bonus  tstart.tstart            cardnum.cardnum]
         #  1      5172    || 4            2023-01-01 09:50:00      5172
