@@ -75,3 +75,8 @@ class MultipleShortestPathsBetweenNodesException(Exception):
 class CycleDetectedInPathException(Exception):
     def __init__(self):
         super().__init__(f"Cycle detected in path.")
+
+
+class ClassAlreadyExistsException(Exception):
+    def __init__(self):
+        super().__init__(f"Class already exists.")

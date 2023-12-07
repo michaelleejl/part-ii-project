@@ -3,12 +3,13 @@ from collections import deque
 from dataclasses import dataclass
 
 from schema import Cardinality, SchemaEquality
+from schema.schema_class import SchemaClass
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.edge_list import SchemaEdgeList
 from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
     NodeNotInSchemaGraphException, \
     MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, \
-    NoShortestPathBetweenNodesException
+    NoShortestPathBetweenNodesException, ClassAlreadyExistsException
 from schema.node import SchemaNode
 from union_find.union_find import UnionFind
 
@@ -37,9 +38,15 @@ class SchemaGraph:
         self.schema_nodes += new_nodes
         self.equivalence_class = UnionFind.add_singletons(self.equivalence_class, new_nodes)
 
-    def blend_nodes(self, node1, node2, under):
+    def blend_nodes(self, node1, node2, under: str = None):
         self.check_nodes_in_graph([node1, node2])
         self.equivalence_class = UnionFind.union(self.equivalence_class, node1, node2)
+        classname = SchemaClass(under)
+        if classname in self.schema_nodes:
+            raise ClassAlreadyExistsException()
+        else:
+            self.add_node(classname)
+            self.equivalence_class = UnionFind.union(self.equivalence_class, node1, classname)
 
     def are_nodes_equal(self, node1, node2):
         self.check_nodes_in_graph([node1, node2])

@@ -255,8 +255,8 @@ Class 1
         u = SchemaNode("u", cluster="1")
         v = SchemaNode("v", cluster="1")
         g.add_nodes([u, v])
-        g.blend_nodes(u, v, "")
-        self.assertExpectedInline(str(g.find_all_equivalent_nodes(u)), """[1.u, 1.v]""")
+        g.blend_nodes(u, v, "X")
+        self.assertExpectedInline(str(g.find_all_equivalent_nodes(u)), """[1.u, X, 1.v]""")
 
     def test_findAllEquivalentNodesSuccessfullyFindsAllEquivalentNodesForProductNode(self):
         g = SchemaGraph()

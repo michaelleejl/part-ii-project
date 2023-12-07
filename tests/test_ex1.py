@@ -10,7 +10,7 @@ class TestEx1(expecttest.TestCase):
 
         # Load up the CSVs
         cardnum = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
-        person = pd.read_csv("./csv/bonuses/person.csv").set_index("person")
+        person = pd.read_csv("./csv/bonuses/person.csv").set_index("cardnum")
 
         # Insert them into the data frames
         s.insert_dataframe(cardnum, "cardnum")

@@ -53,7 +53,7 @@ class Schema:
     def add_node(self, name, cluster):
         self.schema_graph.add_node(SchemaNode(name, cluster=cluster))
 
-    def blend(self, node1: SchemaNode, node2: SchemaNode, under: str):
+    def blend(self, node1: SchemaNode, node2: SchemaNode, under: str = None):
         self.schema_graph.blend_nodes(node1, node2, under)
 
     def clone(self, node: SchemaNode, name: str = None):

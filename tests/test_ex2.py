@@ -89,6 +89,7 @@ class TestEx2(expecttest.TestCase):
         #  5      || 2023-01-01 20:11:00      2354
         #  6      || 2023-01-01 21:17:00      NA
         #  7      || 2023-01-02 05:34:00      NA
+        #  8      || NA                       4412
 
         # Note the presence of NA values! Values populate keys:
         # A key exists as long as ONE value is not NA.
