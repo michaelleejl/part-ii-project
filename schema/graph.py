@@ -2,16 +2,13 @@ import itertools
 from collections import deque
 from dataclasses import dataclass
 
-import numpy as np
-
 from schema import Cardinality, SchemaEquality
-from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
-    AllNodesInFullyConnectedClusterMustHaveSameClusterException, NodeNotInSchemaGraphException, \
-    FindingEdgeViaNodeMustRespectEquivalence, MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, \
-    NoShortestPathBetweenNodesException
-from schema.fully_connected import FullyConnected
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.edge_list import SchemaEdgeList
+from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
+    NodeNotInSchemaGraphException, \
+    MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, \
+    NoShortestPathBetweenNodesException
 from schema.node import SchemaNode
 from union_find.union_find import UnionFind
 
@@ -110,7 +107,8 @@ class SchemaGraph:
             else:
                 current_leg_end = waypoints[i]
             nodes, edges = self.find_all_shortest_paths_between_nodes(current_leg_start, current_leg_end)
-            if len(visited.difference(set(nodes))) > 0:
+            print(set(nodes).intersection(visited))
+            if len(set(nodes).intersection(visited)) > 0:
                 raise CycleDetectedInPathException()
             else:
                 visited = visited.union(set(nodes))
@@ -170,27 +168,6 @@ class SchemaGraph:
             raise NoShortestPathBetweenNodesException(node1, node2)
 
         return shortest_paths[0], edge_traversal[0]
-
-    def get_edge_between_nodes(self, with_transform: list[Transform]) -> (bool, SchemaEdge):
-        nodes = with_transform
-        max_cardinality = Cardinality.MANY_TO_ONE
-        edge = None
-        edge_exists = True
-        for transform in nodes:
-            node1 = transform.from_node
-            node2 = transform.to_node
-            via = transform.via
-            b, e = self.find_all_paths_between_nodes(node1, node2, via)
-            if not e:
-                edge_exists = False
-                break
-            max_cardinality = Cardinality.MANY_TO_MANY if e.cardinality == Cardinality.ONE_TO_MANY or e.cardinality == Cardinality.MANY_TO_MANY else max_cardinality
-        if edge_exists:
-            nodes1, nodes2 = map(list, zip(*[(n.from_node, n.to_node) for n in nodes]))
-            n1 = SchemaNode.product(nodes1)
-            n2 = SchemaNode.product(nodes2)
-            edge = SchemaEdge(n1, n2, max_cardinality)
-        return edge_exists, edge
 
     def __repr__(self):
         divider = "==========================\n"
