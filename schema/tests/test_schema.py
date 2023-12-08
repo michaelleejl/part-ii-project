@@ -2,7 +2,7 @@ import expecttest
 
 import pandas as pd
 
-from schema import SchemaNode
+from schema.node import SchemaNode
 from schema.schema import Schema
 
 
@@ -15,55 +15,73 @@ class TestSchema(expecttest.TestCase):
         schema = Schema()
         schema.insert_dataframe(test, "test_schema")
         self.assertExpectedInline(str(schema), """\
-                                                FULLY CONNECTED CLUSTERS 
-                                                ==========================
-                                                
-                                                ==========================
-                                                test_schema
-                                                --------------------------
-                                                test_schema.(trip_id)
-                                                test_schema.(cardnum)
-                                                test_schema.(person)
-                                                test_schema.(bonus)
-                                                ==========================
-                                                
-                                                ==========================
-                                                
-                                                ADJACENCY LIST 
-                                                ==========================
-                                                
-                                                
-                                                ==========================
-                                                
-                                                EQUIVALENCE CLASSES 
-                                                ==========================
-                                                
-                                                ==========================
-                                                Class 0
-                                                --------------------------
-                                                test_schema.(trip_id)
-                                                ==========================
-                                                
-                                                ==========================
-                                                Class 1
-                                                --------------------------
-                                                test_schema.(cardnum)
-                                                ==========================
-                                                
-                                                ==========================
-                                                Class 2
-                                                --------------------------
-                                                test_schema.(person)
-                                                ==========================
-                                                
-                                                ==========================
-                                                Class 3
-                                                --------------------------
-                                                test_schema.(bonus)
-                                                ==========================
-                                                
-                                                ==========================
-                                                """)
+ADJACENCY LIST 
+==========================
+
+==========================
+test_schema.trip_id;cardnum
+--------------------------
+trip_id;cardnum ---> trip_id
+trip_id;cardnum ---> bonus
+trip_id;cardnum ---> cardnum
+trip_id;cardnum ---> person
+==========================
+
+==========================
+test_schema.trip_id
+--------------------------
+trip_id;cardnum ---> trip_id
+==========================
+
+==========================
+test_schema.cardnum
+--------------------------
+trip_id;cardnum ---> cardnum
+==========================
+
+==========================
+test_schema.person
+--------------------------
+trip_id;cardnum ---> person
+==========================
+
+==========================
+test_schema.bonus
+--------------------------
+trip_id;cardnum ---> bonus
+==========================
+
+==========================
+
+EQUIVALENCE CLASSES 
+==========================
+
+==========================
+Class 0
+--------------------------
+test_schema.trip_id
+==========================
+
+==========================
+Class 1
+--------------------------
+test_schema.cardnum
+==========================
+
+==========================
+Class 2
+--------------------------
+test_schema.person
+==========================
+
+==========================
+Class 3
+--------------------------
+test_schema.bonus
+==========================
+
+==========================
+""")
 
     def test_schema_blend(self):
         bonus = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
@@ -73,79 +91,48 @@ class TestSchema(expecttest.TestCase):
         schema.insert_dataframe(person, "person")
         cardnum_bonus = SchemaNode("cardnum", cluster="bonus")
         cardnum_person = SchemaNode("cardnum", cluster="person")
-        schema.blend(cardnum_bonus, cardnum_person)
+        schema.blend(cardnum_bonus, cardnum_person, "Cardnum")
         self.assertExpectedInline(str(schema), """\
-                                                FULLY CONNECTED CLUSTERS 
-                                                ==========================
-                                                
-                                                ==========================
-                                                bonus
-                                                --------------------------
-                                                bonus.(trip_id)
-                                                bonus.(cardnum)
-                                                bonus.(bonus)
-                                                ==========================
-                                                
-                                                ==========================
-                                                person
-                                                --------------------------
-                                                person.(cardnum)
-                                                person.(person)
-                                                ==========================
-                                                
-                                                ==========================
-                                                
-                                                ADJACENCY LIST 
-                                                ==========================
-                                                
-                                                
-                                                ==========================
-                                                
-                                                EQUIVALENCE CLASSES 
-                                                ==========================
-                                                
-                                                ==========================
-                                                Class 0
-                                                --------------------------
-                                                bonus.(trip_id)
-                                                ==========================
-                                                
-                                                ==========================
-                                                Class 1
-                                                --------------------------
-                                                bonus.(cardnum)
-                                                person.(cardnum)
-                                                ==========================
-                                                
-                                                ==========================
-                                                Class 2
-                                                --------------------------
-                                                bonus.(bonus)
-                                                ==========================
-                                                
-                                                ==========================
-                                                Class 3
-                                                --------------------------
-                                                person.(person)
-                                                ==========================
-                                                
-                                                ==========================
-                                                """)
-    def test_schema_cloneWithoutSpecifiedName_succeeds(self):
-        s = Schema()
-        u = SchemaNode("u", cluster="cluster")
-        s.add_node("u", "cluster")
-        s.clone(u)
-        self.assertExpectedInline(str(s), """\
-FULLY CONNECTED CLUSTERS 
-==========================
-
-
-==========================
-
 ADJACENCY LIST 
 ==========================
 
+==========================
+bonus.trip_id;cardnum
+--------------------------
+trip_id;cardnum ---> bonus
+trip_id;cardnum ---> cardnum
+trip_id;cardnum ---> trip_id
+==========================
+
+==========================
+bonus.trip_id
+--------------------------
+trip_id;cardnum ---> trip_id
+==========================
+
+==========================
+bonus.cardnum
+--------------------------
+trip_id;cardnum ---> cardnum
+==========================
+
+==========================
+bonus.bonus
+--------------------------
+trip_id;cardnum ---> bonus
+==========================
+
+==========================
+person.cardnum
+--------------------------
+cardnum ---> person
+==========================
+
+==========================
+person.person
+--------------------------
+cardnum ---> person
+==========================
 
 ==========================
 
@@ -155,46 +142,27 @@ EQUIVALENCE CLASSES
 ==========================
 Class 0
 --------------------------
-cluster.u_1
-cluster.u
-==========================
-
-==========================
-""")
-
-    def test_schema_cloneWithSpecifiedName_succeeds(self):
-        s = Schema()
-        u = SchemaNode("u", cluster="cluster")
-        s.add_node("u", "cluster")
-        s.add_node("v", "cluster")
-        s.clone(u, "v")
-        self.assertExpectedInline(str(s), """\
-FULLY CONNECTED CLUSTERS 
-==========================
-
-
-==========================
-
-ADJACENCY LIST 
-==========================
-
-
-==========================
-
-EQUIVALENCE CLASSES 
-==========================
-
-==========================
-Class 0
---------------------------
-cluster.v_1
-cluster.u
+bonus.trip_id
 ==========================
 
 ==========================
 Class 1
 --------------------------
-cluster.v
+bonus.cardnum
+Cardnum
+person.cardnum
+==========================
+
+==========================
+Class 2
+--------------------------
+bonus.bonus
+==========================
+
+==========================
+Class 3
+--------------------------
+person.person
 ==========================
 
 ==========================
@@ -208,6 +176,6 @@ cluster.v
         schema.insert_dataframe(person, "person")
         cardnum_bonus = SchemaNode("cardnum", cluster="bonus")
         cardnum_person = SchemaNode("cardnum", cluster="person")
-        schema.blend(cardnum_bonus, cardnum_person)
-        t = schema.get([cardnum_person, cardnum_bonus])
+        schema.blend(cardnum_bonus, cardnum_person, "Cardnum")
+        t = schema.get(["person.cardnum", "bonus.cardnum"])
         self.assertExpectedInline(str(t), """[person.cardnum bonus.cardnum || ]""")

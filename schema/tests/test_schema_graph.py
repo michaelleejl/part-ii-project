@@ -309,7 +309,8 @@ Class 1
         p = SchemaNode.product([u, v2])
         g.add_edge(p, w)
         start = SchemaNode.product([u, v1])
-        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(start, w)), """([1.u;v2, 1.w], [u;v1 === u;v2, u;v2 --- w])""")
+        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(start, w)),
+                                  """([1.u;v2, 1.w], [u;v1 === u;v2, u;v2 --- w])""")
 
     def test_findAllShortestPathsBetweenNodes_DoesNotFindProjectionEdgeIfProjectionNotLastEdgeInPath(self):
         g = SchemaGraph()
@@ -387,7 +388,7 @@ Class 1
         g.add_edge(v, w)
         self.assertExpectedInline(
             str(g.find_shortest_path(p, w, [v])),
-        """([1.v, 1.w], [u;v ---> v, v --- w])""")
+            """([1.v, 1.w], [u;v ---> v, v --- w])""")
 
     def test_findShortestPath_detectsCycles(self):
         g = SchemaGraph()

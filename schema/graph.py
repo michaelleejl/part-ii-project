@@ -41,12 +41,25 @@ class SchemaGraph:
     def blend_nodes(self, node1, node2, under: str = None):
         self.check_nodes_in_graph([node1, node2])
         self.equivalence_class = UnionFind.union(self.equivalence_class, node1, node2)
-        classname = SchemaClass(under)
-        if classname in self.schema_nodes:
-            raise ClassAlreadyExistsException()
-        else:
-            self.add_node(classname)
+        if under is not None:
+            classname = SchemaClass(under)
+            if classname in self.schema_nodes:
+                raise ClassAlreadyExistsException()
+            else:
+                self.add_node(classname)
             self.equivalence_class = UnionFind.union(self.equivalence_class, node1, classname)
+
+    def get_node_with_name(self, name: str) -> SchemaNode:
+        decomposition = name.split(".")
+        if len(decomposition) == 1:
+            n = SchemaNode(decomposition[0])
+        else:
+            cluster, name = decomposition
+            n = SchemaNode(name, cluster=cluster)
+        if n not in self.adjacencyList:
+            raise NodeNotInSchemaGraphException(n)
+        else:
+            return n
 
     def are_nodes_equal(self, node1, node2):
         self.check_nodes_in_graph([node1, node2])
@@ -114,7 +127,6 @@ class SchemaGraph:
             else:
                 current_leg_end = waypoints[i]
             nodes, edges = self.find_all_shortest_paths_between_nodes(current_leg_start, current_leg_end)
-            print(set(nodes).intersection(visited))
             if len(set(nodes).intersection(visited)) > 0:
                 raise CycleDetectedInPathException()
             else:

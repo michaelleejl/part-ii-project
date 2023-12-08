@@ -40,6 +40,5 @@ class PandasBackend(Backend):
             val_cols = get_cols_of_node(mapping.data, start)
             return determine_cardinality(mapping.data, key_cols, val_cols)
 
-
     def execute_query(self, query):
         pass

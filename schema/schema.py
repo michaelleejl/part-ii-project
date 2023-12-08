@@ -3,7 +3,7 @@ from backend.pandas_backend.pandas_backend import PandasBackend
 from schema.exceptions import ClusterAlreadyExistsException, NodesDoNotExistInGraphException
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode
-from tables.node import DerivationNode
+from tables.derivation import DerivationNode
 from tables.table import Table
 
 
@@ -72,15 +72,23 @@ class Schema:
         self.blend(candidate, node)
         return candidate
 
-    def get(self, keys: list[SchemaNode]):
+    def get(self, keys: list[str]):
+        keys = [self.schema_graph.get_node_with_name(k) for k in keys]
         key_set = frozenset(keys)
         diff = key_set.difference(self.schema_graph.schema_nodes)
         if len(diff) > 0:
             raise NodesDoNotExistInGraphException(list(diff))
         key_node = SchemaNode.product(keys)
         root = key_node
+        key_nodes = SchemaNode.get_constituents(key_node)
         derivation = DerivationNode(root, frozenset([]))
-        return Table(keys, [], derivation, self)
+        return Table.construct(key_nodes, derivation, self)
+
+    def get_node_with_name(self, name: str) -> SchemaNode:
+        return self.schema_graph.get_node_with_name(name)
+
+    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None):
+        self.schema_graph.find_shortest_path(node1, node2, via)
 
     def __repr__(self):
         return self.schema_graph.__repr__()

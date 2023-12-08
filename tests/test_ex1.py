@@ -39,7 +39,8 @@ class TestEx1(expecttest.TestCase):
         # Get the cardnum for each trip, use it to infer who made the trip,
         # and then restrict it to valid trips
 
-        t1 = s.get([c_cardnum])
+        t1 = s.get(["cardnum.cardnum"])
+        print(t1)
         # Get every cardnum in the cardnum csv
         # [cardnum.cardnum || ]
         #  5172
@@ -48,7 +49,8 @@ class TestEx1(expecttest.TestCase):
         #  1111
         #  4412
 
-        t2 = t1.infer(["cardnum.cardnum"], p_person)
+        t2 = t1.infer(["cardnum.cardnum"], "person.person")
+        print(t2)
         # Use this cardnum to infer who made the trip
         # Dropped keys! Values populate keys.
         # [cardnum.cardnum || person.person]
@@ -57,45 +59,45 @@ class TestEx1(expecttest.TestCase):
         #  1111            || Steve
 
 
-        t3 = t2.compose(c_val_id, ["cardnum.cardnum"])
-        # Hey, I know how to get the val_id(s) given the cardnum
-        # [cardnum.val_id || person.person]
-        # 2               || Steve
-        # 5               || Steve
-        # 3               || Tom
-        # 4               || Steve
-
-        # But what if, as a byproduct, I want to know all people who have cardnums?
-        # GOAL 2: Same as goal 1, but include people who didn't make trips
-        # Get the cardnum for each PERSON, use it to infer who made the trip,
-        # and then restrict it to valid trips
-
-        t11 = s.get([p_cardnum])
-        # Get me every value of cardnum in person
-        # [person.cardnum || ]
-        #  1111
-        #  1410
-        #  2354
-        #  6440
-        #  5467
-
-        t12 = t11.infer(["Cardnum"], p_person)
-        # From the value of cardnum, tell me who the card belongs to
-        # [person.cardnum  || person.person]
-        #  1111            || Steve
-        #  1410            || Tom
-        #  2354            || Steve
-        #  6440            || Harry
-        #  5467            || Dick
-
-        # If that's all I want, I can stop here! But if I want to know which people
-        # did NOT make trips, I can simply do
-
-        t13 = t12.compose(c_val_id, ["person.cardnum"])
-        # I have a mapping from val_id to cardnum
-        # [cardnum.val_id || person.person]
-        # 2               || Steve
-        # 5               || Steve
-        # 3               || Tom
-        # 4               || Steve
+        # t3 = t2.compose(c_val_id, ["cardnum.cardnum"])
+        # # Hey, I know how to get the val_id(s) given the cardnum
+        # # [cardnum.val_id || person.person]
+        # # 2               || Steve
+        # # 5               || Steve
+        # # 3               || Tom
+        # # 4               || Steve
+        #
+        # # But what if, as a byproduct, I want to know all people who have cardnums?
+        # # GOAL 2: Same as goal 1, but include people who didn't make trips
+        # # Get the cardnum for each PERSON, use it to infer who made the trip,
+        # # and then restrict it to valid trips
+        #
+        # t11 = s.get([p_cardnum])
+        # # Get me every value of cardnum in person
+        # # [person.cardnum || ]
+        # #  1111
+        # #  1410
+        # #  2354
+        # #  6440
+        # #  5467
+        #
+        # t12 = t11.infer(["Cardnum"], p_person)
+        # # From the value of cardnum, tell me who the card belongs to
+        # # [person.cardnum  || person.person]
+        # #  1111            || Steve
+        # #  1410            || Tom
+        # #  2354            || Steve
+        # #  6440            || Harry
+        # #  5467            || Dick
+        #
+        # # If that's all I want, I can stop here! But if I want to know which people
+        # # did NOT make trips, I can simply do
+        #
+        # t13 = t12.compose(c_val_id, ["person.cardnum"])
+        # # I have a mapping from val_id to cardnum
+        # # [cardnum.val_id || person.person]
+        # # 2               || Steve
+        # # 5               || Steve
+        # # 3               || Tom
+        # # 4               || Steve
 
