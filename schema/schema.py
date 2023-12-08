@@ -1,9 +1,12 @@
+import pandas as pd
+
 from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.pandas_backend import PandasBackend
+from schema.edge import SchemaEdge
 from schema.exceptions import ClusterAlreadyExistsException, NodesDoNotExistInGraphException
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode
-from tables.derivation import DerivationNode
+from tables.derivation import Get, End
 from tables.table import Table
 
 
@@ -47,6 +50,15 @@ class Schema:
 
         key_node = SchemaNode.product(key_nodes)
         nodes = key_nodes + val_nodes
+
+        dfa = df.reset_index()
+
+        for node in nodes:
+            self.backend.map_atomic_node_to_domain(node, pd.DataFrame(dfa[node.name]).drop_duplicates())
+
+        for node in val_names:
+            self.backend.map_edge_to_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), df[node].reset_index().drop_duplicates())
+
         self.schema_graph.add_nodes(nodes)
         self.schema_graph.add_cluster(nodes, key_node)
 
@@ -56,39 +68,37 @@ class Schema:
     def blend(self, node1: SchemaNode, node2: SchemaNode, under: str = None):
         self.schema_graph.blend_nodes(node1, node2, under)
 
-    def clone(self, node: SchemaNode, name: str = None):
-        i = 1
-        if name is None:
-            name = node.name
-            candidate = SchemaNode(f"{node.name}_{i}", cluster=node.cluster)
-        else:
-            candidate = SchemaNode(name, cluster=node.cluster)
-            i = 0
-        while candidate in self.schema_graph.schema_nodes:
-            i += 1
-            candidate = SchemaNode(f"{name}_{i}", cluster=node.cluster)
-
-        self.schema_graph.add_node(candidate)
-        self.blend(candidate, node)
-        return candidate
+    def clone(self, node: SchemaNode, name: str):
+        assert len(SchemaNode.get_constituents(node)) == 1
+        new_node = SchemaNode(name, cluster=node.cluster)
+        if new_node in self.schema_graph:
+            assert self.schema_graph.are_nodes_equal(new_node, node)
+            return new_node
+        self.schema_graph.add_node(new_node)
+        self.backend.clone(node, new_node)
+        self.blend(new_node, node)
+        return new_node
 
     def get(self, keys: list[str]):
+        keys_str = keys
         keys = [self.schema_graph.get_node_with_name(k) for k in keys]
         key_set = frozenset(keys)
         diff = key_set.difference(self.schema_graph.schema_nodes)
         if len(diff) > 0:
             raise NodesDoNotExistInGraphException(list(diff))
         key_node = SchemaNode.product(keys)
-        root = key_node
         key_nodes = SchemaNode.get_constituents(key_node)
-        derivation = DerivationNode(root, frozenset([]))
+        derivation = [Get(key_nodes), End(keys_str, [])]
         return Table.construct(key_nodes, derivation, self)
 
     def get_node_with_name(self, name: str) -> SchemaNode:
         return self.schema_graph.get_node_with_name(name)
 
     def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None):
-        self.schema_graph.find_shortest_path(node1, node2, via)
+        return self.schema_graph.find_shortest_path(node1, node2, via)
+
+    def execute_query(self, table_id, derived_from, derivation):
+        return self.backend.execute_query(table_id, derived_from, derivation)
 
     def __repr__(self):
         return self.schema_graph.__repr__()

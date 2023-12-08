@@ -2,19 +2,11 @@ import abc
 
 
 class Backend(abc.ABC):
-    @abc.abstractmethod
-    def map_node_to_domain(self, node, data):
-        raise NotImplemented()
 
     @abc.abstractmethod
-    def map_edge_to_relation(self, edge, data):
+    def execute_query(self, table_id, derived_from, query):
         raise NotImplemented()
 
-    @abc.abstractmethod
-    def get_cardinality(self, edge, start):
-        raise NotImplemented()
-
-    @abc.abstractmethod
-    def execute_query(self, query):
+    def clone(self, node, name):
         raise NotImplemented()
 

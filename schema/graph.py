@@ -1,4 +1,5 @@
 import itertools
+import typing
 from collections import deque
 from dataclasses import dataclass
 
@@ -11,6 +12,7 @@ from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
     MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, \
     NoShortestPathBetweenNodesException, ClassAlreadyExistsException
 from schema.node import SchemaNode
+from tables.derivation import Traverse, Equate, Project, StartTraversal, EndTraversal
 from union_find.union_find import UnionFind
 
 
@@ -78,8 +80,9 @@ class SchemaGraph:
         if len(constituents) == 1:
             return list(self.equivalence_class.get_equivalence_class(node))
         else:
-            return list(set([SchemaNode.product(list(x)) for x in
+            ls = list(set([SchemaNode.product(list(x)) for x in
                     (itertools.product(*[self.find_all_equivalent_nodes(c) for c in constituents]))]))
+            return [l for l in ls if len(SchemaNode.get_constituents(l)) == len(constituents)]
 
     def check_nodes_in_graph(self, nodes: list[SchemaNode]):
         for node in nodes:
@@ -120,34 +123,37 @@ class SchemaGraph:
         self.check_nodes_in_graph([node1, node2] + waypoints)
         current_leg_start = node1
         visited = {node1}
-        node_path, edge_path = [], []
+        node_path, commands, hidden_keys = [], [], []
         for i in range(0, len(waypoints) + 1):
             if i >= len(waypoints):
                 current_leg_end = node2
             else:
                 current_leg_end = waypoints[i]
-            nodes, edges = self.find_all_shortest_paths_between_nodes(current_leg_start, current_leg_end)
+            nodes, cmds, hks = self.find_all_shortest_paths_between_nodes(current_leg_start, current_leg_end)
             if len(set(nodes).intersection(visited)) > 0:
                 raise CycleDetectedInPathException()
             else:
                 visited = visited.union(set(nodes))
                 node_path += nodes
-                edge_path += edges
+                commands += cmds
+                hidden_keys += hks
                 current_leg_start = current_leg_end
-        return node_path, edge_path
+        commands[0] = StartTraversal(commands[0])
+        return node_path, commands + [EndTraversal(node1, node2)], hidden_keys
 
     def find_all_shortest_paths_between_nodes(self, node1: SchemaNode, node2: SchemaNode) -> (bool, SchemaEdge):
         to_explore = deque()
         visited = {node1}
-        to_explore.append((node1, [], [], 0))
+        to_explore.append((node1, [], [], [], 0))
 
         shortest_paths = []
         shortest_path_length = -1
 
-        edge_traversal = []
+        derivation = []
+        hidden_keys = []
 
         while len(to_explore) > 0:
-            u, path, edges, count = to_explore.popleft()
+            u, path, deriv, hks, count = to_explore.popleft()
             # by the BFS invariant, if we are considering
             # nodes with a path length > than the shortest path length
             # we will never find another shortest path
@@ -160,25 +166,35 @@ class SchemaGraph:
                 if e == node2:
                     shortest_path_length = count
                     shortest_paths += [path + [e]] if e != u else [path]
-                    edge_traversal += [edges + [SchemaEquality(u, e)]] if e != u else [edges]
+                    derivation += [deriv + [Equate(u, e)]] if e != u else [deriv]
+                    hidden_keys += [hks]
                 # if we see a node that the goal can be projected out from,
                 # then we have POTENTIALLY found a shortest path
                 # adjacency list doesn't consider projections
                 if e > node2 and node2 not in visited:
                     if u == e:
-                        to_explore.append((node2, path + [node2], edges + [SchemaEdge(e, node2, Cardinality.MANY_TO_ONE)],
-                                           count + 1))
+                        to_explore.append((node2, path + [node2], deriv + [Project(node2)],
+                                           hks, count + 1))
                     else:
-                        to_explore.append((node2, path + [e, node2], edges + [SchemaEquality(u, e), SchemaEdge(e, node2, Cardinality.MANY_TO_ONE)], count + 1))
+                        to_explore.append((node2, path + [e, node2], deriv + [Equate(u, e), Project(node2)],
+                                           hks, count + 1))
 
             neighbours = [(e, self.get_all_neighbours_of_node(e)) for e in equivs]
             for (e, ns) in neighbours:
                 for (n, c) in ns:
                     if n not in visited:
+                        add_hk = []
+                        if c == Cardinality.ONE_TO_MANY or c == Cardinality.MANY_TO_MANY:
+                            if e < n:
+                                add_hk += [x for x in SchemaNode.get_constituents(n) if
+                                           x not in set(SchemaNode.get_constituents(e))]
+                            else:
+                                add_hk += [n]
                         if e == u:
-                            to_explore.append((n, path + [n], edges + [SchemaEdge(e, n, c)], count + 1))
+                            to_explore.append((n, path + [n], deriv + [Traverse(e, n)], hks + add_hk, count + 1))
                         else:
-                            to_explore.append((n, path + [e, n], edges + [SchemaEquality(u, e), SchemaEdge(e, n, c)], count + 1))
+                            to_explore.append((n, path + [e, n], deriv + [Equate(u, e), Traverse(e, n)],
+                                               hks + add_hk, count + 1))
 
         if len(shortest_paths) > 1:
             raise MultipleShortestPathsBetweenNodesException(node1, node2)
@@ -186,7 +202,7 @@ class SchemaGraph:
         if len(shortest_paths) == 0:
             raise NoShortestPathBetweenNodesException(node1, node2)
 
-        return shortest_paths[0], edge_traversal[0]
+        return shortest_paths[0], derivation[0], hidden_keys[0]
 
     def __repr__(self):
         divider = "==========================\n"

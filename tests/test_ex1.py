@@ -58,8 +58,8 @@ class TestEx1(expecttest.TestCase):
         #  1410            || Tom
         #  1111            || Steve
 
-
-        # t3 = t2.compose(c_val_id, ["cardnum.cardnum"])
+        t3 = t2.compose(["cardnum.val_id"], ["cardnum.cardnum"])
+        print(t3)
         # # Hey, I know how to get the val_id(s) given the cardnum
         # # [cardnum.val_id || person.person]
         # # 2               || Steve
@@ -72,7 +72,8 @@ class TestEx1(expecttest.TestCase):
         # # Get the cardnum for each PERSON, use it to infer who made the trip,
         # # and then restrict it to valid trips
         #
-        # t11 = s.get([p_cardnum])
+        t11 = s.get(["person.cardnum"])
+        print(t11)
         # # Get me every value of cardnum in person
         # # [person.cardnum || ]
         # #  1111
@@ -81,7 +82,8 @@ class TestEx1(expecttest.TestCase):
         # #  6440
         # #  5467
         #
-        # t12 = t11.infer(["Cardnum"], p_person)
+        t12 = t11.infer(["person.cardnum"], "person.person")
+        print(t12)
         # # From the value of cardnum, tell me who the card belongs to
         # # [person.cardnum  || person.person]
         # #  1111            || Steve
@@ -93,7 +95,8 @@ class TestEx1(expecttest.TestCase):
         # # If that's all I want, I can stop here! But if I want to know which people
         # # did NOT make trips, I can simply do
         #
-        # t13 = t12.compose(c_val_id, ["person.cardnum"])
+        t13 = t12.compose(["cardnum.val_id"], ["person.cardnum"])
+        print(t13)
         # # I have a mapping from val_id to cardnum
         # # [cardnum.val_id || person.person]
         # # 2               || Steve

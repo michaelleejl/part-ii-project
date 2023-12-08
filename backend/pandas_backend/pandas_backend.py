@@ -1,8 +1,14 @@
+import typing
+
 import pandas as pd
 
 from backend.backend import Backend
-from backend.pandas_backend.helpers import check_columns_match, copy_data, get_cols_of_node, determine_cardinality
-from backend.pandas_backend.relation import Relation, DataRelation, FunctionRelation
+from backend.pandas_backend.helpers import copy_data, get_cols_of_node, determine_cardinality
+from backend.pandas_backend.interpreter import get, interpret, end
+from backend.pandas_backend.relation import Relation, DataRelation
+from schema import SchemaEdge
+from schema.node import SchemaNode
+from tables.derivation import DerivationStep, Get, End
 
 
 class PandasBackend(Backend):
@@ -10,35 +16,68 @@ class PandasBackend(Backend):
     def __init__(self):
         self.node_data = {}
         self.edge_data = {}
+        self.derived_tables = {}
+        self.clones = {}
 
-    def map_node_to_domain(self, node, domain: pd.DataFrame) -> None:
-        extended_domain = copy_data(domain).rename({k: f"{node.get_key()}_{k}" for k in domain.columns}, axis=1)
-        if node not in self.node_data.keys():
-            self.node_data[node] = extended_domain
-            return None
-        else:
-            old_domain = self.node_data[node]
-            check_columns_match(old_domain, extended_domain)
-            new_data = pd.concat([old_domain, extended_domain]).reset_index().drop_duplicates()
-            self.node_data[node] = new_data
+    def map_atomic_node_to_domain(self, node, domain: pd.DataFrame) -> None:
+        cs = SchemaNode.get_constituents(node)
+        assert len(cs) == 1
+        assert node not in self.node_data
+        domain = copy_data(domain)
+        self.clones[node] = node
+        self.node_data[node] = domain
 
-    def map_edge_to_relation(self, edge, relation: Relation):
-        if type(relation) == DataRelation:
-            print("ok")
-            if edge not in self.edge_data.keys():
-                self.edge_data[edge] = relation
-            else:
-                assert type(self.edge_data[edge]) == DataRelation
-                self.edge_data[edge].update_relation(relation)
+    def get_domain_from_atomic_node(self, node: SchemaNode):
+        cs = SchemaNode.get_constituents(node)
+        assert len(cs) == 1
+        assert node in self.clones
+        lookup = node
+        while self.clones[node] != node:
+            lookup = self.clones[node]
+        copy = copy_data(self.node_data[lookup])
+        copy.columns = [str(node) for _ in copy.columns]
+        return copy
 
-    def get_cardinality(self, edge, start):
+    def clone(self, node: SchemaNode, new_node: SchemaNode):
+        self.clones[new_node] = node
+
+    def map_edge_to_relation(self, edge, relation: pd.DataFrame):
+        rev = SchemaEdge(edge.to_node, edge.from_node)
+        assert edge not in self.edge_data
+        assert rev not in self.edge_data
+        f_node_c = SchemaNode.get_constituents(edge.from_node)
+        t_node_c = SchemaNode.get_constituents(edge.to_node)
+        mapping = {f.name: str(f) for f in f_node_c} | {t.name: str(t) for t in t_node_c}
+        self.edge_data[edge] = copy_data(relation).rename(mapping, axis=1)
+
+    def get_relation_from_edge(self, edge: SchemaEdge):
+        rev = SchemaEdge(edge.to_node, edge.from_node)
+        if edge in self.edge_data:
+            return copy_data(self.edge_data[edge])
+        elif rev in self.edge_data:
+            return copy_data(self.edge_data[rev])
+
+    def get_cardinality(self, edge, start_node):
         mapping = self.edge_data[edge]
-        end = edge.to_node if start == edge.from_node else edge.from_node
+        end_node = edge.to_node if start_node == edge.from_node else edge.from_node
 
         if type(mapping) == DataRelation:
-            key_cols = get_cols_of_node(mapping.data, end)
-            val_cols = get_cols_of_node(mapping.data, start)
+            key_cols = get_cols_of_node(mapping.data, end_node)
+            val_cols = get_cols_of_node(mapping.data, start_node)
             return determine_cardinality(mapping.data, key_cols, val_cols)
 
-    def execute_query(self, query):
-        pass
+    def execute_query(self, table_id, derived_from, derivation_steps: list[DerivationStep]):
+        length = len(derivation_steps)
+        assert len(derivation_steps) >= 1
+        if derived_from is None:
+            first = typing.cast(Get, derivation_steps[0])
+            tbl = get(first, self)
+            k = lambda x: x
+            start_from = 1
+        else:
+            tbl, k, start_from = self.derived_tables[derived_from]
+        last = typing.cast(End, derivation_steps[-1])
+        derivation_steps = derivation_steps[start_from:-1]
+        table, cont = interpret(derivation_steps, self, tbl, k)
+        self.derived_tables[table_id] = table, cont, length - 1
+        return end(last, table, cont)

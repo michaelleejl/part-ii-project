@@ -95,6 +95,7 @@ EQUIVALENCE CLASSES
 Class 0
 --------------------------
 1.name
+U
 1.name2
 ==========================
 
@@ -274,13 +275,13 @@ Class 1
         p = SchemaNode.product([u1, v2, w, x, y])
         l = sorted([str(x) for x in g.find_all_equivalent_nodes(p)])
         self.assertExpectedInline(str(l),
-                                  """['1.u1;v1;w;x', '1.u1;v1;w;x;y', '1.u1;v1;w;y', '1.u1;v2;w;x', '1.u1;v2;w;x;y', '1.u1;v2;w;y', '1.u2;v1;w;x', '1.u2;v1;w;x;y', '1.u2;v1;w;y', '1.u2;v2;w;x', '1.u2;v2;w;x;y', '1.u2;v2;w;y']""")
+                                  """['1.u1;v1;w;x;y', '1.u1;v2;w;x;y', '1.u2;v1;w;x;y', '1.u2;v2;w;x;y', 'U;V;w;X;y', 'U;V;w;x;X', 'U;V;w;x;y', 'U;v1;w;X;y', 'U;v1;w;x;X', 'U;v1;w;x;y', 'U;v2;w;X;y', 'U;v2;w;x;X', 'U;v2;w;x;y', 'u1;V;w;X;y', 'u1;V;w;x;X', 'u1;V;w;x;y', 'u1;v1;w;X;y', 'u1;v1;w;x;X', 'u1;v2;w;X;y', 'u1;v2;w;x;X', 'u2;V;w;X;y', 'u2;V;w;x;X', 'u2;V;w;x;y', 'u2;v1;w;X;y', 'u2;v1;w;x;X', 'u2;v2;w;X;y', 'u2;v2;w;x;X']""")
 
     def test_findAllShortestPathsBetweenNodes_findsShortestPathOfLengthZero(self):
         g = SchemaGraph()
         u = SchemaNode("u", cluster="1")
         g.add_node(u)
-        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, u)), """([], [])""")
+        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, u)), """([], [], [])""")
 
     def test_findAllShortestPathsBetweenNodes_findsShortestPathUsingEquivalenceClass(self):
         g = SchemaGraph()
@@ -288,7 +289,7 @@ Class 1
         v = SchemaNode("v", cluster="1")
         g.add_nodes([u, v])
         g.blend_nodes(u, v, "")
-        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, v)), """([1.v], [u === v])""")
+        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, v)), """([1.v], [EQU <1.u, 1.v>], [])""")
 
     def test_findAllShortestPathsBetweenNodes_FindsProjectionEdgeIfLastEdgeInPath(self):
         g = SchemaGraph()
@@ -296,7 +297,7 @@ Class 1
         v = SchemaNode("v", cluster="1")
         g.add_nodes([u, v])
         p = SchemaNode.product([u, v])
-        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(p, v)), """([1.v], [u;v ---> v])""")
+        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(p, v)), """([1.v], [PRJ <1.v>], [])""")
 
     def test_findAllShortestPathsBetweenNodes_FindsMultiHopPath(self):
         g = SchemaGraph()
@@ -310,7 +311,7 @@ Class 1
         g.add_edge(p, w)
         start = SchemaNode.product([u, v1])
         self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(start, w)),
-                                  """([1.u;v2, 1.w], [u;v1 === u;v2, u;v2 --- w])""")
+                                  """([1.u;v2, 1.w], [EQU <1.u;v1, 1.u;v2>, TRV <1.u;v2, 1.w>], [1.w])""")
 
     def test_findAllShortestPathsBetweenNodes_DoesNotFindProjectionEdgeIfProjectionNotLastEdgeInPath(self):
         g = SchemaGraph()
@@ -357,7 +358,7 @@ Class 1
         g.add_edge(x, y)
         self.assertExpectedInline(
             str(g.find_all_shortest_paths_between_nodes(u, y)),
-            """([1.v, 3.y], [u --- v, v <--- y])"""
+            """([1.v, 3.y], [TRV <1.u, 1.v>, TRV <1.v, 3.y>], [1.v, 3.y])"""
         )
 
     def test_findShortestPath_worksIfNoWaypointsSpecified(self):
@@ -375,7 +376,7 @@ Class 1
         g.add_edge(x, y)
         self.assertExpectedInline(
             str(g.find_shortest_path(u, y)),
-            """([1.v, 3.y], [u --- v, v <--- y])"""
+            """([1.v, 3.y], [STT <TRV <1.u, 1.v>>, TRV <1.v, 3.y>, ENT <1.u, 3.y>], [1.v, 3.y])"""
         )
 
     def test_findShortestPath_worksIfWaypointsSpecified(self):
@@ -388,7 +389,7 @@ Class 1
         g.add_edge(v, w)
         self.assertExpectedInline(
             str(g.find_shortest_path(p, w, [v])),
-            """([1.v, 1.w], [u;v ---> v, v --- w])""")
+            """([1.v, 1.w], [STT <PRJ <1.v>>, TRV <1.v, 1.w>, ENT <1.u;v, 1.w>], [1.w])""")
 
     def test_findShortestPath_detectsCycles(self):
         g = SchemaGraph()
