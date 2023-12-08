@@ -66,12 +66,13 @@ class TestEx1(expecttest.TestCase):
         # # 5               || Steve
         # # 3               || Tom
         # # 4               || Steve
-        #
+
+
         # # But what if, as a byproduct, I want to know all people who have cardnums?
         # # GOAL 2: Same as goal 1, but include people who didn't make trips
         # # Get the cardnum for each PERSON, use it to infer who made the trip,
         # # and then restrict it to valid trips
-        #
+
         t11 = s.get(["person.cardnum"])
         print(t11)
         # # Get me every value of cardnum in person
@@ -81,7 +82,7 @@ class TestEx1(expecttest.TestCase):
         # #  2354
         # #  6440
         # #  5467
-        #
+
         t12 = t11.infer(["person.cardnum"], "person.person")
         print(t12)
         # # From the value of cardnum, tell me who the card belongs to
@@ -103,4 +104,23 @@ class TestEx1(expecttest.TestCase):
         # # 5               || Steve
         # # 3               || Tom
         # # 4               || Steve
+
+
+        # K V1 V2 V3
+        # 1
+        # 2
+        # 3
+        # 4
+
+        # K
+        # 1
+        # 2
+        # 3
+        # 4
+
+        # K V
+        # 1 3
+        # 2 2
+        # 3 1
+
 
