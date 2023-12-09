@@ -83,7 +83,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
 def stt(derivation_step: StartTraversal, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
     base = table.copy(deep=True)
     first_cols = get_columns_from_node(derivation_step.start_node)
-    table = table.copy(deep=True)[first_cols]
+    table = cont(table.copy(deep=True))[first_cols]
     next_step = derivation_step.step
     if next_step.name == "PRJ":
         return table, cont, stack + [base]

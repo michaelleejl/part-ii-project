@@ -87,6 +87,6 @@ class PandasBackend(Backend):
         last = typing.cast(End, derivation_steps[-1])
         derivation_steps = derivation_steps[start_from:-1]
 
-        table, cont = interpret(derivation_steps, self, k(tbl), lambda x:x)
+        table, cont = interpret(derivation_steps, self, tbl, k)
         self.derived_tables[table_id] = table, cont, length - 1
         return end(last, table, cont)
