@@ -1,3 +1,5 @@
+import itertools
+from collections import deque
 from functools import reduce
 import typing
 
@@ -43,12 +45,23 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
     for i, val in enumerate(values):
         dependencies = [str(v) for v in val.keyed_by]
         hidden_dependencies = set(dependencies) - set(keys_str + vals_str[:i])
+        hidden_depends = set(val.keyed_by) - set(keys + values[:1])
+        for hd in hidden_depends:
+            candidates = deque()
+            candidates.append(hd.keyed_by)
+            while len(candidates) > 0:
+                u = candidates.popleft()
+                if set([str(v) for v in u]).issubset(set(keys_str + vals_str[:i])):
+                    hidden_dependencies.discard(str(hd))
+                new_cands = list(map(list, itertools.product(*[k.keyed_by for k in u])))
+                for nc in new_cands:
+                    candidates.appendleft(nc)
+
         if len(hidden_dependencies) > 0:
-            to_add = app.groupby(keys_str_with_marker)[str(val)].agg(list)
+            to_add = app[keys_str_with_marker + [str(val)]].drop_duplicates().groupby(keys_str_with_marker)[str(val)].agg(list)
             columns_with_hidden_keys += [str(val)]
         else:
-           to_add = app[keys_str_with_marker + [str(val)]]
-
+            to_add = app[keys_str_with_marker + [str(val)]]
         df = pd.merge(df, to_add, on=keys_str_with_marker, how="outer")
 
     df[columns_with_hidden_keys] = df[columns_with_hidden_keys].map(lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else np.nan)

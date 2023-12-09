@@ -56,9 +56,10 @@ class TestEx1(expecttest.TestCase):
 
     def test_ex1_goal1_step3(self):
         t1 = s.get(["cardnum.cardnum"])
-        t2 = t1.infer(["cardnum.cardnum"], "person.person")
-        t3 = t2.compose(["cardnum.val_id"], "cardnum.cardnum")
-        print(t3)
+        t2 = t1.infer(["cardnum.cardnum"], "person.cardnum")
+        t3 = t2.infer(["person.cardnum"], "person.person")
+        # t3 = t2.compose(["cardnum.val_id"], "cardnum.cardnum")
+        print(t3.hide("person.person"))
         # # Hey, I know how to get the val_id(s) given the cardnum
         # # [cardnum.val_id || person.person]
         # # 2               || Steve
@@ -116,5 +117,17 @@ class TestEx1(expecttest.TestCase):
         #  1410
         #  1111
         #  4412
+
+    def test_ex1_goal4(self):
+        table1 = s.get(['cardnum.val_id'])
+        print(table1)
+        table2 = table1.infer(['cardnum.val_id'], 'cardnum.cardnum')
+        print(table2)
+        table3 = table2.infer(['cardnum.cardnum'], 'person.cardnum')
+        print(table3)
+        table4 = table3.infer(['person.cardnum'], 'person.person')
+        print(table4)
+        table = table4.hide('person.cardnum').hide('cardnum.cardnum')
+        print(table)
 
 

@@ -174,9 +174,11 @@ class Table:
         new_table = Table.create_from_table(self)
         idx = self.displayed_columns.index(col)
         assert 0 <= idx
-        new_table.marker -= 1
+        if idx < self.marker:
+            new_table.marker -= 1
         new_table.displayed_columns = self.displayed_columns[:idx] + self.displayed_columns[idx+1:]
         keys = [new_table.columns[c] for c in new_table.displayed_columns[:new_table.marker]]
+
         vals = [new_table.columns[c] for c in new_table.displayed_columns[new_table.marker:]]
         hidden_keys = list(set(new_table.columns.values()) - set(keys) - set(vals))
         new_table.derivation = self.derivation[:-1] + [End(keys, hidden_keys, vals)]
