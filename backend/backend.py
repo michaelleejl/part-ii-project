@@ -10,3 +10,5 @@ class Backend(abc.ABC):
     def clone(self, node, name):
         raise NotImplemented()
 
+    def extend_domain(self, node, domain):
+        raise NotImplemented()

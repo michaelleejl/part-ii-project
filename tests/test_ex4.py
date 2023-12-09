@@ -10,7 +10,7 @@ class TestEx4(expecttest.TestCase):
         s = Schema()
 
         person = pd.read_csv("./csv/roles/person.csv").set_index("person")
-        task = pd.read_csv("./csv/roles/task.csv").set_index("role")
+        task = pd.read_csv("./csv/roles/task.csv").set_index("task")
 
         s.insert_dataframe(person, "person")
         s.insert_dataframe(task, "task")
@@ -28,7 +28,8 @@ class TestEx4(expecttest.TestCase):
 
         # GOAL: I want to know, for each person, what tasks they may perform
 
-        t1 = s.get([SchemaNode("person", cluster="person")])
+        t1 = s.get(["person.person"])
+        print(t1)
 
         # [person.person || ]
         #  Steve
@@ -36,14 +37,16 @@ class TestEx4(expecttest.TestCase):
         #  Harry
         #  Dick
 
-        t2 = t1.infer(["person"], SchemaNode("task", cluster="task"))
+        t2 = t1.infer(["person.person"], "task.task")
+        print(t2)
         # [person.person || task.task]
-        #  Steve         || [funding, budget]
+        #  Steve         || [funding, investment, budget]
         #  Tom           || [research]
         #  Dick          || [manpower]
 
         # Expose the hidden key
-        t3 = t2.show(["task.task"])
+        t3 = t2.show("task.task")
+        print(t3)
         # [person.person task.task || task.task]
         #  Steve         funding   || funding
         #  Steve         budget    || budget

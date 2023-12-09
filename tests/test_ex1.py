@@ -3,41 +3,35 @@ import pandas as pd
 
 from schema import Schema, SchemaNode
 
+s = Schema()
+
+# Load up the CSVs
+cardnum = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
+person = pd.read_csv("./csv/bonuses/person.csv").set_index("cardnum")
+
+# Insert them into the data frames
+s.insert_dataframe(cardnum, "cardnum")
+s.insert_dataframe(person, "person")
+
+# Get handles on the nodes now in the schema - may be slightly ugly but
+# we can slap on a load of syntactic sugar
+c_cardnum = SchemaNode("cardnum", cluster="cardnum")
+c_val_id = SchemaNode("val_id", cluster="cardnum")
+p_cardnum = SchemaNode("cardnum", cluster="person")
+p_person = SchemaNode("person", cluster="person")
+
+s.blend(c_cardnum, p_cardnum, under="Cardnum")
+
 
 class TestEx1(expecttest.TestCase):
-    def test_ex1(self):
-        s = Schema()
 
-        # Load up the CSVs
-        cardnum = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
-        person = pd.read_csv("./csv/bonuses/person.csv").set_index("cardnum")
+    # SCHEMA:
+    # val_id ---> cardnum ---> person
 
-        # Insert them into the data frames
-        s.insert_dataframe(cardnum, "cardnum")
-        s.insert_dataframe(person, "person")
-
-        # Get handles on the nodes now in the schema - may be slightly ugly but
-        # we can slap on a load of syntactic sugar
-        c_cardnum = SchemaNode("cardnum", cluster="cardnum")
-        c_val_id = SchemaNode("val_id", cluster="cardnum")
-        p_cardnum = SchemaNode("cardnum", cluster="person")
-        p_person = SchemaNode("person", cluster="person")
-
-        s.blend(c_cardnum, p_cardnum, under="Cardnum")
-
-        # ========================================================================
-        # ========================================================================
-        # (I'll use this to denote the boundary between schema creation and table querying,
-        # so you can skip over the schema creation)
-        # Do note that I've created .csv files and you can find their paths above, though.
-
-        # SCHEMA:
-        # val_id ---> cardnum ---> person
-
-        # GOAL 1: Find all people who made trips
-
-        # Get the cardnum for each trip, use it to infer who made the trip,
-        # and then restrict it to valid trips
+    # GOAL 1: Find all people who made trips
+    # Get the cardnum for each trip, use it to infer who made the trip,
+    # and then restrict it to valid trips
+    def test_ex1_goal1_step1(self):
 
         t1 = s.get(["cardnum.cardnum"])
         print(t1)
@@ -49,6 +43,8 @@ class TestEx1(expecttest.TestCase):
         #  1111
         #  4412
 
+    def test_ex1_goal1_step2(self):
+        t1 = s.get(["cardnum.cardnum"])
         t2 = t1.infer(["cardnum.cardnum"], "person.person")
         print(t2)
         # Use this cardnum to infer who made the trip
@@ -58,7 +54,10 @@ class TestEx1(expecttest.TestCase):
         #  1410            || Tom
         #  1111            || Steve
 
-        t3 = t2.compose(["cardnum.val_id"], ["cardnum.cardnum"])
+    def test_ex1_goal1_step3(self):
+        t1 = s.get(["cardnum.cardnum"])
+        t2 = t1.infer(["cardnum.cardnum"], "person.person")
+        t3 = t2.compose(["cardnum.val_id"], "cardnum.cardnum")
         print(t3)
         # # Hey, I know how to get the val_id(s) given the cardnum
         # # [cardnum.val_id || person.person]
@@ -73,6 +72,7 @@ class TestEx1(expecttest.TestCase):
         # # Get the cardnum for each PERSON, use it to infer who made the trip,
         # # and then restrict it to valid trips
 
+    def test_ex1_goal2_step1(self):
         t11 = s.get(["person.cardnum"])
         print(t11)
         # # Get me every value of cardnum in person
@@ -96,7 +96,7 @@ class TestEx1(expecttest.TestCase):
         # # If that's all I want, I can stop here! But if I want to know which people
         # # did NOT make trips, I can simply do
         #
-        t13 = t12.compose(["cardnum.val_id"], ["person.cardnum"])
+        t13 = t12.compose(["cardnum.val_id"], "person.cardnum")
         print(t13)
         # # I have a mapping from val_id to cardnum
         # # [cardnum.val_id || person.person]
@@ -105,22 +105,16 @@ class TestEx1(expecttest.TestCase):
         # # 3               || Tom
         # # 4               || Steve
 
-
-        # K V1 V2 V3
-        # 1
-        # 2
-        # 3
-        # 4
-
-        # K
-        # 1
-        # 2
-        # 3
-        # 4
-
-        # K V
-        # 1 3
-        # 2 2
-        # 3 1
+    def test_ex1_goal3_step1(self):
+        t21 = s.get(["cardnum.cardnum"])
+        t22 = t21.infer(["cardnum.cardnum"], "cardnum.val_id")
+        print(t22)
+        # Get every cardnum in the cardnum csv
+        # [cardnum.cardnum || ]
+        #  5172
+        #  2354
+        #  1410
+        #  1111
+        #  4412
 
 

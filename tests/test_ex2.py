@@ -30,7 +30,8 @@ class TestEx2(expecttest.TestCase):
         # Only two obvious ways to do it
 
         # WAY 1
-        t1 = s.get([t_val_id])
+        t1 = s.get(["tstart.val_id"])
+        print(t1)
         # Get every val_id in the tstart csv
         # [tstart.val_id || ]
         #  1
@@ -41,7 +42,8 @@ class TestEx2(expecttest.TestCase):
         #  6
         #  7
 
-        t2 = t1.infer(["tstart.val_id"], t_tstart)
+        t2 = t1.infer(["tstart.val_id"], "tstart.tstart")
+        print(t2)
         # [tstart.val_id || tstart.tstart]
         #  1             || 2023-01-01 09:50:00
         #  2             || 2023-01-01 11:10:00
@@ -52,7 +54,8 @@ class TestEx2(expecttest.TestCase):
         #  7             || 2023-01-02 05:34:00
 
         # WAY 2
-        t11 = s.get([SchemaNode("Val_id")])
+        t11 = s.get(["Val_id"])
+        print(t11)
         # Get every possible val_id. Note that there is val_id 8, but we don't
         # have a timestamp for that.
         # [Val_id || ]
@@ -65,7 +68,8 @@ class TestEx2(expecttest.TestCase):
         #  7
         #  8
 
-        t12 = t11.infer(["Val_id"], t_tstart)
+        t12 = t11.infer(["Val_id"], "tstart.tstart")
+        print(t12)
         # Values populate keys. Since we use the same values, we will end up with the same keys.
         # [Val_id || tstart.tstart]
         #  1      || 2023-01-01 09:50:00
@@ -79,8 +83,8 @@ class TestEx2(expecttest.TestCase):
         # WAY 3
         # Hey, I also want the cardnum, not just the val_id
         # First two steps are the same as either Way 1 or Way 2, but then you can do
-        t23 = t12.infer(["Val_id"], c_cardnum)
-
+        t23 = t12.infer(["Val_id"], "cardnum.cardnum")
+        print(t23)
         # [Val_id || tstart.tstart            cardnum.cardnum]
         #  1      || 2023-01-01 09:50:00      5172
         #  2      || 2023-01-01 11:10:00      2354
@@ -97,7 +101,8 @@ class TestEx2(expecttest.TestCase):
         # STRESS TEST
 
         # What if the user accidentally makes cardnum a key, so gets the cross product?
-        t31 = s.get([SchemaNode(["Val_id"]), c_cardnum])
+        t31 = s.get(["Val_id", "cardnum.cardnum"])
+        print(t31)
         # [Val_id cardnum.cardnum || ]
         #  1      5172
         #  1      2354
@@ -114,7 +119,8 @@ class TestEx2(expecttest.TestCase):
         # Helps a bit, but not much
         # cardnum is a weak key for tstart, but I think it will be too surprising to suddenly drop it.
         # what if the user is keeping it around for something else?
-        t32 = t31.infer(["Val_id"], t_tstart)
+        t32 = t31.infer(["Val_id"], "tstart.tstart")
+        print(t32)
         # [Val_id cardnum.cardnum || tstart.tstart]
         #  1      5172            || 2023-01-01 09:50:00
         #  1      2354            || 2023-01-01 09:50:00
@@ -130,7 +136,8 @@ class TestEx2(expecttest.TestCase):
         # Ah, just throw cardnum away
         # (semantics - if you hide a key that's weak for all values, delete?)
         # (or explicit, guarded delete?)
-        t33 = t32.hide(["cardnum.cardnum"])
+        t33 = t32.hide("cardnum.cardnum")
+        print(t33)
                 #.delete(["cardnum.cardnum"])
         # [Val_id || tstart.tstart]
         #  1      || 2023-01-01 09:50:00

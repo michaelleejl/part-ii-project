@@ -66,6 +66,7 @@ class NoShortestPathBetweenNodesException(Exception):
                          f"If the path involves a projection that isn't the last edge in the path,"
                          f"The projection will need to be specified as a waypoint.")
 
+
 class MultipleShortestPathsBetweenNodesException(Exception):
     def __init__(self, node1, node2):
         super().__init__(f"Multiple shortest paths found between nodes {node1} and {node2}."
@@ -80,3 +81,8 @@ class CycleDetectedInPathException(Exception):
 class ClassAlreadyExistsException(Exception):
     def __init__(self):
         super().__init__(f"Class already exists.")
+
+
+class CannotRenameClassException(Exception):
+    def __init__(self):
+        super().__init__(f"Class cannot be renamed.")

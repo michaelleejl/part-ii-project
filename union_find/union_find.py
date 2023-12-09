@@ -32,8 +32,10 @@ class UnionFind:
     def __init__(self,
                  leaders: dict[UnionFindItem, UnionFindItem],
                  rank: dict[UnionFindItem, int],
-                 graph: dict[UnionFindItem, list[UnionFindItem]]):
+                 graph: dict[UnionFindItem, list[UnionFindItem]],
+                 classnames: dict[UnionFindItem, UnionFindItem]):
         self.leaders = leaders
+        self.classnames = classnames
         self.rank = rank
         self.graph = graph
 
@@ -45,17 +47,18 @@ class UnionFind:
 
     @classmethod
     def initialise(cls):
-        return UnionFind({}, {}, {})
+        return UnionFind({}, {}, {}, {})
 
     @classmethod
-    def add_singleton(cls, uf, v):
+    def add_singleton(cls, uf, v, classname=None):
         item = UnionFindItem(v)
         if item in uf.leaders.keys():
             return uf
         leaders = uf.leaders | {item: item}
         rank = uf.rank | {item: 0}
         graph = uf.graph | {item: []}
-        return UnionFind(leaders, rank, graph)
+        classnames = uf.classnames | {item: classname}
+        return UnionFind(leaders, rank, graph, classnames)
 
     @classmethod
     def add_singletons(cls, uf, vs):
@@ -64,7 +67,8 @@ class UnionFind:
         leaders = uf.leaders | {item: item for item in new_items}
         rank = uf.rank | {item: 0 for item in new_items}
         graph = uf.graph | {item: [] for item in new_items}
-        return UnionFind(leaders, rank, graph)
+        classnames = uf.classnames | {item: None for item in new_items}
+        return UnionFind(leaders, rank, graph, classnames)
 
     def find_leader(self, val):
         item = UnionFindItem(val)
@@ -81,6 +85,14 @@ class UnionFind:
             self.graph[node] = []
         return u.val
 
+    def attach_classname(self, val, classname):
+        members = self.get_equivalence_class(val)
+        for m in members:
+            i = UnionFindItem(m)
+            assert self.classnames[i] is None or self.classnames[i] == classname
+            self.classnames[i] = classname
+        return members
+
     @classmethod
     def union(cls, uf, val1, val2):
         item1 = UnionFindItem(val1)
@@ -90,7 +102,10 @@ class UnionFind:
         if item2 not in uf.rank.keys():
             raise UnionFindDoesNotContainItemException(item2)
         rank1 = uf.rank[item1]
+        clss1 = uf.classnames[item1]
         rank2 = uf.rank[item2]
+        clss2 = uf.classnames[item2]
+        assert clss1 is None or clss2 is None or clss1 == clss2
         leaders = uf.leaders
         graph = uf.graph
         rank = uf.rank
@@ -104,7 +119,16 @@ class UnionFind:
             leaders[item2] = item1
             graph[item1] += [item2]
             rank[item1] += 1
-        return UnionFind(leaders, rank, graph)
+        new_uf = UnionFind(leaders, rank, graph, uf.classnames)
+        if clss1 is not None:
+            new_uf.attach_classname(val1, clss1)
+        if clss2 is not None:
+            new_uf.attach_classname(val2, clss2)
+        return new_uf
+
+    def get_classname(self, val):
+        item = UnionFindItem(val)
+        return self.classnames[item]
 
     def get_equivalence_class(self, val) -> list[UnionFindItem]:
         ldr = self.find_leader(val)

@@ -50,12 +50,20 @@ class PandasBackend(Backend):
         mapping = {f.name: str(f) for f in f_node_c} | {t.name: str(t) for t in t_node_c}
         self.edge_data[edge] = copy_data(relation).rename(mapping, axis=1)
 
-    def get_relation_from_edge(self, edge: SchemaEdge):
+    def get_relation_from_edge(self, edge: SchemaEdge) -> pd.DataFrame:
         rev = SchemaEdge(edge.to_node, edge.from_node)
         if edge in self.edge_data:
             return copy_data(self.edge_data[edge])
         elif rev in self.edge_data:
             return copy_data(self.edge_data[rev])
+
+    def extend_domain(self, node: SchemaNode, domain_node: SchemaNode):
+        domain = self.get_domain_from_atomic_node(domain_node)
+        cs = SchemaNode.get_constituents(node)
+        assert len(cs) == 1
+        domain = copy_data(domain)
+        domain.columns = self.node_data[node].columns
+        self.node_data[node] = pd.concat([self.node_data[node], domain]).drop_duplicates().reset_index(drop=True)
 
     def get_cardinality(self, edge, start_node):
         mapping = self.edge_data[edge]
@@ -72,12 +80,13 @@ class PandasBackend(Backend):
         if derived_from is None:
             first = typing.cast(Get, derivation_steps[0])
             tbl = get(first, self)
-            k = lambda x: x
             start_from = 1
+            k = lambda x: x
         else:
             tbl, k, start_from = self.derived_tables[derived_from]
         last = typing.cast(End, derivation_steps[-1])
         derivation_steps = derivation_steps[start_from:-1]
+
         table, cont = interpret(derivation_steps, self, tbl, k)
         self.derived_tables[table_id] = table, cont, length - 1
         return end(last, table, cont)

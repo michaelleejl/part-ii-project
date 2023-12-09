@@ -9,7 +9,7 @@ class TestEx5(expecttest.TestCase):
         s = Schema()
 
         person = pd.read_csv("./csv/roles/person.csv").set_index("person")
-        task = pd.read_csv("./csv/roles/task.csv").set_index("role")
+        task = pd.read_csv("./csv/roles/task.csv").set_index("task")
 
         s.insert_dataframe(person, "person")
         s.insert_dataframe(task, "task")
@@ -29,8 +29,8 @@ class TestEx5(expecttest.TestCase):
         # [person task || role]
         # Does role depend on person or task - depends on what you call infer on!
 
-        t11 = s.get([SchemaNode("person", cluster="person"),
-                     SchemaNode("task", cluster="task")])
+        t11 = s.get(["person.person", "task.task"])
+        print(t11)
         # [person.person task.task || ]
         # Steve          logistics
         # Steve          manpower
@@ -40,7 +40,8 @@ class TestEx5(expecttest.TestCase):
         # Dick           budget
 
 
-        t12 = t11.infer(["task.task"], SchemaNode("Role"))
+        t12 = t11.infer(["task.task"], "Role")
+        print(t12)
         # [person.person task.task   ||  Role]
         # Steve          logistics   ||  COO
         # Steve          manpower    ||  CEO
@@ -55,7 +56,8 @@ class TestEx5(expecttest.TestCase):
         # Or perhaps I can ask the other question - if I know person does task,
         # and I know their role, what can I infer about the role demanded by the task?
 
-        t12 = t11.infer(["person.person"], SchemaNode("Role"))
+        t13 = t11.infer(["person.person"], "Role")
+        print(t13)
         # [person.person task.task   ||  Role]
         # Steve          logistics   ||  CFO
         # Steve          manpower    ||  CFO
@@ -69,6 +71,6 @@ class TestEx5(expecttest.TestCase):
 
         # STRESS TEST
         # What if the user does
-        tbad = t11.infer(["person.person;task.task"], SchemaNode("Role"))
+        tbad = t11.infer(["person.person", "task.task"], "Role")
         # There is no path from person.person x task.task to Role, only Role x Role.
         # This should throw an error

@@ -2,8 +2,10 @@ import pandas as pd
 
 from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.pandas_backend import PandasBackend
+from schema import SchemaClass
 from schema.edge import SchemaEdge
-from schema.exceptions import ClusterAlreadyExistsException, NodesDoNotExistInGraphException
+from schema.exceptions import ClusterAlreadyExistsException, NodesDoNotExistInGraphException, \
+    ClassAlreadyExistsException, CannotRenameClassException
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode
 from tables.derivation import Get, End
@@ -45,8 +47,8 @@ class Schema:
         key_names = keys.columns.to_list()
         val_names = df.columns.to_list()
 
-        key_nodes = [SchemaNode(name, cluster=cluster) for name in key_names]
-        val_nodes = [SchemaNode(name, cluster=cluster) for name in val_names]
+        key_nodes = [SchemaNode(name.lower(), cluster=cluster) for name in key_names]
+        val_nodes = [SchemaNode(name.lower(), cluster=cluster) for name in val_names]
 
         key_node = SchemaNode.product(key_nodes)
         nodes = key_nodes + val_nodes
@@ -56,6 +58,9 @@ class Schema:
         for node in nodes:
             self.backend.map_atomic_node_to_domain(node, pd.DataFrame(dfa[node.name]).drop_duplicates())
 
+        for node in key_names:
+            self.backend.map_edge_to_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), dfa[key_names].drop_duplicates())
+
         for node in val_names:
             self.backend.map_edge_to_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), df[node].reset_index().drop_duplicates())
 
@@ -63,20 +68,43 @@ class Schema:
         self.schema_graph.add_cluster(nodes, key_node)
 
     def add_node(self, name, cluster):
-        self.schema_graph.add_node(SchemaNode(name, cluster=cluster))
+        self.schema_graph.add_node(SchemaNode(name.lower(), cluster=cluster))
 
     def blend(self, node1: SchemaNode, node2: SchemaNode, under: str = None):
-        self.schema_graph.blend_nodes(node1, node2, under)
+        if under is not None:
+            classname = SchemaClass(under)
+            clss1 = self.schema_graph.equivalence_class.get_classname(node1)
+            clss2 = self.schema_graph.equivalence_class.get_classname(node2)
+            if classname not in self.schema_graph.schema_nodes and clss1 is None and clss2 is None:
+                domain = pd.DataFrame([], columns=[under])
+                self.backend.map_atomic_node_to_domain(classname, domain)
+                self.schema_graph.add_class(classname)
+            elif classname in self.schema_graph.schema_nodes and (clss1 is None and clss2 is None):
+                raise ClassAlreadyExistsException()
+            elif classname in self.schema_graph.schema_nodes and (clss1 is not None and clss1 != classname) and (clss2 is not None and clss2 != classname):
+                raise CannotRenameClassException()
+            new_members = []
+            if clss1 is None:
+                new_members = self.schema_graph.equivalence_class.attach_classname(node1, classname)
+            if clss2 is None:
+                new_members += self.schema_graph.equivalence_class.attach_classname(node2, classname)
+            self.schema_graph.blend_nodes(node1, node2)
+            self.schema_graph.blend_nodes(node1, classname)
+            if new_members is not None:
+                for member in new_members:
+                    self.backend.extend_domain(classname, member)
+        else:
+            self.schema_graph.blend_nodes(node1, node2)
 
     def clone(self, node: SchemaNode, name: str):
         assert len(SchemaNode.get_constituents(node)) == 1
         new_node = SchemaNode(name, cluster=node.cluster)
-        if new_node in self.schema_graph:
+        if new_node in self.schema_graph.schema_nodes:
             assert self.schema_graph.are_nodes_equal(new_node, node)
             return new_node
         self.schema_graph.add_node(new_node)
         self.backend.clone(node, new_node)
-        self.blend(new_node, node)
+        self.schema_graph.blend_nodes(new_node, node)
         return new_node
 
     def get(self, keys: list[str]):
@@ -88,14 +116,14 @@ class Schema:
             raise NodesDoNotExistInGraphException(list(diff))
         key_node = SchemaNode.product(keys)
         key_nodes = SchemaNode.get_constituents(key_node)
-        derivation = [Get(key_nodes), End(keys_str, [])]
+        derivation = [Get(key_nodes), End(keys, [],  [])]
         return Table.construct(key_nodes, derivation, self)
 
     def get_node_with_name(self, name: str) -> SchemaNode:
         return self.schema_graph.get_node_with_name(name)
 
-    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None):
-        return self.schema_graph.find_shortest_path(node1, node2, via)
+    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
+        return self.schema_graph.find_shortest_path(node1, node2, via, backwards)
 
     def execute_query(self, table_id, derived_from, derivation):
         return self.backend.execute_query(table_id, derived_from, derivation)
