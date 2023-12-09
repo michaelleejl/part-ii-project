@@ -49,13 +49,16 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
         for hd in hidden_depends:
             candidates = deque()
             candidates.append(hd.keyed_by)
+            visited = set()
             while len(candidates) > 0:
                 u = candidates.popleft()
                 if set([str(v) for v in u]).issubset(set(keys_str + vals_str[:i])):
                     hidden_dependencies.discard(str(hd))
                 new_cands = list(map(list, itertools.product(*[k.keyed_by for k in u])))
                 for nc in new_cands:
-                    candidates.appendleft(nc)
+                    if tuple(nc) not in visited:
+                        visited.add(tuple(nc))
+                        candidates.appendleft(nc)
 
         if len(hidden_dependencies) > 0:
             to_add = app[keys_str_with_marker + [str(val)]].drop_duplicates().groupby(keys_str_with_marker)[str(val)].agg(list)
