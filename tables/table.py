@@ -129,21 +129,21 @@ class Table:
             if key in set(c.keyed_by):
                 c.set_derivation(derivation + c.get_derivation())
 
-        def compose_columns(column: RawColumn):
+        def compose_columns(column: RawColumn, column_type):
             if key in set(column.keyed_by):
                 new_key = [k for k in column.keyed_by if k != key] + new_cols + hidden_columns
-                return RawColumn(column.name, column.node, new_key, ColumnType.KEY)
+                return RawColumn(column.name, column.node, new_key, column_type, column.derivation)
             else:
                 return column
 
         new_table.marker = self.marker + len(from_keys) - 1
 
-        new_table.keys = ({c: compose_columns(self.keys[c]) for c in new_table.displayed_columns[:key_idx]}
+        new_table.keys = ({c: compose_columns(self.keys[c], ColumnType.KEY) for c in new_table.displayed_columns[:key_idx]}
                           | {new_table.displayed_columns[i + key_idx]: c for i, c in enumerate(new_cols)}
-                          | {c: compose_columns(self.keys[c]) for c in
+                          | {c: compose_columns(self.keys[c], ColumnType.KEY) for c in
                              new_table.displayed_columns[key_idx + len(new_cols):new_table.marker]})
         new_table.hidden_keys = self.hidden_keys | {str(col): col for col in hidden_columns}
-        new_table.values = {c: self.values[c] for c in new_table.displayed_columns[new_table.marker:]}
+        new_table.values = {c: compose_columns(self.values[c], ColumnType.VALUE) for c in new_table.displayed_columns[new_table.marker:]}
         keys = [new_table.keys[c] for c in new_table.displayed_columns[:new_table.marker]]
         vals = [new_table.values[c] for c in new_table.displayed_columns[new_table.marker:]]
 
@@ -345,6 +345,48 @@ class Table:
                                                       new_table.intermediate_representation)
         return new_table
 
+    def equate(self, col1, col2):
+        assert 0 <= self.displayed_columns.index(col1)
+        assert 0 <= self.displayed_columns.index(col2)
+        new_table = Table.create_from_table(self)
+        idx = self.displayed_columns.index(col2)
+        new_table.displayed_columns = [c for c in self.displayed_columns if c != col2]
+        if idx < self.marker:
+            new_table.marker -= 1
+            column2 = self.keys[col2]
+        else:
+            column2 = self.values[col2]
+        if self.displayed_columns.index(col1) < self.marker:
+            column1 = self.keys[col1]
+        else:
+            column1 = self.values[col1]
+
+        for col in list(self.keys.values()):
+            if col == column2:
+                continue
+            keyed_by = [c if c != column2 else column1 for c in col.keyed_by]
+            new_table.keys[str(col)] = RawColumn(col.name, col.node, keyed_by, ColumnType.KEY, col.derivation)
+
+        for col in list(self.values.values()):
+            if col == column2:
+                continue
+            keyed_by = [c if c != column2 else column1 for c in col.keyed_by]
+            new_table.values[str(col)] = RawColumn(col.name, col.node, keyed_by, ColumnType.VALUE, col.derivation)
+
+        for col in list(self.values.values()):
+            if col == column2:
+                continue
+            keyed_by = [c if c != column2 else column1 for c in col.keyed_by]
+            new_table.hidden_keys[str(col)] = RawColumn(col.name, col.node, keyed_by, col.type, col.derivation)
+
+        keys = [new_table.keys[c] for c in new_table.displayed_columns[:new_table.marker]]
+        vals = [new_table.values[c] for c in new_table.displayed_columns[new_table.marker:]]
+        hidden_keys = list(set(self.hidden_keys.values()))
+
+        new_table.intermediate_representation = self.intermediate_representation[:-1] + [Filter(lambda t: t[t[col1] == t[col2]]), End(keys, hidden_keys, vals)]
+        new_table.df = new_table.schema.execute_query(new_table.table_id, self.table_id,
+                                                      new_table.intermediate_representation)
+        return new_table
 
     def __repr__(self):
         keys = ' '.join([str(self.keys[k]) for k in self.displayed_columns[:self.marker]])

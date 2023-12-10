@@ -81,7 +81,8 @@ class TestEx7(expecttest.TestCase):
         #  5              2354            1410           || 2
 
         # # Inner product time
-        # t5 = t4.equate("cardnum.cardnum", "bonus.cardnum")
+        t5 = t4.equate("cardnum.cardnum", "bonus.cardnum")
+        print(t5)
         # # [cardnum.val_id cardnum.cardnum  || bonus.bonus]
         # #  1              5172             || 4
 
