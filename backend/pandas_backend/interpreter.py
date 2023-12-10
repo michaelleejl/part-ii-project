@@ -39,19 +39,22 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
         app[f"KEY_{k}"] = app[k]
     keys_str_with_marker = [f"KEY_{k}" for k in keys_str]
     df = app[keys_str_with_marker].reset_index(drop=True)
+    columns_with_hidden_keys_str = []
     columns_with_hidden_keys = []
 
     for i, val in enumerate(values):
         dependencies = [str(v) for v in val.keyed_by]
-        hidden_dependencies = set(dependencies) - set(keys_str + vals_str[:i])
-        hidden_depends = set(val.keyed_by) - set(keys + values[:1])
+        hidden_dependencies = set(dependencies) - (set(keys_str + vals_str[:i]) - set(columns_with_hidden_keys_str))
+        hidden_depends = set(val.keyed_by) - (set(keys + values[:i]) - set(columns_with_hidden_keys))
         for hd in hidden_depends:
+            if hd in set(columns_with_hidden_keys):
+                pass
             candidates = deque()
             candidates.append(hd.keyed_by)
             visited = set()
             while len(candidates) > 0:
                 u = candidates.popleft()
-                if set([str(v) for v in u]).issubset(set(keys_str + vals_str[:i])):
+                if len(set([str(v) for v in u])) > 0 and set([str(v) for v in u]).issubset(set(keys_str + vals_str[:i])):
                     hidden_dependencies.discard(str(hd))
                 new_cands = list(map(list, itertools.product(*[k.keyed_by for k in u])))
                 for nc in new_cands:
@@ -62,17 +65,20 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
         if len(hidden_dependencies) > 0:
             to_add = app[keys_str_with_marker + [str(val)]].drop_duplicates().groupby(keys_str_with_marker)[
                 str(val)].agg(list)
-            columns_with_hidden_keys += [str(val)]
+            columns_with_hidden_keys_str += [str(val)]
+            columns_with_hidden_keys += [val]
         else:
             to_add = app[keys_str_with_marker + [str(val)]]
         df = pd.merge(df, to_add, on=keys_str_with_marker, how="outer")
+        df = df.loc[df.astype(str).drop_duplicates().index]
 
-    df[columns_with_hidden_keys] = df[columns_with_hidden_keys].map(lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else np.nan)
+    df[columns_with_hidden_keys_str] = df[columns_with_hidden_keys_str].map(
+        lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else np.nan)
     if len(values) > 0:
         df = df.dropna(subset=vals_str, how="all")
     df = df.dropna(subset=keys_str_with_marker, how="any")
 
-    df[columns_with_hidden_keys] = df[columns_with_hidden_keys].map(lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else [])
+    df[columns_with_hidden_keys_str] = df[columns_with_hidden_keys_str].map(lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else [])
 
     df = df.loc[df.astype(str).drop_duplicates().index].set_index(keys_str_with_marker)
     renaming = keys_str

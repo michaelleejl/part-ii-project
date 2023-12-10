@@ -36,8 +36,8 @@ class TestEx7(expecttest.TestCase):
         # First, get [val_id || cardnum]
 
         # Get every Val_id, Cardnum pair
-        t1 = s.get([c_val_id]).infer([c_val_id], c_cardnum)
-
+        t1 = s.get(["cardnum.val_id"]).infer(["cardnum.val_id"], "cardnum.cardnum")
+        print(t1)
         # [cardnum.val_id || cardnum.cardnum ]
         #  1              || 5172
         #  2              || 2354
@@ -47,7 +47,8 @@ class TestEx7(expecttest.TestCase):
         #  8              || 4412
 
 
-        t2 = t1.infer(["cardnum.val_id"], SchemaNode("bonus.bonus"))
+        t2 = t1.infer(["cardnum.val_id"], "bonus.bonus")
+        print(t2)
         # [cardnum.val_id || cardnum.cardnum bonus.bonus]
         #  1              || 5172            [4, 12]
         #  2              || 2354            [5, 7]
@@ -57,6 +58,8 @@ class TestEx7(expecttest.TestCase):
         #  8              || 4412            []
 
         t3 = t2.set_key(["cardnum.val_id", "cardnum.cardnum"])
+        print(t3)
+
         # [cardnum.val_id cardnum.cardnum || bonus.bonus]
         #  1              5172            || [4, 12]
         #  2              2354            || [5, 7]
@@ -66,7 +69,9 @@ class TestEx7(expecttest.TestCase):
         # "Now, only show the k, x levels supported by y, and ignore the
         #  old k levels supported (only) by x"
 
-        t4 = t3.show(["bonus.cardnum"])
+        t4 = t3.show("bonus.cardnum")
+        print(t4)
+
         # [cardnum.val_id cardnum.cardnum bonus.cardnum  || bonus.bonus]
         #  1              5172            5172           || 4
         #  1              5172            1410           || 12
@@ -75,10 +80,10 @@ class TestEx7(expecttest.TestCase):
         #  3              1410            1111           || 1
         #  5              2354            1410           || 2
 
-        # Inner product time
-        t5 = t4.equate("cardnum.cardnum", "bonus.cardnum")
-        # [cardnum.val_id cardnum.cardnum  || bonus.bonus]
-        #  1              5172             || 4
+        # # Inner product time
+        # t5 = t4.equate("cardnum.cardnum", "bonus.cardnum")
+        # # [cardnum.val_id cardnum.cardnum  || bonus.bonus]
+        # #  1              5172             || 4
 
         # Not the same as filter! Because it changes the strength of keys.
         # Now anything that depended on bonus.cardnum depends on cardnum.cardnum

@@ -38,7 +38,6 @@ class TestEx4(expecttest.TestCase):
         #  Dick
 
         t2 = t1.infer(["person.person"], "task.task")
-        print(t2)
         # [person.person || task.task]
         #  Steve         || [funding, investment, budget]
         #  Tom           || [research]
@@ -52,4 +51,10 @@ class TestEx4(expecttest.TestCase):
         #  Steve         budget    || budget
         #  Tom           research  || research
         #  Dick          manpower  || manpower
+
+        t4 = t3.hide("task.task")
+        print(t4)
+
+        t5 = t4.show("task.task")
+        print(t5)
 

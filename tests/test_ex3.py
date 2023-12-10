@@ -58,58 +58,58 @@ class TestEx3(expecttest.TestCase):
         #  8      6440
         #  8      5467
 
-        # # From val_id, cardnum, I can tell you the bonus
-        # # This will trim the key set, since values populate keys
+        # # # From val_id, cardnum, I can tell you the bonus
+        # # # This will trim the key set, since values populate keys
         t2 = t1.infer(["Val_id", "Cardnum"], "bonus.bonus")
         print(t2)
-        # # [Val_id Cardnum || bonus.bonus]
-        # #  1      5172    || 4
-        # #  1      1410    || 12
-        # #  2      1111    || 5
-        # #  2      6440    || 7
-        # #  3      1111    || 1
-        # #  5      1410    || 2
-        #
-        # # But we know for each val_id, we can infer a tstart
+        # # # [Val_id Cardnum || bonus.bonus]
+        # # #  1      5172    || 4
+        # # #  1      1410    || 12
+        # # #  2      1111    || 5
+        # # #  2      6440    || 7
+        # # #  3      1111    || 1
+        # # #  5      1410    || 2
+        # #
+        # # # But we know for each val_id, we can infer a tstart
         t3 = t2.infer(["Val_id"], "tstart.tstart")
         print(t3)
-        # # [Val_id Cardnum || bonus.bonus  tstart.tstart]
-        # #  1      5172    || 4            2023-01-01 09:50:00
-        # #  1      1111    || NA           2023-01-01 09:50:00
-        # #  1      1410    || 12           2023-01-01 09:50:00
-        # #  1      2354    || NA           2023-01-01 09:50:00
-        # #  1      6440    || NA           2023-01-01 09:50:00
-        # #  1      5467    || NA           2023-01-01 09:50:00
-        # #  ...
-        #
-        # # I'm only interested in rows where the bonus actually exists.
+        # # # [Val_id Cardnum || bonus.bonus  tstart.tstart]
+        # # #  1      5172    || 4            2023-01-01 09:50:00
+        # # #  1      1111    || NA           2023-01-01 09:50:00
+        # # #  1      1410    || 12           2023-01-01 09:50:00
+        # # #  1      2354    || NA           2023-01-01 09:50:00
+        # # #  1      6440    || NA           2023-01-01 09:50:00
+        # # #  1      5467    || NA           2023-01-01 09:50:00
+        # # #  ...
+        # #
+        # # # I'm only interested in rows where the bonus actually exists.
         t4 = t3.filter(lambda t: t[t["bonus.bonus"].notnull()])
         print(t4)
-        # # [Val_id Cardnum || bonus.bonus  tstart.tstart]
-        # #  1      5172    || 4            2023-01-01 09:50:00
-        # #  1      1410    || 12           2023-01-01 09:50:00
-        # #  2      1111    || 5            2023-01-01 11:10:00
-        # #  2      6440    || 7            2023-01-01 11:10:00
-        # #  3      1111    || 1            2023-01-01 15:32:00
-        # #  5      1410    || 2            2023-01-01 20:11:00
-        #
-        # # Did anyone actually get a bonus?
-        # # might be worth adding a sprinkling of syntactic sugar here
+        # # # [Val_id Cardnum || bonus.bonus  tstart.tstart]
+        # # #  1      5172    || 4            2023-01-01 09:50:00
+        # # #  1      1410    || 12           2023-01-01 09:50:00
+        # # #  2      1111    || 5            2023-01-01 11:10:00
+        # # #  2      6440    || 7            2023-01-01 11:10:00
+        # # #  3      1111    || 1            2023-01-01 15:32:00
+        # # #  5      1410    || 2            2023-01-01 20:11:00
+        # #
+        # # # Did anyone actually get a bonus?
+        # # # might be worth adding a sprinkling of syntactic sugar here
         t5 = t4.infer(["Val_id"], "cardnum.cardnum").filter(lambda t: t[t["bonus.bonus"].notnull()])
         print(t5)
-        # # Values populate keys. Since we use the same values, we will end up with the same keys.
+        # # # Values populate keys. Since we use the same values, we will end up with the same keys.
+        # # # [Val_id Cardnum || bonus.bonus  tstart.tstart            cardnum.cardnum]
+        # # #  1      5172    || 4            2023-01-01 09:50:00      5172
+        # # #  1      1410    || 12           2023-01-01 09:50:00      5172
+        # # #  2      1111    || 5            2023-01-01 11:10:00      2354
+        # # #  2      6440    || 7            2023-01-01 11:10:00      2354
+        # # #  3      1111    || 1            2023-01-01 15:32:00      1410
+        # # #  5      1410    || 2            2023-01-01 20:11:00      2354
+        # #
+        # t6 = t5.filter(lambda t: t[t["Cardnum"] == t["cardnum.cardnum"]])
+        # print(t6)
         # # [Val_id Cardnum || bonus.bonus  tstart.tstart            cardnum.cardnum]
         # #  1      5172    || 4            2023-01-01 09:50:00      5172
-        # #  1      1410    || 12           2023-01-01 09:50:00      5172
-        # #  2      1111    || 5            2023-01-01 11:10:00      2354
-        # #  2      6440    || 7            2023-01-01 11:10:00      2354
-        # #  3      1111    || 1            2023-01-01 15:32:00      1410
-        # #  5      1410    || 2            2023-01-01 20:11:00      2354
-        #
-        t6 = t5.filter(lambda t: t[t["Cardnum"] == t["cardnum.cardnum"]])
-        print(t6)
-        # [Val_id Cardnum || bonus.bonus  tstart.tstart            cardnum.cardnum]
-        #  1      5172    || 4            2023-01-01 09:50:00      5172
 
     def test_ex3_goal2(self):
         # GOAL 2: [val_id || cardnum tstart bonus]

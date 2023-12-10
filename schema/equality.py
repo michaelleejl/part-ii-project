@@ -11,6 +11,9 @@ class SchemaEquality(SchemaEdge):
         arrow = "==="
         return f"{self.from_node.name} {arrow} {self.to_node.name}"
 
+    def is_equality(self):
+        return True
+
     def __str__(self):
         return self.__repr__()
 

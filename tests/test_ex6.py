@@ -13,8 +13,8 @@ class TestEx6(expecttest.TestCase):
         delivery = pd.read_csv("./csv/orders/delivery.csv").set_index("order")
 
         s.insert_dataframe(billing, "billing")
-        s.insert_dataframe(billing, "payment")
-        s.insert_dataframe(billing, "delivery")
+        s.insert_dataframe(payment, "payment")
+        s.insert_dataframe(delivery, "delivery")
 
         p_order = SchemaNode("order", cluster="payment")
         d_order = SchemaNode("order", cluster="delivery")
@@ -41,7 +41,8 @@ class TestEx6(expecttest.TestCase):
         #
         # GOAL: [order payment_method || address]
 
-        t1 = s.get([p_order, p_payment_method])
+        t1 = s.get(["payment.order", "payment.payment_method"])
+        print(t1)
         # [payment.order payment.payment_method || ]
         #  1             5172
         #  1             2354
@@ -49,7 +50,8 @@ class TestEx6(expecttest.TestCase):
         #  1             1410
         #  ...
 
-        t2 = t1.infer(["payment.order"], SchemaNode("Address"))
+        t2 = t1.infer(["payment.order"], "Address")
+        print(t2)
         # [payment.order payment.payment_method || Address ]
         #  1             5172                   || Cambridge
         #  1             2354                   || Cambridge
@@ -59,14 +61,16 @@ class TestEx6(expecttest.TestCase):
         # This is the same as Ex5
 
         # STRESS TEST
-        t11 = s.get([p_order]).infer(["payment.order"], p_payment_method)
+        t11 = s.get(["payment.order"]).infer(["payment.order"], "payment.payment_method")
+        print(t11)
         # [payment.order || payment.payment_method]
         #  1             || 5172
         #  2             || 2354
         #  4             || 1410
         #  5             || 1111
 
-        t12 = t11.set_key(["payment.order", "payment.method"])
+        t12 = t11.set_key(["payment.order", "payment.payment_method"])
+        print(t12)
         # [payment.order   payment.payment_method  || ]
         #  1               5172
         #  2               2354

@@ -1,4 +1,4 @@
-from schema import SchemaNode
+from schema import SchemaNode, SchemaEdge
 
 from enum import Enum
 
@@ -8,13 +8,21 @@ class ColumnType(Enum):
     VALUE = 1
 
 
-class Column:
-    def __init__(self, name: str, node: SchemaNode, keyed_by: list[any], type: ColumnType):
+class RawColumn:
+    def __init__(self, name: str, node: SchemaNode, keyed_by: list[any], type: ColumnType, derivation: list[SchemaEdge] = None):
         self.name = name
         self.node = node
-        assert isinstance(keyed_by, list)
         self.keyed_by = keyed_by
         self.type = type
+        if derivation is None:
+            self.derivation = []
+        self.derivation = derivation
+
+    def get_derivation(self):
+        return self.derivation
+
+    def set_derivation(self, derivation):
+        self.derivation = derivation
 
     def __str__(self):
         return self.__repr__()
@@ -29,7 +37,7 @@ class Column:
         return 1
 
     def __eq__(self, other):
-        if isinstance(other, Column):
+        if isinstance(other, RawColumn):
             return self.name == other.name and self.keyed_by == other.keyed_by
         else:
             raise NotImplemented()
