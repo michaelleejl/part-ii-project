@@ -40,7 +40,6 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
     keys_str_with_marker = [f"KEY_{k}" for k in keys_str]
     df = app[keys_str_with_marker].reset_index(drop=True)
     columns_with_hidden_keys = []
-    to_remove_marker = []
 
     for i, val in enumerate(values):
         dependencies = [str(v) for v in val.keyed_by]
@@ -61,7 +60,8 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
                         candidates.appendleft(nc)
 
         if len(hidden_dependencies) > 0:
-            to_add = app[keys_str_with_marker + [str(val)]].drop_duplicates().groupby(keys_str_with_marker)[str(val)].agg(list)
+            to_add = app[keys_str_with_marker + [str(val)]].drop_duplicates().groupby(keys_str_with_marker)[
+                str(val)].agg(list)
             columns_with_hidden_keys += [str(val)]
         else:
             to_add = app[keys_str_with_marker + [str(val)]]

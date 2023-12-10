@@ -129,5 +129,8 @@ class TestEx1(expecttest.TestCase):
         print(table4)
         table = table4.hide('person.cardnum').hide('cardnum.cardnum')
         print(table)
+        table_new = table.show('person.cardnum').show('cardnum.cardnum')
+        print(table_new)
+
 
 

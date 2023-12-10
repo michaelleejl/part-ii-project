@@ -4,18 +4,25 @@ import numpy as np
 import pandas as pd
 
 from schema.node import SchemaNode
-from tables.column import Column
+from tables.column import Column, ColumnType
 import copy
 
-from tables.derivation import DerivationStep, Rename, End, Project, Filter
+from tables.derivation import DerivationStep, Rename, End, Filter
+
+
+def find_index(l: list, v):
+    try:
+        return l.index(v)
+    except ValueError:
+        return -1
 
 
 class Table:
-    def __init__(self, table_id, derivation: list[DerivationStep], schema, derived_from = None,):
+    def __init__(self, table_id, derivation: list[DerivationStep], schema, derived_from=None, ):
         self.table_id = table_id
         self.derived_from = derived_from
         self.displayed_columns = []
-        self.marker = 0 #index of the first value column
+        self.marker = 0  # index of the first value column
         self.columns = {}
         self.derivation = derivation
         self.schema = schema
@@ -28,7 +35,7 @@ class Table:
         table = Table(table_id, derivation, schema)
         keys = []
         for key_node in key_nodes:
-            key = table.create_column(key_node, [])
+            key = table.create_column(key_node, [], ColumnType.KEY)
             keys += [key]
         table.displayed_columns = [str(k) for k in keys]
         table.columns = {str(k): k for k in keys}
@@ -52,12 +59,12 @@ class Table:
         new_table.namespace = copy.deepcopy(table.namespace)
         return new_table
 
-    def create_column(self, node: SchemaNode, keys) -> Column:
+    def create_column(self, node: SchemaNode, keys, type: ColumnType) -> Column:
         constituents = SchemaNode.get_constituents(node)
         assert len(constituents) == 1
         c = constituents[0]
         name = self.get_fresh_name(str(c))
-        return Column(name, node, keys)
+        return Column(name, node, keys, type)
 
     def get_fresh_name(self, name: str):
         candidate = name
@@ -70,22 +77,22 @@ class Table:
         self.namespace.add(candidate)
         return candidate
 
-    def new_col_from_node(self, node: SchemaNode):
+    def new_col_from_node(self, node: SchemaNode, type: ColumnType):
         name = self.get_fresh_name(str(node))
         if name != str(node):
             new_node = self.schema.clone(node, name)
         else:
             new_node = node
-        return Column(name, new_node, [])
+        return Column(name, new_node, [], type)
 
     def clone(self, column: Column):
         name = self.get_fresh_name(column.name)
         new_node = self.schema.clone(column.node, name)
-        return Column(name, new_node, column.keyed_by)
+        return Column(name, new_node, column.keyed_by, column.type)
 
     def compose(self, from_keys: list[str], to_key: str, via: list[str] = None):
         assert len(from_keys) == len(set(from_keys))
-        key_idx = self.displayed_columns.index(to_key)
+        key_idx = find_index(self.displayed_columns, to_key)
         assert 0 <= key_idx < self.marker
         key = self.columns[to_key]
         start_node = key.node
@@ -96,27 +103,29 @@ class Table:
         end_node = SchemaNode.product(end_nodes)
         _, d, hidden_keys = self.schema.find_shortest_path(start_node, end_node, via_nodes, backwards=True)
         new_table = Table.create_from_table(self)
-        new_cols = [new_table.new_col_from_node(node) for node in end_nodes]
+        new_cols = [new_table.new_col_from_node(node, ColumnType.KEY) for node in end_nodes]
         old_names = from_keys
         new_names = [str(c) for c in new_cols]
         new_table.namespace -= set(to_key)
-        hidden_columns = [new_table.new_col_from_node(k) for k in hidden_keys]
+        hidden_columns = [new_table.new_col_from_node(k, ColumnType.KEY) for k in hidden_keys]
 
         def compose_columns(column: Column):
             if key in set(column.keyed_by):
                 new_key = [k for k in column.keyed_by if k != key] + new_cols + hidden_columns
-                return Column(column.name, column.node, new_key)
+                return Column(column.name, column.node, new_key, ColumnType.KEY)
             else:
                 return column
 
         new_table.columns = ({c: compose_columns(self.columns[c]) for c in new_table.displayed_columns[:key_idx]}
-                             | {new_table.displayed_columns[i+key_idx]: c for i, c in enumerate(new_cols)}
-                             | {c: compose_columns(self.columns[c]) for c in new_table.displayed_columns[key_idx + len(new_cols):]}
+                             | {new_table.displayed_columns[i + key_idx]: c for i, c in enumerate(new_cols)}
+                             | {c: compose_columns(self.columns[c]) for c in
+                                new_table.displayed_columns[key_idx + len(new_cols):]}
                              | {str(col): col for col in hidden_columns})
         new_table.marker = self.marker + len(new_table.columns) - len(self.columns)
         keys = [new_table.columns[c] for c in new_table.displayed_columns[:new_table.marker]]
         vals = [new_table.columns[c] for c in new_table.displayed_columns[new_table.marker:]]
-        new_derivation = d[:-1] + [Rename({old_name: name for old_name, name in zip(old_names, new_names)}), d[-1], End(keys, [], vals)]
+        new_derivation = d[:-1] + [Rename({old_name: name for old_name, name in zip(old_names, new_names)}), d[-1],
+                                   End(keys, [], vals)]
         new_table.derivation = self.derivation[:-1] + new_derivation
         new_table.df = self.schema.execute_query(new_table.table_id, self.table_id, new_table.derivation)
         return new_table
@@ -138,21 +147,20 @@ class Table:
         old_name = name
         name = new_table.get_fresh_name(name)
 
-        hidden_keys_raw_str = [str(hk) for hk in hidden_keys] # olc names
-        hidden_keys_cols = [new_table.new_col_from_node(hk) if str(hk) != name else Column(name, hk, []) for hk in hidden_keys]
+        hidden_keys_raw_str = [str(hk) for hk in hidden_keys]  # olc names
+        hidden_keys_cols = [new_table.new_col_from_node(hk, ColumnType.KEY) if str(hk) != name else Column(name, hk, [], ColumnType.KEY) for hk in
+                            hidden_keys]
         hidden_keys_str = [str(c) for c in hidden_keys_cols]
         mapping = {old: new for old, new in zip(hidden_keys_raw_str, hidden_keys_str)}
 
         for h in hidden_keys_cols:
             new_table.columns[str(h)] = h
 
-        new_col = Column(name, end_node, cols + hidden_keys_cols)
+        new_col = Column(name, end_node, cols + hidden_keys_cols, ColumnType.VALUE)
         new_table.columns[str(new_col)] = new_col
 
         keys = [new_table.columns[c] for c in new_table.displayed_columns[:new_table.marker]]
         vals = [new_table.columns[c] for c in new_table.displayed_columns[new_table.marker:]] + [new_col]
-
-        new_col = Column(name, end_node, cols)
 
         new_table.displayed_columns += [str(new_col)]
 
@@ -172,15 +180,15 @@ class Table:
 
     def hide(self, col):
         new_table = Table.create_from_table(self)
-        idx = self.displayed_columns.index(col)
+        idx = find_index(self.displayed_columns, col)
         assert 0 <= idx
         if idx < self.marker:
             new_table.marker -= 1
         new_table.displayed_columns = self.displayed_columns[:idx] + self.displayed_columns[idx+1:]
         keys = [new_table.columns[c] for c in new_table.displayed_columns[:new_table.marker]]
-
         vals = [new_table.columns[c] for c in new_table.displayed_columns[new_table.marker:]]
         hidden_keys = list(set(new_table.columns.values()) - set(keys) - set(vals))
+        new_table.columns = {str(c): c for c in keys + vals + hidden_keys}
         new_table.derivation = self.derivation[:-1] + [End(keys, hidden_keys, vals)]
         new_table.df = new_table.schema.execute_query(new_table.table_id, self.table_id, new_table.derivation)
         return new_table
@@ -189,7 +197,7 @@ class Table:
         new_table = Table.create_from_table(self)
         assert col in self.columns.keys()
         column = self.columns[col]
-        must_be_before = len(self.displayed_columns)-1
+        must_be_before = len(self.displayed_columns) - 1
         must_be_after = 0
         for (i, x) in enumerate(self.displayed_columns):
             c = self.columns[x]
@@ -197,19 +205,17 @@ class Table:
                 must_be_before = min(must_be_before, i)
             if c in set(column.keyed_by):
                 must_be_after = max(must_be_after, i)
-        if col in self.columns.keys():
-            must_be_after -= 1
         assert must_be_after < must_be_before
-        if must_be_after <= self.marker:
-            must_be_after = min(must_be_before, new_table.marker)
-            new_table.marker += 1
-
-        new_table.displayed_columns.insert(must_be_after, col)
-
+        idx = must_be_after
+        if idx <= self.marker:
+            idx = min(must_be_before, new_table.marker)
+            if column.type == ColumnType.KEY:
+                new_table.marker += 1
+        new_table.displayed_columns.insert(idx, col)
         keys = [new_table.columns[c] for c in new_table.displayed_columns[:new_table.marker]]
         vals = [new_table.columns[c] for c in new_table.displayed_columns[new_table.marker:]]
         hidden_keys = list(set(new_table.columns.values()) - set(keys) - set(vals))
-
+        new_table.columns = {str(c): c for c in keys + vals + hidden_keys}
         new_table.derivation = self.derivation[:-1] + [End(keys, hidden_keys, vals)]
         new_table.df = new_table.schema.execute_query(new_table.table_id, self.table_id, new_table.derivation)
         return new_table
@@ -219,7 +225,6 @@ class Table:
         new_table.derivation = self.derivation[:-1] + [Filter(predicate), self.derivation[-1]]
         new_table.df = new_table.schema.execute_query(new_table.table_id, self.table_id, new_table.derivation)
         return new_table
-
 
     def __repr__(self):
         keys = ' '.join([str(self.columns[k]) for k in self.displayed_columns[:self.marker]])
@@ -232,7 +237,6 @@ class Table:
     def __getitem__(self, item):
         return self.columns[item]
 
-
     ## the task is
     ## given a schema where (bank | cardnum) and (bonus | cardnum, person)
     ## I want [cardnum person || bank bonus] as the values
@@ -243,8 +247,6 @@ class Table:
     ## t = t.infer([cardnum, person] -> cardnum)
     ## t = t.infer(cardnum -> bank).add_value(bank)
     ## t = t.infer([cardnum, person] -> bonus).add_value(bonus)
-
-
 
     ## Example of composition
     ## Schema: Order -> payment method -> billing address
