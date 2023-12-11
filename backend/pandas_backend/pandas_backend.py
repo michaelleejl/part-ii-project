@@ -8,6 +8,7 @@ from backend.pandas_backend.interpreter import get, interpret, end
 from backend.pandas_backend.relation import Relation, DataRelation
 from schema import SchemaEdge
 from schema.node import SchemaNode
+from tables.aggregation import AggregationFunction
 from tables.column import Column
 from tables.derivation import DerivationStep, Get, End
 from tables.function import Function
@@ -20,6 +21,17 @@ def interpret_function(function: Function):
     def interpreted_function(t):
         interpreted_args = [t[a.raw_column.name] if isinstance(a, Column) else a for a in arg]
         return fun(interpreted_args)
+
+    return interpreted_function
+
+
+def interpret_aggregation_function(function: AggregationFunction, name):
+    fun = function.function
+    col = function.column
+    eks = function.column.get_explicit_keys()
+
+    def interpreted_function(t):
+        return t.groupby([str(e) for e in eks])[col.raw_column.name].agg(list).apply(fun).reset_index().rename({str(col.raw_column): name}, axis=1)
 
     return interpreted_function
 
@@ -64,19 +76,32 @@ class PandasBackend(Backend):
         mapping = {f.name: str(f) for f in f_node_c} | {t.name: str(t) for t in t_node_c}
         self.edge_data[edge] = copy_data(relation).rename(mapping, axis=1)
 
-    def map_edge_to_closure_function(self, edge, function: Function):
+    def map_edge_to_closure_function(self, edge, function: Function | AggregationFunction):
         rev = SchemaEdge(edge.to_node, edge.from_node)
         f_node_c = SchemaNode.get_constituents(edge.from_node)
         t_node_c = SchemaNode.get_constituents(edge.to_node)
         mapping = {f.name: str(f) for f in f_node_c} | {t.name: str(t) for t in t_node_c}
 
-        fun = interpret_function(function)
+        if isinstance(function, Function):
+            fun = interpret_function(function)
 
-        def snap_closure(table):
-            df = copy_data(table)
-            df[str(edge.to_node)] = fun(df)
-            self.edge_data[rev] = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
-            return df
+            def snap_closure(table):
+                df = copy_data(table)
+                df[str(edge.to_node)] = fun(df)
+                self.edge_data[rev] = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
+                return df
+
+        elif isinstance(function, AggregationFunction):
+            fun = interpret_aggregation_function(function, str(edge.to_node))
+
+            def snap_closure(table):
+                df = copy_data(table)
+                df = df.merge(fun(df), on=[str(f) for f in function.column.get_explicit_keys()])
+                self.edge_data[rev] = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
+                return df
+
+        else:
+            raise Exception()
 
         self.edge_funs[edge] = snap_closure
 

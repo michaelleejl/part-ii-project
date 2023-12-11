@@ -1,4 +1,3 @@
-import inspect
 import operator
 
 from schema import Cardinality
@@ -60,8 +59,6 @@ class Function:
 
     def __truediv__(self, other):
         return self.combine_with(other, operator.truediv)
-
-
 
 
 def create_function(function):

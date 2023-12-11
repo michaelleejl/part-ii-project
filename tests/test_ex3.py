@@ -138,6 +138,7 @@ class TestEx3(expecttest.TestCase):
         #  7      || 2023-01-02 05:34:00   NA                []
         #  8      || NA                    4412              []
 
+        print(t12.assign("bonus1", t12["bonus.bonus"].aggregate(sum)))
         # bonus.cardnum is a hidden key for bonus.bonus. Let's show it.
         # this hides rows for which bonus.bonus is [], since it implies bonus.cardnum is NA
         # this is the same as t5!

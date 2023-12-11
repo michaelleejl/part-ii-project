@@ -1,6 +1,7 @@
 import operator
 
 from schema import Cardinality
+from tables.aggregation import AggregationFunction
 from tables.function import Function
 from tables.predicate import EqualityPredicate, NotPredicate, LessThanPredicate, NAPredicate, OrPredicate, AndPredicate
 from tables.raw_column import RawColumn
@@ -40,7 +41,6 @@ class Column:
     def __hash__(self):
         return self.raw_column.__hash__()
 
-
     def create_function(self, other, op):
         if isinstance(other, Column):
             return Function(op, [self, other], Cardinality.MANY_TO_ONE)
@@ -76,3 +76,6 @@ class Column:
 
     def get_hidden_keys(self):
         return self.raw_column.get_hidden_keys()
+
+    def aggregate(self, function):
+        return AggregationFunction(function, self)
