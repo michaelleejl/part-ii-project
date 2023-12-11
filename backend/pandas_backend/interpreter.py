@@ -22,7 +22,7 @@ def predicate_interpreter(predicate: Predicate):
             return lambda t: t[eq.name] == eq.value
         case "LT":
             lt = typing.cast(LessThanPredicate, predicate)
-            if isinstance(eq.value, Column):
+            if isinstance(lt.value, Column):
                 return lambda t: t[eq.name] < t[eq.value.raw_column.name]
             return lambda t: t[lt.name] < lt.value
         case "NA":

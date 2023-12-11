@@ -2,8 +2,14 @@ class Predicate:
     def __init__(self, predicate_type):
         self.predicate_type = predicate_type
 
+    def __and__(self, other):
+        return AndPredicate(self, other)
+
     def __rand__(self, other):
         return AndPredicate(self, other)
+
+    def __or__(self, other):
+        return OrPredicate(self, other)
 
     def __ror__(self, other):
         return OrPredicate(self, other)

@@ -40,7 +40,7 @@ class Function:
         fun.function = f_combine_g
         return fun
 
-    def combine_function(self, other, op):
+    def combine_with(self, other, op):
         from tables.column import Column
         if isinstance(other, Function):
             return Function.combine([self, other], op)
@@ -50,16 +50,16 @@ class Function:
             return Function.combine([self, Function.identity(other)], op)
 
     def __add__(self, other):
-        return self.combine_function(other, operator.add)
+        return self.combine_with(other, operator.add)
 
     def __sub__(self, other):
-        return self.combine_function(other, operator.sub)
+        return self.combine_with(other, operator.sub)
 
     def __mul__(self, other):
-        return self.combine_function(other, operator.mul)
+        return self.combine_with(other, operator.mul)
 
     def __truediv__(self, other):
-        return self.combine_function(other, operator.truediv)
+        return self.combine_with(other, operator.truediv)
 
 
 

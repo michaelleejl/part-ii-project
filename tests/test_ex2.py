@@ -4,20 +4,22 @@ import pandas as pd
 from schema import Schema, SchemaNode
 
 
+s = Schema()
+cardnum = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
+tstart = pd.read_csv("./csv/bonuses/tstart.csv").set_index("val_id")
+s.insert_dataframe(cardnum, "cardnum")
+s.insert_dataframe(tstart, "tstart")
+
+c_cardnum = SchemaNode("cardnum", cluster="cardnum")
+c_val_id = SchemaNode("val_id", cluster="cardnum")
+t_val_id = SchemaNode("val_id", cluster="tstart")
+t_tstart = SchemaNode("tstart", cluster="tstart")
+
+s.blend(c_val_id, t_val_id, under="Val_id")
+
+
 class TestEx2(expecttest.TestCase):
     def test_ex2(self):
-        s = Schema()
-        cardnum = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
-        tstart = pd.read_csv("./csv/bonuses/tstart.csv").set_index("val_id")
-        s.insert_dataframe(cardnum, "cardnum")
-        s.insert_dataframe(tstart, "tstart")
-
-        c_cardnum = SchemaNode("cardnum", cluster="cardnum")
-        c_val_id = SchemaNode("val_id", cluster="cardnum")
-        t_val_id = SchemaNode("val_id", cluster="tstart")
-        t_tstart = SchemaNode("tstart", cluster="tstart")
-
-        s.blend(c_val_id, t_val_id, under="Val_id")
 
 
         # ========================================================================
