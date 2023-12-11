@@ -1,5 +1,7 @@
 import abc
 
+from tables.function import Function
+
 
 class Backend(abc.ABC):
 
@@ -11,4 +13,7 @@ class Backend(abc.ABC):
         raise NotImplemented()
 
     def extend_domain(self, node, domain):
+        raise NotImplemented()
+
+    def map_edge_to_closure_function(self, edge, function: Function):
         raise NotImplemented()

@@ -9,7 +9,7 @@ from schema.edge_list import SchemaEdgeList
 from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
     NodeNotInSchemaGraphException, \
     MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, \
-    NoShortestPathBetweenNodesException, ClassAlreadyExistsException
+    NoShortestPathBetweenNodesException, ClassAlreadyExistsException, NodeAlreadyInSchemaGraphException
 from schema.node import SchemaNode
 from tables.derivation import Traverse, Equate, Project, StartTraversal, EndTraversal, Cross, Expand
 from union_find.union_find import UnionFind
@@ -79,8 +79,19 @@ class SchemaGraph:
         else:
             cluster, name = decomposition
             n = SchemaNode(name, cluster=cluster)
+        return n
+
+    def get_node_in_graph_with_name(self, name: str) -> SchemaNode:
+        n = self.get_node_with_name(name)
         if n not in self.schema_nodes:
             raise NodeNotInSchemaGraphException(n)
+        else:
+            return n
+
+    def get_node_not_in_graph_with_name(self, name: str) -> SchemaNode:
+        n = self.get_node_with_name(name)
+        if n in self.schema_nodes:
+            raise NodeAlreadyInSchemaGraphException(n)
         else:
             return n
 

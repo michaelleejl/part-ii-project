@@ -9,6 +9,7 @@ from schema.exceptions import ClusterAlreadyExistsException, NodesDoNotExistInGr
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode
 from tables.derivation import Get, End
+from tables.function import Function
 from tables.table import Table
 
 
@@ -59,16 +60,26 @@ class Schema:
             self.backend.map_atomic_node_to_domain(node, pd.DataFrame(dfa[node.name]).drop_duplicates())
 
         for node in key_names:
-            self.backend.map_edge_to_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), dfa[key_names].drop_duplicates())
+            self.backend.map_edge_to_data_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), dfa[key_names].drop_duplicates())
 
         for node in val_names:
-            self.backend.map_edge_to_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), df[node].reset_index().drop_duplicates())
+            self.backend.map_edge_to_data_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), df[node].reset_index().drop_duplicates())
 
         self.schema_graph.add_nodes(nodes)
         self.schema_graph.add_cluster(nodes, key_node)
 
-    def add_node(self, name, cluster):
-        self.schema_graph.add_node(SchemaNode(name.lower(), cluster=cluster))
+    def add_node(self, name):
+        node = self.schema_graph.get_node_not_in_graph_with_name(name.lower())
+        self.schema_graph.add_node(node)
+        return node
+
+    def add_edge(self, node1, node2, cardinality):
+        edge = SchemaEdge(node1, node2, cardinality)
+        self.schema_graph.add_edge(node1, node2, cardinality)
+        return edge
+
+    def map_edge_to_closure_function(self, edge, function: Function):
+        self.backend.map_edge_to_closure_function(edge, function)
 
     def blend(self, node1: SchemaNode, node2: SchemaNode, under: str = None):
         if under is not None:
@@ -109,7 +120,7 @@ class Schema:
 
     def get(self, keys: list[str]):
         keys_str = keys
-        keys = [self.schema_graph.get_node_with_name(k) for k in keys]
+        keys = [self.schema_graph.get_node_in_graph_with_name(k) for k in keys]
         key_set = frozenset(keys)
         diff = key_set.difference(self.schema_graph.schema_nodes)
         if len(diff) > 0:
@@ -120,7 +131,7 @@ class Schema:
         return Table.construct(key_nodes, derivation, self)
 
     def get_node_with_name(self, name: str) -> SchemaNode:
-        return self.schema_graph.get_node_with_name(name)
+        return self.schema_graph.get_node_in_graph_with_name(name)
 
     def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
         return self.schema_graph.find_shortest_path(node1, node2, via, backwards)

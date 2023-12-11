@@ -1,3 +1,6 @@
+import operator
+
+from tables.function import Function
 from tables.predicate import EqualityPredicate, NotPredicate, LessThanPredicate, NAPredicate, OrPredicate, AndPredicate
 from tables.raw_column import RawColumn
 
@@ -32,3 +35,27 @@ class Column:
 
     def isnotnull(self) -> NotPredicate:
         return NotPredicate(NAPredicate(self.raw_column.name))
+
+    def __hash__(self):
+        return self.raw_column.__hash__()
+
+    def __add__(self, other):
+        return Function(operator.add, [self, other])
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __sub__(self, other):
+        pass
+
+    def __mul__(self, other):
+        pass
+
+    def __truediv__(self, other):
+        pass
+
+    def get_explicit_keys(self):
+        return self.raw_column.get_explicit_keys()
+
+    def get_hidden_keys(self):
+        return self.raw_column.get_hidden_keys()

@@ -8,7 +8,20 @@ from backend.pandas_backend.interpreter import get, interpret, end
 from backend.pandas_backend.relation import Relation, DataRelation
 from schema import SchemaEdge
 from schema.node import SchemaNode
+from tables.column import Column
 from tables.derivation import DerivationStep, Get, End
+from tables.function import Function
+
+
+def interpret_function(function: Function):
+    fun = function.function
+    arg = function.arguments
+
+    def interpreted_function(t):
+        interpreted_args = [t[a.raw_column.name] if isinstance(a, Column) else a for a in arg]
+        return fun(interpreted_args)
+
+    return interpreted_function
 
 
 class PandasBackend(Backend):
@@ -16,6 +29,7 @@ class PandasBackend(Backend):
     def __init__(self):
         self.node_data = {}
         self.edge_data = {}
+        self.edge_funs = {}
         self.derived_tables = {}
         self.clones = {}
 
@@ -41,7 +55,7 @@ class PandasBackend(Backend):
     def clone(self, node: SchemaNode, new_node: SchemaNode):
         self.clones[new_node] = node
 
-    def map_edge_to_relation(self, edge, relation: pd.DataFrame):
+    def map_edge_to_data_relation(self, edge, relation: pd.DataFrame):
         rev = SchemaEdge(edge.to_node, edge.from_node)
         assert edge not in self.edge_data
         assert rev not in self.edge_data
@@ -50,10 +64,30 @@ class PandasBackend(Backend):
         mapping = {f.name: str(f) for f in f_node_c} | {t.name: str(t) for t in t_node_c}
         self.edge_data[edge] = copy_data(relation).rename(mapping, axis=1)
 
-    def get_relation_from_edge(self, edge: SchemaEdge) -> pd.DataFrame:
+    def map_edge_to_closure_function(self, edge, function: Function):
         rev = SchemaEdge(edge.to_node, edge.from_node)
-        if edge in self.edge_data:
+        f_node_c = SchemaNode.get_constituents(edge.from_node)
+        t_node_c = SchemaNode.get_constituents(edge.to_node)
+        mapping = {f.name: str(f) for f in f_node_c} | {t.name: str(t) for t in t_node_c}
+
+        fun = interpret_function(function)
+
+        def snap_closure(table):
+            df = copy_data(table)
+            df[str(edge.to_node)] = fun(df)
+            self.edge_data[rev] = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
+            return df
+
+        self.edge_funs[edge] = snap_closure
+
+    def get_relation_from_edge(self, edge: SchemaEdge, table) -> pd.DataFrame:
+        rev = SchemaEdge(edge.to_node, edge.from_node)
+        if edge in self.edge_funs:
+            return self.edge_funs[edge](table)
+        elif edge in self.edge_data:
             return copy_data(self.edge_data[edge])
+        elif edge in self.edge_funs:
+            return self.edge_funs[rev](table)
         elif rev in self.edge_data:
             return copy_data(self.edge_data[rev])
 

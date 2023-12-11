@@ -1,3 +1,5 @@
+from collections import deque
+
 from schema import SchemaNode, SchemaEdge
 
 from enum import Enum
@@ -9,7 +11,7 @@ class ColumnType(Enum):
 
 
 class RawColumn:
-    def __init__(self, name: str, node: SchemaNode, keyed_by: list[any], type: ColumnType, derivation: list[SchemaEdge] = None):
+    def __init__(self, name: str, node: SchemaNode, keyed_by: list[any], type: ColumnType, derivation: list[SchemaEdge] = None, table = None):
         self.name = name
         self.node = node
         self.keyed_by = keyed_by
@@ -17,6 +19,7 @@ class RawColumn:
         if derivation is None:
             self.derivation = []
         self.derivation = derivation
+        self.table = table
 
     def get_derivation(self):
         return self.derivation
@@ -35,6 +38,28 @@ class RawColumn:
 
     def __len__(self):
         return 1
+
+    def find_leaf_keys(self):
+        leaf_keys = set()
+        visited = set(self.keyed_by)
+        to_explore = deque()
+        to_explore.extend(self.keyed_by)
+        while len(to_explore) > 0:
+            u = to_explore.popleft()
+            if len(u.keyed_by) == 0:
+                leaf_keys.add(u)
+            for v in u.keyed_by:
+                if v not in visited:
+                    to_explore.append(v)
+        return leaf_keys
+
+    def get_explicit_keys(self):
+        leaf_keys = self.find_leaf_keys()
+        return leaf_keys.intersection(self.table.keys.values()).union(self.table.values.values())
+
+    def get_hidden_keys(self):
+        leaf_keys = self.find_leaf_keys()
+        return leaf_keys.intersection(set(self.table.hidden_keys.values()))
 
     def __eq__(self, other):
         if isinstance(other, RawColumn):

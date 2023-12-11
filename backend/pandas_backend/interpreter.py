@@ -62,7 +62,7 @@ def get(derivation_step: Get, backend) -> pd.DataFrame:
     return df
 
 
-def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
+def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, int, int]:
     keys = derivation_step.keys
     values = derivation_step.values
     keys_str = [str(k) for k in keys]
@@ -87,7 +87,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
             visited = set()
             while len(candidates) > 0:
                 u = candidates.popleft()
-                if len(set([str(v) for v in u])) > 0 and set([str(v) for v in u]).issubset(set(keys_str + vals_str[:i])):
+                if len(set([str(v) for v in u])) > 0 and set([str(v) for v in u]).issubset(set(keys_str + vals_str[:i]) - set(columns_with_hidden_keys_str)):
                     hidden_dependencies.discard(str(hd))
                 new_cands = list(map(list, itertools.product(*[k.keyed_by for k in u])))
                 for nc in new_cands:
@@ -108,15 +108,19 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> pd.DataFrame:
     df[columns_with_hidden_keys_str] = df[columns_with_hidden_keys_str].map(
         lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else np.nan)
     if len(values) > 0:
-        df = df.dropna(subset=vals_str, how="all")
-    df = df.dropna(subset=keys_str_with_marker, how="any")
+        df2 = df.dropna(subset=vals_str, how="all")
+    else:
+        df2 = df
+    df3 = df2.dropna(subset=keys_str_with_marker, how="any")
 
-    df[columns_with_hidden_keys_str] = df[columns_with_hidden_keys_str].map(lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else [])
+    df3[columns_with_hidden_keys_str] = df3[columns_with_hidden_keys_str].map(lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else [])
 
-    df = df.loc[df.astype(str).drop_duplicates().index].set_index(keys_str_with_marker)
+    df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index(keys_str_with_marker)
     renaming = keys_str
-    df.index.set_names(renaming, inplace=True)
-    return df
+    df3.index.set_names(renaming, inplace=True)
+    dropped_keys_cnt = len(df2) - len(df3)
+    dropped_vals_cnt = len(df) - len(df2)
+    return df3, dropped_keys_cnt, dropped_vals_cnt
 
 
 def stt(derivation_step: StartTraversal, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
@@ -137,7 +141,7 @@ def stt(derivation_step: StartTraversal, backend, table, cont, stack) -> tuple[p
         start_node = next_step.start_node
         cols = get_columns_from_node(start_node)
         end_node = next_step.end_node
-        relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node))
+        relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table)
         hidden_keys = next_step.hidden_keys
         return pd.merge(table, relation, on=cols, how="right"), cont, stack + [base] + [str(k) for k in hidden_keys]
     elif next_step.name == "EQU":
@@ -158,7 +162,7 @@ def trv(derivation_step: Traverse, backend, table, cont, stack) -> tuple[pd.Data
     mapping = derivation_step.mapping
     cols = get_columns_from_node(start_node)
     to_join = cols + list(mapping.values())
-    relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node)).rename(mapping, axis=1)
+    relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table).rename(mapping, axis=1)
     for nc in new_cols:
         if nc in mapping.keys():
             relation[nc] = relation[mapping[nc]]

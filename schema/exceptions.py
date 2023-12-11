@@ -23,6 +23,11 @@ class NodeNotInSchemaGraphException(Exception):
         super().__init__(f"Node {node} is not in schema graph.")
 
 
+class NodeAlreadyInSchemaGraphException(Exception):
+    def __init__(self, node):
+        super().__init__(f"Node {node} is already in schema graph.")
+
+
 class EdgeIsNotConnectedToNodeException(Exception):
     def __init__(self, edge, node):
         super().__init__(f"Node {node} is not connected to edge {edge}")
