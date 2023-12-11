@@ -24,7 +24,11 @@ class Transform:
 
 def add_edge_to_path(edge: SchemaEdge, path: list, backwards: bool) -> list:
     if backwards:
-        return [SchemaEdge(edge.to_node, edge.from_node, reverse_cardinality(edge.cardinality))] + path
+        if edge.is_equality():
+            e = SchemaEquality(edge.to_node, edge.from_node)
+        else:
+            e = SchemaEdge(edge.to_node, edge.from_node, reverse_cardinality(edge.cardinality))
+        return [e] + path
     else:
         return path + [edge]
 
@@ -183,9 +187,15 @@ class SchemaGraph:
             # if we see the goal, then we have found a shortest path
             for e in equivs:
                 if e == node2:
-                    shortest_path_length = count
+                    if e != u:
+                        c = count+ 1
+                    else:
+                        c = count
+                    if 0 < shortest_path_length < c:
+                        continue
+                    shortest_path_length = c
                     shortest_paths += [path + [SchemaEquality(u, e)]] if e != u else [path]
-                    nodes += [node_path + [u, e]] if e!=u else [node_path + [u]]
+                    nodes += [node_path + [u, e]] if e != u else [node_path + [u]]
                     derivation += [deriv + [Equate(u, e)]] if e != u else [deriv]
                     hidden_keys += [hks]
                 # if we see a node that the goal can be projected out from,
@@ -202,7 +212,7 @@ class SchemaGraph:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), new_path, backwards)
                             new_deriv = [Equate(u, e), Project(node2)]
                             new_nodes = [e, node2]
-                        to_explore.append((node2, node_path + new_nodes, new_path, deriv + new_deriv, hks, count + 1))
+                        to_explore.append((node2, node_path + new_nodes, new_path, deriv + new_deriv, hks, count + len(new_nodes)))
                     if backwards and e < node2:
                         if u == e:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.ONE_TO_MANY), path, backwards)
@@ -213,7 +223,7 @@ class SchemaGraph:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.ONE_TO_MANY), new_path, backwards)
                             new_deriv = [Equate(u, e), Expand(node2)]
                             new_nodes = [e, node2]
-                        to_explore.append((node2, node_path + new_nodes, path + new_path, deriv + new_deriv, hks, count + 1))
+                        to_explore.append((node2, node_path + new_nodes, path + new_path, deriv + new_deriv, hks, count + len(new_nodes)))
 
             neighbours = [(e, self.get_all_neighbours_of_node(e)) for e in equivs]
             for (e, ns) in neighbours:
@@ -231,7 +241,7 @@ class SchemaGraph:
                             new_path = add_edge_to_path(SchemaEquality(u, e), path, backwards)
                             new_path = add_edge_to_path(SchemaEdge(e, n, c), new_path, backwards)
                             to_explore.append((n, node_path + [e, n], new_path, deriv + [Equate(u, e), Traverse(e, n, diff, mapping)],
-                                               hks + diff, count + 1))
+                                               hks + diff, count + 2))
 
         if len(shortest_paths) > 1:
             raise MultipleShortestPathsBetweenNodesException(node1, node2)

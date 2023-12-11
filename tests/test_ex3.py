@@ -83,7 +83,7 @@ class TestEx3(expecttest.TestCase):
         # # #  ...
         # #
         # # # I'm only interested in rows where the bonus actually exists.
-        t4 = t3.filter(lambda t: t[t["bonus.bonus"].notnull()])
+        t4 = t3.filter(t3["bonus.bonus"].isnotnull())
         print(t4)
         # # # [Val_id Cardnum || bonus.bonus  tstart.tstart]
         # # #  1      5172    || 4            2023-01-01 09:50:00
@@ -94,8 +94,7 @@ class TestEx3(expecttest.TestCase):
         # # #  5      1410    || 2            2023-01-01 20:11:00
         # #
         # # # Did anyone actually get a bonus?
-        # # # might be worth adding a sprinkling of syntactic sugar here
-        t5 = t4.infer(["Val_id"], "cardnum.cardnum").filter(lambda t: t[t["bonus.bonus"].notnull()])
+        t5 = t4.infer(["Val_id"], "cardnum.cardnum").filter(t4["bonus.bonus"].isnotnull())
         print(t5)
         # # # Values populate keys. Since we use the same values, we will end up with the same keys.
         # # # [Val_id Cardnum || bonus.bonus  tstart.tstart            cardnum.cardnum]
@@ -106,8 +105,8 @@ class TestEx3(expecttest.TestCase):
         # # #  3      1111    || 1            2023-01-01 15:32:00      1410
         # # #  5      1410    || 2            2023-01-01 20:11:00      2354
         # #
-        # t6 = t5.filter(lambda t: t[t["Cardnum"] == t["cardnum.cardnum"]])
-        # print(t6)
+        t6 = t5.filter(t5["Cardnum"] == t5["cardnum.cardnum"])
+        print(t6)
         # # [Val_id Cardnum || bonus.bonus  tstart.tstart            cardnum.cardnum]
         # #  1      5172    || 4            2023-01-01 09:50:00      5172
 
@@ -144,7 +143,6 @@ class TestEx3(expecttest.TestCase):
         # this is the same as t5!
         # Does this mean that hiding a key could introduce new rows - specifically rows where
         # the hidden key is NA? Yes.
-        print(t12["bonus.bonus"].keyed_by)
         t13 = t12.show("bonus.cardnum")
         print(t13)
         # [Val_id bonus.cardnum || tstart.tstart         cardnum.cardnum   bonus.bonus]

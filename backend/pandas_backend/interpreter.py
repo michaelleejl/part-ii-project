@@ -7,8 +7,41 @@ import numpy as np
 import pandas as pd
 
 from schema import SchemaNode, SchemaEdge
+from tables.column import Column
 from tables.derivation import DerivationStep, Get, End, StartTraversal, Traverse, Equate, Project, EndTraversal, Rename, \
     Cross, Expand, Filter
+from tables.predicate import *
+
+
+def predicate_interpreter(predicate: Predicate):
+    match predicate.predicate_type:
+        case "EQ":
+            eq = typing.cast(EqualityPredicate, predicate)
+            if isinstance(eq.value, Column):
+                return lambda t: t[eq.name] == t[eq.value.raw_column.name]
+            return lambda t: t[eq.name] == eq.value
+        case "LT":
+            lt = typing.cast(LessThanPredicate, predicate)
+            if isinstance(eq.value, Column):
+                return lambda t: t[eq.name] < t[eq.value.raw_column.name]
+            return lambda t: t[lt.name] < lt.value
+        case "NA":
+            na = typing.cast(NAPredicate, predicate)
+            return lambda t: t[na.name].isnull()
+        case "NOT":
+            nt = typing.cast(NotPredicate, predicate)
+            p = predicate_interpreter(nt.predicate1)
+            return lambda t: ~p(t)
+        case "AND":
+            an = typing.cast(AndPredicate, predicate)
+            p1 = predicate_interpreter(an.predicate1)
+            p2 = predicate_interpreter(an.predicate2)
+            return lambda t: (p1(t)) & (p2(t))
+        case "OR":
+            rr = typing.cast(AndPredicate, predicate)
+            p1 = predicate_interpreter(rr.predicate1)
+            p2 = predicate_interpreter(rr.predicate2)
+            return lambda t: (p1(t)) | (p2(t))
 
 
 def get_columns_from_node(node) -> list[str]:
@@ -193,7 +226,8 @@ def flt(derivation_step: Filter, backend, table, cont, stack) -> tuple[pd.DataFr
     predicate = derivation_step.predicate
     def kont(x):
         t = cont(x)
-        return predicate(t)
+        pred = predicate_interpreter(predicate)
+        return t[pred(t)]
 
     return table, kont, stack
 

@@ -7,6 +7,8 @@ import pandas as pd
 
 from schema import SchemaEdge, Cardinality, reverse_cardinality
 from schema.node import SchemaNode
+from tables.column import Column
+from tables.predicate import Predicate
 from tables.raw_column import RawColumn, ColumnType
 from tables.derivation import DerivationStep, Rename, End, Filter
 
@@ -118,7 +120,7 @@ class Table:
         end_node = SchemaNode.product(end_nodes)
         derivation, d, hidden_keys = self.schema.find_shortest_path(start_node, end_node, via_nodes, backwards=True)
         new_table = Table.create_from_table(self)
-        new_cols = [new_table.new_col_from_node(node, ColumnType.KEY) for node in end_nodes]
+        new_cols = [new_table.new_col_from_node(node, ColumnType.KEY) if str(node) != str(start_node) else start_node for node in end_nodes]
         old_names = from_keys
         new_names = [str(c) for c in new_cols]
         new_table.namespace -= set(to_key)
@@ -137,6 +139,8 @@ class Table:
                 return column
 
         new_table.marker = self.marker + len(from_keys) - 1
+
+        new_table.displayed_columns = self.displayed_columns[:key_idx] + [str(c) for c in new_cols] + self.displayed_columns[key_idx+1:]
 
         new_table.keys = ({c: compose_columns(self.keys[c], ColumnType.KEY) for c in new_table.displayed_columns[:key_idx]}
                           | {new_table.displayed_columns[i + key_idx]: c for i, c in enumerate(new_cols)}
@@ -258,7 +262,7 @@ class Table:
         new_table.df = new_table.schema.execute_query(new_table.table_id, self.table_id, new_table.intermediate_representation)
         return new_table
 
-    def filter(self, predicate):
+    def filter(self, predicate: Predicate):
         new_table = Table.create_from_table(self)
         new_table.intermediate_representation = self.intermediate_representation[:-1] + [Filter(predicate), self.intermediate_representation[-1]]
         new_table.df = new_table.schema.execute_query(new_table.table_id, self.table_id, new_table.intermediate_representation)
@@ -383,7 +387,7 @@ class Table:
         vals = [new_table.values[c] for c in new_table.displayed_columns[new_table.marker:]]
         hidden_keys = list(set(self.hidden_keys.values()))
 
-        new_table.intermediate_representation = self.intermediate_representation[:-1] + [Filter(lambda t: t[t[col1] == t[col2]]), End(keys, hidden_keys, vals)]
+        new_table.intermediate_representation = self.intermediate_representation[:-1] + [Filter(Column(column1) == Column(column2)), End(keys, hidden_keys, vals)]
         new_table.df = new_table.schema.execute_query(new_table.table_id, self.table_id,
                                                       new_table.intermediate_representation)
         return new_table
@@ -397,7 +401,7 @@ class Table:
         return self.__repr__()
 
     def __getitem__(self, item):
-        return self.keys[item] if item in self.keys.keys() else self.values[item]
+        return Column(self.keys[item]) if item in self.keys.keys() else Column(self.values[item])
 
     ## the task is
     ## given a schema where (bank | cardnum) and (bonus | cardnum, person)

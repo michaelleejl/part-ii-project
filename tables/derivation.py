@@ -1,3 +1,6 @@
+from tables.predicate import Predicate
+
+
 class DerivationStep:
     def __init__(self, name):
         self.name = name
@@ -124,7 +127,7 @@ class Project(DerivationStep):
 
 
 class Filter(DerivationStep):
-    def __init__(self, predicate):
+    def __init__(self, predicate: Predicate):
         super().__init__("FLT")
         self.predicate = predicate
 

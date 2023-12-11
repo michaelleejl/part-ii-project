@@ -111,8 +111,8 @@ class TestEx8(expecttest.TestCase):
 
         # # # Can I convert in the other direction? Yes
         # # # Call compose
-        # t13 = t12.compose(["persons.person", "persons.pet"], "persons.person")
-        # print(t13)
+        t13 = t12.compose(["persons.person", "persons.pet"], "persons.person")
+        print(t13)
         # # # [persons.person persons.pet  persons.pet (1)  || persons.age]
         # # # John            Pepper       Pepper           || 27
         # # # John            Martha       Pepper           || 27
