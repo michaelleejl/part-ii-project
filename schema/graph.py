@@ -260,7 +260,7 @@ class SchemaGraph:
         if len(shortest_paths) == 0:
             raise NoShortestPathBetweenNodesException(node1, node2)
 
-        return shortest_paths[0], nodes[0], derivation[0], hidden_keys[0]
+        return nodes[0], shortest_paths[0], derivation[0], hidden_keys[0]
 
     def find_hidden_keys(self, cardinality, hks, start, end, backwards):
         diff = []

@@ -117,8 +117,10 @@ class TestEx1(expecttest.TestCase):
         #  1410
         #  1111
         #  4412
-        t23 = t22.assign("cardnum.plusone", t22["cardnum.val_id"] + t22["cardnum.cardnum"])
+        t23 = t22.assign("cardnum.plusone", t22["cardnum.cardnum"] + 1)
         print(t23)
+        t24 = t23.set_key(["cardnum.plusone"])
+        print(t24)
 
     def test_ex1_goal4(self):
         table1 = s.get(['cardnum.val_id'])
