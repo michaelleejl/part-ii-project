@@ -1,5 +1,6 @@
 import operator
 
+from schema import Cardinality
 from tables.function import Function
 from tables.predicate import EqualityPredicate, NotPredicate, LessThanPredicate, NAPredicate, OrPredicate, AndPredicate
 from tables.raw_column import RawColumn
@@ -40,19 +41,31 @@ class Column:
         return self.raw_column.__hash__()
 
     def __add__(self, other):
-        return Function(operator.add, [self, other])
+        if isinstance(other, Column):
+            return Function(operator.add, [self, other], Cardinality.MANY_TO_ONE)
+        else:
+            return Function(operator.add, [self, other], Cardinality.ONE_TO_ONE)
 
     def __radd__(self, other):
         return self.__add__(other)
 
     def __sub__(self, other):
-        pass
+        return Function(operator.sub, [self, other])
+
+    def __rsub__(self, other):
+        return self.__sub__(other)
 
     def __mul__(self, other):
-        pass
+        return Function(operator.mul, [self, other])
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
 
     def __truediv__(self, other):
-        pass
+        return Function(operator.truediv, [self, other])
+
+    def __rtruediv__(self, other):
+        return Function(operator.truediv, [self, other])
 
     def get_explicit_keys(self):
         return self.raw_column.get_explicit_keys()

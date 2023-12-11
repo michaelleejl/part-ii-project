@@ -118,8 +118,8 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
     df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index(keys_str_with_marker)
     renaming = keys_str
     df3.index.set_names(renaming, inplace=True)
-    dropped_keys_cnt = len(df2) - len(df3)
-    dropped_vals_cnt = len(df) - len(df2)
+    dropped_vals_cnt = len(df2) - len(df3)
+    dropped_keys_cnt = len(df) - len(df2)
     return df3, dropped_keys_cnt, dropped_vals_cnt
 
 

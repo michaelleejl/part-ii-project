@@ -122,6 +122,8 @@ class TestEx1(expecttest.TestCase):
         t24 = t23.set_key(["cardnum.plusone"])
         print(t24)
 
+
+
     def test_ex1_goal4(self):
         table1 = s.get(['cardnum.val_id'])
         print(table1)
@@ -135,6 +137,13 @@ class TestEx1(expecttest.TestCase):
         print(table)
         table_new = table.show('person.cardnum').show('cardnum.cardnum')
         print(table_new)
+
+    def test_ex1_goal5(self):
+        table = (s.get(['person.cardnum']).infer(['person.cardnum'], 'person.person'))
+        tbl1 = table.compose(['cardnum.val_id'], 'person.cardnum')
+        print(tbl1)
+        table2 = tbl1.set_key(["person.person"])
+        print(table2)
 
 
 

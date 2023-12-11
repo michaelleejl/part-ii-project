@@ -206,7 +206,7 @@ class SchemaGraph:
                         continue
                     shortest_path_length = c
                     shortest_paths += [path + [SchemaEquality(u, e)]] if e != u else [path]
-                    nodes += [node_path + [u, e]] if e != u else [node_path + [u]]
+                    nodes += [node_path + [e]] if e != u else [node_path]
                     derivation += [deriv + [Equate(u, e)]] if e != u else [deriv]
                     hidden_keys += [hks]
                 # if we see a node that the goal can be projected out from,
