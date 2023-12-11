@@ -301,7 +301,7 @@ class Table:
             else:
                 raise Exception()
             keyed_by = [c for c in col.keyed_by if str(c) not in set(key_list[:i])]
-            new_keys[str(k)] = RawColumn(col.name, col.node, keyed_by, ColumnType.KEY, col.derivation, self)
+            new_keys[str(k)] = RawColumn(col.name, col.node, [], ColumnType.KEY, col.derivation, self)
             new_displayed_columns += [str(k)]
             derived_f = self.values[k].keyed_by if k in self.values.keys() else self.keys[k].keyed_by
             to_explore = deque(derived_f)
@@ -332,6 +332,7 @@ class Table:
                 others += [column]
             new_displayed_columns += [col]
         new_values = {}
+        new_hidden_keys = {}
 
         for val in others:
             new_values[str(val)] = RawColumn(val.name, val.node, val.keyed_by, ColumnType.VALUE, val.derivation, self)
@@ -344,19 +345,21 @@ class Table:
                 else:
                     keyed_by = val.keyed_by + [val]
                 new_values[str(val)] = RawColumn(val.name, val.node, keyed_by, ColumnType.VALUE, new_derivation, self)
+                new_hidden_keys[str(val)] = RawColumn(val.name, val.node, [], ColumnType.VALUE, [], self)
             else:
                 new_values[str(val)] = RawColumn(val.name, val.node, val.keyed_by, ColumnType.VALUE, new_derivation, self)
 
         new_table = Table.create_from_table(self)
         new_table.keys = new_keys
         new_table.values = new_values
+        new_table.hidden_keys = self.hidden_keys | new_hidden_keys
         new_table.displayed_columns = new_displayed_columns
 
         new_table.marker = len(key_list)
 
         keys = [new_table.keys[c] for c in new_table.displayed_columns[:new_table.marker]]
         vals = [new_table.values[c] for c in new_table.displayed_columns[new_table.marker:]]
-        hidden_keys = list(set(self.hidden_keys.values()))
+        hidden_keys = list(set(new_table.hidden_keys.values()))
 
         new_table.intermediate_representation = self.intermediate_representation[:-1] + [End(keys, hidden_keys, vals)]
         new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count = new_table.schema.execute_query(new_table.table_id, self.table_id,
