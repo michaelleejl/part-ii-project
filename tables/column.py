@@ -40,29 +40,33 @@ class Column:
     def __hash__(self):
         return self.raw_column.__hash__()
 
-    def __add__(self, other):
+
+    def create_function(self, other, op):
         if isinstance(other, Column):
-            return Function(operator.add, [self, other], Cardinality.MANY_TO_ONE)
+            return Function(op, [self, other], Cardinality.MANY_TO_ONE)
         else:
-            return Function(operator.add, [self, other], Cardinality.ONE_TO_ONE)
+            return Function(op, [self, other], Cardinality.ONE_TO_ONE)
+
+    def __add__(self, other):
+        return self.create_function(other, operator.add)
 
     def __radd__(self, other):
         return self.__add__(other)
 
     def __sub__(self, other):
-        return Function(operator.sub, [self, other])
+        return self.create_function(other, operator.sub)
 
     def __rsub__(self, other):
         return self.__sub__(other)
 
     def __mul__(self, other):
-        return Function(operator.mul, [self, other])
+        return self.create_function(other, operator.mul)
 
     def __rmul__(self, other):
         return self.__mul__(other)
 
     def __truediv__(self, other):
-        return Function(operator.truediv, [self, other])
+        return self.create_function(other, operator.truediv)
 
     def __rtruediv__(self, other):
         return Function(operator.truediv, [self, other])

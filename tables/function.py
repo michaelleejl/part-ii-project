@@ -3,6 +3,7 @@ import operator
 
 from schema import Cardinality
 
+
 class Function:
     def __init__(self, function, arguments, cardinality=Cardinality.MANY_TO_ONE):
         self.function = lambda args: function(*args)
@@ -39,14 +40,28 @@ class Function:
         fun.function = f_combine_g
         return fun
 
-    def __add__(self, other):
+    def combine_function(self, other, op):
         from tables.column import Column
         if isinstance(other, Function):
-            return Function.combine([self, other], operator.add)
+            return Function.combine([self, other], op)
         elif isinstance(other, Column):
-            return Function.combine([self, Function.identity(other)], operator.add, Cardinality.MANY_TO_ONE)
+            return Function.combine([self, Function.identity(other)], op, Cardinality.MANY_TO_ONE)
         else:
-            return Function.combine([self, Function.identity(other)], operator.add)
+            return Function.combine([self, Function.identity(other)], op)
+
+    def __add__(self, other):
+        return self.combine_function(other, operator.add)
+
+    def __sub__(self, other):
+        return self.combine_function(other, operator.sub)
+
+    def __mul__(self, other):
+        return self.combine_function(other, operator.mul)
+
+    def __truediv__(self, other):
+        return self.combine_function(other, operator.truediv)
+
+
 
 
 def create_function(function):

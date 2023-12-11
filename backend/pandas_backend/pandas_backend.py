@@ -111,13 +111,14 @@ class PandasBackend(Backend):
     def execute_query(self, table_id, derived_from, derivation_steps: list[DerivationStep]):
         length = len(derivation_steps)
         assert len(derivation_steps) >= 1
-        if derived_from is None:
+        if derived_from is None or derived_from not in self.derived_tables.keys():
             first = typing.cast(Get, derivation_steps[0])
             tbl = get(first, self)
             start_from = 1
             k = lambda x: x
         else:
             tbl, k, start_from = self.derived_tables[derived_from]
+
         last = typing.cast(End, derivation_steps[-1])
         derivation_steps = derivation_steps[start_from:-1]
 

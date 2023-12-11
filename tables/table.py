@@ -425,9 +425,9 @@ class Table:
         end_node = self.schema.add_node(name)
         edge = self.schema.add_edge(start_node, end_node, function.cardinality)
         self.schema.map_edge_to_closure_function(edge, function)
-        column = RawColumn(name, end_node, columns_dedup, ColumnType.VALUE, [edge], self)
 
         new_table = Table.create_from_table(self)
+        column = RawColumn(name, end_node, columns_dedup, ColumnType.VALUE, [edge], new_table)
         new_table.displayed_columns += [str(column)]
         new_table.values = self.values | {str(column): column}
         keys = [new_table.keys[c] for c in new_table.displayed_columns[:new_table.marker]]

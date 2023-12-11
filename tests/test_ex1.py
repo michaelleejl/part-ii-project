@@ -117,7 +117,7 @@ class TestEx1(expecttest.TestCase):
         #  1410
         #  1111
         #  4412
-        t23 = t22.assign("cardnum.plusone", t22["cardnum.cardnum"] + 1)
+        t23 = t22.assign("cardnum.plusone", t22["cardnum.cardnum"] + t22["cardnum.val_id"])
         print(t23)
         t24 = t23.set_key(["cardnum.plusone"])
         print(t24)

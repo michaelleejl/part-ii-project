@@ -215,7 +215,7 @@ def ent(derivation_step: EndTraversal, backend, table, cont, stack) -> tuple[pd.
 
     assert len(stack) == 1 or len(stack) == 2
     if len(stack) == 2:
-        acc = stack[1]
+        acc = [stack[1]]
     else:
         acc = []
     return stack[0], kont, acc
@@ -240,7 +240,7 @@ def step(next_step: DerivationStep, backend, table: pd.DataFrame, cont, stack: l
     match next_step.name:
         case "STT":
             next_step = typing.cast(StartTraversal, next_step)
-            return stt(next_step, backend, table, cont, stack)
+            return stt(next_step, backend, table, cont, [])
         case "TRV":
             next_step = typing.cast(Traverse, next_step)
             return trv(next_step, backend, table, cont, stack)
