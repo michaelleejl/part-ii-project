@@ -4,7 +4,7 @@ import pandas as pd
 from schema import Schema, SchemaNode
 
 
-class TestEx8(expecttest.TestCase):
+class TestEx9(expecttest.TestCase):
     def test_ex_9(self):
         s = Schema()
         l = pd.read_csv("./csv/abstract/l.csv").set_index("k")
