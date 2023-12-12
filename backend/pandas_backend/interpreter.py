@@ -1,7 +1,7 @@
 import itertools
+import typing
 from collections import deque
 from functools import reduce
-import typing
 
 import numpy as np
 import pandas as pd
@@ -9,7 +9,7 @@ import pandas as pd
 from schema import SchemaNode, SchemaEdge
 from tables.column import Column
 from tables.derivation import DerivationStep, Get, End, StartTraversal, Traverse, Equate, Project, EndTraversal, Rename, \
-    Cross, Expand, Filter, Sort
+    Expand, Filter, Sort
 from tables.predicate import *
 
 
@@ -49,7 +49,7 @@ def get_columns_from_node(node) -> list[str]:
 
 
 def cartesian_product(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
-    return df1.merge(df2, how="cross")
+    return df1.merge(df2, how="cross").drop_duplicates()
 
 
 def get(derivation_step: Get, backend) -> pd.DataFrame:
@@ -67,7 +67,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
     values = derivation_step.values
     keys_str = [str(k) for k in keys]
     vals_str = [str(v) for v in values]
-    app = cont(table)
+    app = cont(table).drop_duplicates()
     for k in keys_str:
         app[f"KEY_{k}"] = app[k]
     keys_str_with_marker = [f"KEY_{k}" for k in keys_str]
@@ -81,7 +81,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
         hidden_depends = set(val.keyed_by) - (set(keys + values[:i]) - set(columns_with_hidden_keys))
         for hd in hidden_depends:
             if hd in set(columns_with_hidden_keys):
-                pass
+                continue
             candidates = deque()
             candidates.append(hd.keyed_by)
             visited = set()
@@ -96,7 +96,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
                         candidates.appendleft(nc)
 
         if len(hidden_dependencies) > 0:
-            to_add = app[keys_str_with_marker + [str(val)]].drop_duplicates().groupby(keys_str_with_marker)[
+            to_add = app[keys_str_with_marker + [str(val)]].groupby(keys_str_with_marker)[
                 str(val)].agg(list)
             columns_with_hidden_keys_str += [str(val)]
             columns_with_hidden_keys += [val]
@@ -123,27 +123,30 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
     return df3, dropped_keys_cnt, dropped_vals_cnt
 
 
-def stt(derivation_step: StartTraversal, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+def stt(derivation_step: StartTraversal, backend, table, cont, stack, _) -> tuple[pd.DataFrame, any, list, list]:
     base = table.copy(deep=True)
-    first_cols = get_columns_from_node(derivation_step.start_node)
+    keys = derivation_step.explicit_keys
+    first_cols = list(set(get_columns_from_node(derivation_step.start_node)).union(keys))
     table = cont(table.copy(deep=True))[first_cols]
     next_step = derivation_step.step
     if next_step.name == "PRJ":
-        return table, cont, stack + [base]
+        return table, cont, stack + [base], keys
     elif next_step.name == "EXP":
         node = next_step.node
         cs = SchemaNode.get_constituents(node)
         domains = [backend.get_domain_from_atomic_node(c) for c in cs if str(c) not in table.columns]
         df = reduce(cartesian_product, domains)
-        dfx = cartesian_product(table, df)
-        return dfx, cont, stack + [base]
+        dfx = cartesian_product(table, df).drop_duplicates()
+        return dfx, cont, stack + [base], keys
     elif next_step.name == "TRV":
         start_node = next_step.start_node
         cols = get_columns_from_node(start_node)
         end_node = next_step.end_node
-        relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table)
+        end_cols = get_columns_from_node(end_node)
+        relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
         hidden_keys = next_step.hidden_keys
-        return pd.merge(table, relation, on=cols, how="right"), cont, stack + [base] + [str(k) for k in hidden_keys]
+        intersection = set(keys).intersection(set(relation.columns))
+        return pd.merge(table, relation, on=list(set(cols + list(intersection))), how="right").drop_duplicates(), cont, stack + [base] + [str(k) for k in hidden_keys], keys
     elif next_step.name == "EQU":
         start_node = next_step.start_node
         end_node = next_step.end_node
@@ -151,18 +154,19 @@ def stt(derivation_step: StartTraversal, backend, table, cont, stack) -> tuple[p
         end_cols = get_columns_from_node(end_node)
         for s, e in zip(start_cols, end_cols):
             table[e] = table[s]
-        return table, cont, stack + [base]
+        return table, cont, stack + [base], keys
 
 
-def trv(derivation_step: Traverse, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     start_node = derivation_step.start_node
     end_node = derivation_step.end_node
     new_cols = get_columns_from_node(end_node)
     hidden_keys = derivation_step.hidden_keys
     mapping = derivation_step.mapping
     cols = get_columns_from_node(start_node)
-    to_join = cols + list(mapping.values())
-    relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table).rename(mapping, axis=1)
+    relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys).rename(mapping, axis=1)
+    intersection = set(keys).intersection(set(relation.columns))
+    to_join = list(set(cols + list(mapping.values()) + list(intersection)))
     for nc in new_cols:
         if nc in mapping.keys():
             relation[nc] = relation[mapping[nc]]
@@ -172,31 +176,31 @@ def trv(derivation_step: Traverse, backend, table, cont, stack) -> tuple[pd.Data
         acc = []
     else:
         acc = stack[-1]
-        to_drop = [c for c in cols if c not in set(acc + new_cols)]
+        to_drop = [c for c in cols if c not in set(acc + new_cols + keys)]
         new_stack = stack[:-1]
     acc += [str(k) for k in hidden_keys]
     return (pd.merge(table, relation, on=to_join, how="right")
-            .drop(columns=to_drop, axis=1), cont, new_stack + [acc])
+            .drop(columns=to_drop, axis=1).drop_duplicates(), cont, new_stack + [acc], keys)
 
 
-def equ(derivation_step: Equate, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+def equ(derivation_step: Equate, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     start_node = derivation_step.start_node
     end_node = derivation_step.end_node
     start_cols = get_columns_from_node(start_node)
     end_cols = get_columns_from_node(end_node)
     renaming = {s: e for s, e in zip(start_cols, end_cols)}
-    return table.rename(renaming, axis=1), cont, stack
+    return table.rename(renaming, axis=1), cont, stack, keys
 
 
-def prj(derivation_step: Project, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+def prj(derivation_step: Project, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     columns = get_columns_from_node(derivation_step.node)
     hks = []
     if len(stack) > 1:
         hks = stack[-1]
-    return table[columns + hks], cont, stack
+    return table[columns + hks], cont, stack, keys
 
 
-def exp(derivation_step: Expand, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     node = derivation_step.node
     cs = SchemaNode.get_constituents(node)
     domains = [backend.get_domain_from_atomic_node(c) for c in cs if str(c) not in table.columns]
@@ -204,76 +208,78 @@ def exp(derivation_step: Expand, backend, table, cont, stack) -> tuple[pd.DataFr
     df = reduce(cartesian_product, domains)
     dfx = cartesian_product(table, df)
 
-    return dfx, cont, stack
+    return dfx, cont, stack, keys
 
 
-def ent(derivation_step: EndTraversal, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     cols = get_columns_from_node(derivation_step.start_node)
-
+    end_cols = get_columns_from_node(derivation_step.end_node)
     def kont(x):
-        return pd.merge(cont(x), table, on=cols, how="outer")
+        to_merge = cont(x)
+        intersection = set(keys).intersection(set(to_merge.columns))
+        return pd.merge(to_merge, table, on=list(set(cols + list(intersection))), how="outer").drop_duplicates()
 
     assert len(stack) == 1 or len(stack) == 2
     if len(stack) == 2:
         acc = [stack[1]]
     else:
         acc = []
-    return stack[0], kont, acc
+    return stack[0], kont, acc, keys
 
 
-def rnm(derivation_step: Rename, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+def rnm(derivation_step: Rename, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     mapping = derivation_step.mapping
-    return table.rename(mapping, axis=1), cont, stack
+    return table.rename(mapping, axis=1), cont, stack, keys
 
 
-def srt(derivation_step: Sort, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+def srt(derivation_step: Sort, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     columns = derivation_step.columns
     def kont(x):
         t = cont(x)
         return t.sort_values(by=columns)
 
-    return table, kont, stack
+    return table, kont, stack, keys
 
 
-def flt(derivation_step: Filter, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+def flt(derivation_step: Filter, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     predicate = derivation_step.predicate
     def kont(x):
         t = cont(x)
         pred = predicate_interpreter(predicate)
         return t[pred(t)]
 
-    return table, kont, stack
+    return table, kont, stack, keys
 
 
-def step(next_step: DerivationStep, backend, table: pd.DataFrame, cont, stack: list) -> tuple[pd.DataFrame, any, list]:
+def step(next_step: DerivationStep, backend, table: pd.DataFrame, cont, stack: list, keys) -> tuple[pd.DataFrame, any, list, list]:
     match next_step.name:
         case "STT":
             next_step = typing.cast(StartTraversal, next_step)
-            return stt(next_step, backend, table, cont, [])
+            return stt(next_step, backend, table, cont, [], keys)
         case "TRV":
             next_step = typing.cast(Traverse, next_step)
-            return trv(next_step, backend, table, cont, stack)
+            return trv(next_step, backend, table, cont, stack, keys)
         case "EQU":
             next_step = typing.cast(Equate, next_step)
-            return equ(next_step, backend, table, cont, stack)
+            return equ(next_step, backend, table, cont, stack, keys)
         case "PRJ":
             next_step = typing.cast(Project, next_step)
-            return prj(next_step, backend, table, cont, stack)
+            return prj(next_step, backend, table, cont, stack, keys)
         case "EXP":
             next_step = typing.cast(Expand, next_step)
-            return exp(next_step, backend, table, cont, stack)
+            return exp(next_step, backend, table, cont, stack, keys)
         case "RNM":
             next_step = typing.cast(Rename, next_step)
-            return rnm(next_step, backend, table, cont, stack)
+            return rnm(next_step, backend, table, cont, stack, keys)
         case "ENT":
             next_step = typing.cast(EndTraversal, next_step)
-            return ent(next_step, backend, table, cont, stack)
+            return ent(next_step, backend, table, cont, stack, keys)
         case "FLT":
             next_step = typing.cast(Filter, next_step)
-            return flt(next_step, backend, table, cont, stack)
+            return flt(next_step, backend, table, cont, stack, keys)
         case "SRT":
             next_step = typing.cast(Sort, next_step)
-            return srt(next_step, backend, table, cont, stack)
+            return srt(next_step, backend, table, cont, stack, keys)
 
 
 def interpret(steps: list[DerivationStep], backend, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, any]:
@@ -281,6 +287,7 @@ def interpret(steps: list[DerivationStep], backend, table: pd.DataFrame, cont) -
         return table, cont
     tbl = table
     stack = []
+    keys = []
     for s in steps:
-        tbl, cont, stack = step(s, backend, tbl, cont, stack)
+        tbl, cont, stack, keys = step(s, backend, tbl, cont, stack, keys)
     return tbl, cont

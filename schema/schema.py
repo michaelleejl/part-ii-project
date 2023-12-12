@@ -94,11 +94,11 @@ class Schema:
                 raise ClassAlreadyExistsException()
             elif classname in self.schema_graph.schema_nodes and (clss1 is not None and clss1 != classname) and (clss2 is not None and clss2 != classname):
                 raise CannotRenameClassException()
-            new_members = []
+            new_members = frozenset()
             if clss1 is None:
-                new_members = self.schema_graph.equivalence_class.attach_classname(node1, classname)
+                new_members = new_members.union(self.schema_graph.equivalence_class.attach_classname(node1, classname))
             if clss2 is None:
-                new_members += self.schema_graph.equivalence_class.attach_classname(node2, classname)
+                new_members = new_members.union(self.schema_graph.equivalence_class.attach_classname(node2, classname))
             self.schema_graph.blend_nodes(node1, node2)
             self.schema_graph.blend_nodes(node1, classname)
             if new_members is not None:
@@ -109,7 +109,10 @@ class Schema:
 
     def clone(self, node: SchemaNode, name: str):
         assert len(SchemaNode.get_constituents(node)) == 1
-        new_node = SchemaNode(name, cluster=node.cluster)
+        if isinstance(node, SchemaClass):
+            new_node = SchemaClass(name)
+        else:
+            new_node = SchemaNode(name, cluster=node.cluster)
         if new_node in self.schema_graph.schema_nodes:
             assert self.schema_graph.are_nodes_equal(new_node, node)
             return new_node
@@ -118,13 +121,15 @@ class Schema:
         self.schema_graph.blend_nodes(new_node, node)
         return new_node
 
-    def get(self, keys: list[str]):
-        keys_str = keys
+    def get(self, keys: list[str], with_names: list[str] = None):
         keys = [self.schema_graph.get_node_in_graph_with_name(k) for k in keys]
         key_set = frozenset(keys)
         diff = key_set.difference(self.schema_graph.schema_nodes)
         if len(diff) > 0:
             raise NodesDoNotExistInGraphException(list(diff))
+        if with_names is not None:
+            assert len(with_names) == len(keys)
+            keys = [self.clone(k, with_names[i]) if with_names[i] is not None else k for i, k in enumerate(keys)]
         key_node = SchemaNode.product(keys)
         key_nodes = SchemaNode.get_constituents(key_node)
         derivation = [Get(key_nodes), End(keys, [],  [])]
@@ -133,11 +138,13 @@ class Schema:
     def get_node_with_name(self, name: str) -> SchemaNode:
         return self.schema_graph.get_node_in_graph_with_name(name)
 
-    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
-        return self.schema_graph.find_shortest_path(node1, node2, via, backwards)
+    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, explicit_keys, via: list[SchemaNode] = None, backwards=False):
+        return self.schema_graph.find_shortest_path(node1, node2, via, backwards, explicit_keys)
 
     def execute_query(self, table_id, derived_from, derivation):
-        return self.backend.execute_query(table_id, derived_from, derivation)
+        x, y, z, new_backend = self.backend.execute_query(table_id, derived_from, derivation)
+        self.backend = new_backend
+        return x, y, z, self
 
     def __repr__(self):
         return self.schema_graph.__repr__()

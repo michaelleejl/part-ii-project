@@ -112,9 +112,15 @@ class SchemaGraph:
         if len(constituents) == 1:
             return list(self.equivalence_class.get_equivalence_class(node))
         else:
-            ls = list(set([SchemaNode.product(list(x)) for x in
-                           (itertools.product(*[self.find_all_equivalent_nodes(c) for c in constituents]))]))
-            return [l for l in ls if len(SchemaNode.get_constituents(l)) == len(constituents)]
+            ls = list((sorted([SchemaNode.product(list(x)) for x in
+                           (itertools.product(*[self.find_all_equivalent_nodes(c) for c in constituents]))], key=str)))
+            tr = []
+            lss = set()
+            for l in ls:
+                if l not in lss and len(SchemaNode.get_constituents(l)) == len(constituents):
+                    tr += [l]
+                    lss.add(l)
+            return tr
 
     def check_nodes_in_graph(self, nodes: list[SchemaNode]):
         for node in nodes:
@@ -147,7 +153,7 @@ class SchemaGraph:
         else:
             return []
 
-    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode], backwards):
+    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode], backwards, explicit_keys):
         if via is None:
             waypoints = []
         else:
@@ -170,7 +176,7 @@ class SchemaGraph:
                 commands += cmds
                 hidden_keys += hks
                 current_leg_start = current_leg_end
-        commands[0] = StartTraversal(node1, commands[0])
+        commands[0] = StartTraversal(node1, commands[0], explicit_keys)
         return edge_path, commands + [EndTraversal(node1, node2)], hidden_keys
 
     def find_all_shortest_paths_between_nodes(self, node1: SchemaNode, node2: SchemaNode, backwards: bool = False) -> (
@@ -270,7 +276,6 @@ class SchemaGraph:
             existing_keys = set(SchemaNode.get_constituents(start))
             equiv_hks = {k: k for k in existing_keys}
             for hk in hks:
-                print(hk)
                 for eq_hk in self.find_all_equivalent_nodes(hk):
                     equiv_hks[eq_hk] = hk
                     existing_keys.add(eq_hk)
@@ -301,7 +306,7 @@ class SchemaGraph:
                 u = ns.popleft()
             if u not in visited:
                 clss = self.equivalence_class.get_equivalence_class(u)
-                equiv_class[i] = clss
+                equiv_class[i] = list(sorted(clss, key=lambda x: str(x)))
                 visited = visited.union(clss)
                 i += 1
 

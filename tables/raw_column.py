@@ -55,11 +55,21 @@ class RawColumn:
 
     def get_explicit_keys(self):
         leaf_keys = self.find_leaf_keys()
-        return leaf_keys.intersection(self.table.keys.values()).union(self.table.values.values())
+        keys = set(self.table.keys.values())
+        def is_visible_and_atomic(column):
+            col_leaf_keys = column.find_leaf_keys()
+            return len(set(col_leaf_keys).intersection(self.table.hidden_keys.values())) == 0
+
+        values = set([v for v in self.table.values.values() if is_visible_and_atomic(v)])
+        return leaf_keys.intersection(keys.union(values))
 
     def get_hidden_keys(self):
         leaf_keys = self.find_leaf_keys()
         return leaf_keys.intersection(set(self.table.hidden_keys.values()))
+
+    @classmethod
+    def assign_new_table(cls, column, table):
+        return RawColumn(column.name, column.node, column.keyed_by, column.type, column.derivation, table=table)
 
     def __eq__(self, other):
         if isinstance(other, RawColumn):

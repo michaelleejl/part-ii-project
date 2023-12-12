@@ -7,10 +7,11 @@ class DerivationStep:
 
 
 class StartTraversal(DerivationStep):
-    def __init__(self, start_node, step):
+    def __init__(self, start_node, step, explicit_keys):
         super().__init__("STT")
         self.step = step
         self.start_node = start_node
+        self.explicit_keys = explicit_keys
 
     def __repr__(self):
         return f"{self.name} <{self.start_node}, {self.step}>"
@@ -115,7 +116,7 @@ class Rename(DerivationStep):
 
 
 class Project(DerivationStep):
-    def __init__(self, columns):
+    def __init__(self, node):
         super().__init__("PRJ")
         self.node = node
 

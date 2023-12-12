@@ -1,12 +1,13 @@
 import typing
 
+import numpy as np
 import pandas as pd
 
 from backend.backend import Backend
 from backend.pandas_backend.helpers import copy_data, get_cols_of_node, determine_cardinality
 from backend.pandas_backend.interpreter import get, interpret, end
 from backend.pandas_backend.relation import Relation, DataRelation
-from schema import SchemaEdge
+from schema import SchemaEdge, reverse_cardinality
 from schema.node import SchemaNode
 from tables.aggregation import AggregationFunction
 from tables.column import Column
@@ -19,7 +20,8 @@ def interpret_function(function: Function):
     arg = function.arguments
 
     def interpreted_function(t):
-        interpreted_args = [t[a.raw_column.name] if isinstance(a, Column) else a for a in arg]
+        interpreted_args = [t[a.raw_column.name]
+                            if isinstance(a, Column) else a for a in arg]
         return fun(interpreted_args)
 
     return interpreted_function
@@ -31,7 +33,7 @@ def interpret_aggregation_function(function: AggregationFunction, name):
     eks = function.column.get_explicit_keys()
 
     def interpreted_function(t):
-        return t.groupby([str(e) for e in eks])[col.raw_column.name].agg(list).apply(fun).reset_index().rename({str(col.raw_column): name}, axis=1)
+        return pd.DataFrame(t.groupby([str(e) for e in eks])[col.raw_column.name].agg(list).apply(fun)).rename({str(col.raw_column): name}, axis=1).reset_index()
 
     return interpreted_function
 
@@ -48,7 +50,6 @@ class PandasBackend(Backend):
     def map_atomic_node_to_domain(self, node, domain: pd.DataFrame) -> None:
         cs = SchemaNode.get_constituents(node)
         assert len(cs) == 1
-        assert node not in self.node_data
         domain = copy_data(domain)
         self.clones[node] = node
         self.node_data[node] = domain
@@ -58,7 +59,7 @@ class PandasBackend(Backend):
         assert len(cs) == 1
         assert node in self.clones
         lookup = node
-        while self.clones[node] != node:
+        while self.clones[lookup] != lookup:
             lookup = self.clones[node]
         copy = copy_data(self.node_data[lookup])
         copy.columns = [str(node) for _ in copy.columns]
@@ -77,7 +78,7 @@ class PandasBackend(Backend):
         self.edge_data[edge] = copy_data(relation).rename(mapping, axis=1)
 
     def map_edge_to_closure_function(self, edge, function: Function | AggregationFunction):
-        rev = SchemaEdge(edge.to_node, edge.from_node)
+        rev = SchemaEdge(edge.to_node, edge.from_node, reverse_cardinality(edge.cardinality))
         f_node_c = SchemaNode.get_constituents(edge.from_node)
         t_node_c = SchemaNode.get_constituents(edge.to_node)
         mapping = {f.name: str(f) for f in f_node_c} | {t.name: str(t) for t in t_node_c}
@@ -85,34 +86,48 @@ class PandasBackend(Backend):
         if isinstance(function, Function):
             fun = interpret_function(function)
 
-            def snap_closure(table):
+            def snap_closure(table, keys):
                 df = copy_data(table)
-                df[str(edge.to_node)] = fun(df)
-                self.edge_data[rev] = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
+                df[str(edge.to_node)] = pd.Series(fun(df))
+                # to_merge = returned.apply(lambda x: x[0] if isinstance(x, list) else x).reset_index()
+                # df = df.merge(to_merge, on=keys, how="left")
+                data = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
+                self.edge_data[rev] = data
+                self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[str(edge.to_node)]).drop_duplicates())
                 return df
 
         elif isinstance(function, AggregationFunction):
             fun = interpret_aggregation_function(function, str(edge.to_node))
+            node_to_drop = function.column.raw_column.node
+            constituents = SchemaNode.get_constituents(edge.from_node)
+            modified_start_node = SchemaNode.product([c for c in constituents if c != node_to_drop])
+            forward = SchemaEdge(modified_start_node, edge.to_node, edge.cardinality)
+            reverse = SchemaEdge(modified_start_node, edge.to_node, reverse_cardinality(edge.cardinality))
 
-            def snap_closure(table):
+            def snap_closure(table, explicit_keys):
                 df = copy_data(table)
-                df = df.merge(fun(df), on=[str(f) for f in function.column.get_explicit_keys()])
-                self.edge_data[rev] = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
-                return df
+                keys = list(set([str(f) for f in function.column.get_explicit_keys()] + explicit_keys))
+                df = df.merge(fun(df)[keys + [str(edge.to_node)]], on=keys)
+                data = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
+                data_with_start_column_dropped = data[[c for c in data.columns if c != str(node_to_drop)]].drop_duplicates()
+                self.edge_data[forward] = data_with_start_column_dropped
+                self.edge_data[reverse] = data_with_start_column_dropped
+                self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[str(edge.to_node)]).drop_duplicates())
+                return df.drop_duplicates()
 
         else:
             raise Exception()
 
         self.edge_funs[edge] = snap_closure
 
-    def get_relation_from_edge(self, edge: SchemaEdge, table) -> pd.DataFrame:
+    def get_relation_from_edge(self, edge: SchemaEdge, table, keys) -> pd.DataFrame:
         rev = SchemaEdge(edge.to_node, edge.from_node)
         if edge in self.edge_funs:
-            return self.edge_funs[edge](table)
+            return self.edge_funs[edge](table, keys)
         elif edge in self.edge_data:
             return copy_data(self.edge_data[edge])
-        elif edge in self.edge_funs:
-            return self.edge_funs[rev](table)
+        elif rev in self.edge_funs:
+            return self.edge_funs[rev](table, keys)
         elif rev in self.edge_data:
             return copy_data(self.edge_data[rev])
 
@@ -149,4 +164,5 @@ class PandasBackend(Backend):
 
         table, cont = interpret(derivation_steps, self, tbl, k)
         self.derived_tables[table_id] = table, cont, length - 1
-        return end(last, table, cont)
+        x, y, z = end(last, table, cont)
+        return x, y, z, self

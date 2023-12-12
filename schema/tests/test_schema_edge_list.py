@@ -18,7 +18,7 @@ class TestSchemaEdgeList(expecttest.TestCase):
         e = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
         e2 = SchemaEdge(u, w, Cardinality.ONE_TO_ONE)
         es = SchemaEdgeList(frozenset([e]))
-        es2 = SchemaEdgeList.add_edge(es, e2)
+        _ = SchemaEdgeList.add_edge(es, e2)
         self.assertExpectedInline(str(es), """name <--- name2""")
 
     def test_schemaEdgeList_addingToEdgeListRaisesExceptionIfEdgeAlreadyExists(self):

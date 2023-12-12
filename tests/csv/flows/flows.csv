@@ -1,0 +1,10 @@
+from_city,to_city,volume
+Cambridge,London,3.0
+Cambridge,Edinburgh,2.4
+Cambridge,Oxford,0.6
+London,Cambridge,4.2
+London,Oxford,4.8
+Oxford,London,1.8
+Oxford,Edinburgh,1.2
+Edinburgh,Cambridge,0.6
+Edinburgh,London,2.4

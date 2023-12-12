@@ -2,7 +2,7 @@ import operator
 
 from schema import Cardinality
 from tables.aggregation import AggregationFunction
-from tables.function import Function
+from tables.function import Function, create_function, create_bijection
 from tables.predicate import EqualityPredicate, NotPredicate, LessThanPredicate, NAPredicate, OrPredicate, AndPredicate
 from tables.raw_column import RawColumn
 
@@ -79,3 +79,9 @@ class Column:
 
     def aggregate(self, function):
         return AggregationFunction(function, self)
+
+    def apply(self, function, cardinality=Cardinality.MANY_TO_ONE):
+        if cardinality == Cardinality.MANY_TO_ONE:
+            return create_function(lambda c: c.apply(function))([self])
+        else:
+            return create_bijection(lambda c: c.apply(function))([self])

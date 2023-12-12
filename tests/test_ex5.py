@@ -71,6 +71,6 @@ class TestEx5(expecttest.TestCase):
 
         # STRESS TEST
         # What if the user does
-        tbad = t11.infer(["person.person", "task.task"], "Role")
+        _ = t11.infer(["person.person", "task.task"], "Role")
         # There is no path from person.person x task.task to Role, only Role x Role.
         # This should throw an error

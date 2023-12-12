@@ -21,10 +21,10 @@ ADJACENCY LIST
 ==========================
 test_schema.trip_id;cardnum
 --------------------------
+trip_id;cardnum ---> person
 trip_id;cardnum ---> trip_id
 trip_id;cardnum ---> bonus
 trip_id;cardnum ---> cardnum
-trip_id;cardnum ---> person
 ==========================
 
 ==========================
@@ -99,8 +99,8 @@ ADJACENCY LIST
 ==========================
 bonus.trip_id;cardnum
 --------------------------
-trip_id;cardnum ---> bonus
 trip_id;cardnum ---> cardnum
+trip_id;cardnum ---> bonus
 trip_id;cardnum ---> trip_id
 ==========================
 
@@ -178,4 +178,10 @@ person.person
         cardnum_person = SchemaNode("cardnum", cluster="person")
         schema.blend(cardnum_bonus, cardnum_person, "Cardnum")
         t = schema.get(["person.cardnum", "bonus.cardnum"])
-        self.assertExpectedInline(str(t), """[person.cardnum bonus.cardnum || ]""")
+        self.assertExpectedInline(str(t), """\
+[person.cardnum bonus.cardnum || ]
+Empty DataFrame
+Columns: []
+Index: [(101, 101), (101, 111), (101, 100), (111, 101), (111, 111), (111, 100)]
+
+""")

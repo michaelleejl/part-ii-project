@@ -8,6 +8,7 @@ class Function:
         self.function = lambda args: function(*args)
         self.arguments = arguments
         self.cardinality = cardinality
+        self.explicit_keys = []
 
     @classmethod
     def identity(cls, *args):
