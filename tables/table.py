@@ -78,11 +78,11 @@ class Table:
                           table.intermediate_representation,
                           table.schema,
                           table.table_id)
-        new_table.displayed_columns = table.displayed_columns
+        new_table.displayed_columns = copy.copy(table.displayed_columns)
         new_table.marker = table.marker
-        new_table.keys = {k: RawColumn.assign_new_table(v, new_table) for k, v in table.keys.items()}
-        new_table.values = {k: RawColumn.assign_new_table(v, new_table) for k, v in table.values.items()}
-        new_table.hidden_keys = {k: RawColumn.assign_new_table(v, new_table) for k, v in table.hidden_keys.items()}
+        new_table.keys = copy.copy({k: RawColumn.assign_new_table(v, new_table) for k, v in table.keys.items()})
+        new_table.values = copy.copy({k: RawColumn.assign_new_table(v, new_table) for k, v in table.values.items()})
+        new_table.hidden_keys = copy.copy({k: RawColumn.assign_new_table(v, new_table) for k, v in table.hidden_keys.items()})
         new_table.namespace = copy.deepcopy(table.namespace)
         new_table.dropped_keys_count = table.dropped_keys_count
         new_table.dropped_vals_count = table.dropped_vals_count
@@ -129,15 +129,20 @@ class Table:
         key = self.keys[to_key]
         start_node = key.node
         via_nodes = None
+
         if via is not None:
             via_nodes = [self.schema.get_node_with_name(n) for n in via]
+
         end_nodes = [self.schema.get_node_with_name(c) for c in from_keys]
-        end_node = SchemaNode.product(end_nodes)
-        retained = self.displayed_columns[:key_idx] + [str(c) for c in SchemaNode.get_constituents(start_node)] + self.displayed_columns[key_idx+1:]
-        derivation, d, hidden_keys = self.schema.find_shortest_path(start_node, end_node, retained, via_nodes, backwards=True)
+
         new_table = Table.create_from_table(self)
-        new_cols = [new_table.new_col_from_node(node, ColumnType.KEY) if str(node) != str(start_node) else start_node
+        new_cols = [new_table.new_col_from_node(node, ColumnType.KEY) if str(node) != str(start_node) else self.keys[str(start_node)]
                     for node in end_nodes]
+        end_node = SchemaNode.product([c.node for c in new_cols])
+        retained = self.displayed_columns[:key_idx] + [str(c) for c in SchemaNode.get_constituents(
+            start_node)] + self.displayed_columns[key_idx + 1:]
+        derivation, d, hidden_keys = self.schema.find_shortest_path(start_node, end_node, retained, via_nodes,
+                                                                    backwards=True)
         old_names = from_keys
         new_names = [str(c) for c in new_cols]
         new_table.namespace -= set(to_key)

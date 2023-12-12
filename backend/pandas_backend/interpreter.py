@@ -145,7 +145,7 @@ def stt(derivation_step: StartTraversal, backend, table, cont, stack, _) -> tupl
         end_cols = get_columns_from_node(end_node)
         relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
         hidden_keys = next_step.hidden_keys
-        intersection = set(keys).intersection(set(relation.columns))
+        intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
         return pd.merge(table, relation, on=list(set(cols + list(intersection))), how="right").drop_duplicates(), cont, stack + [base] + [str(k) for k in hidden_keys], keys
     elif next_step.name == "EQU":
         start_node = next_step.start_node
@@ -165,7 +165,7 @@ def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[p
     mapping = derivation_step.mapping
     cols = get_columns_from_node(start_node)
     relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys).rename(mapping, axis=1)
-    intersection = set(keys).intersection(set(relation.columns))
+    intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
     to_join = list(set(cols + list(mapping.values()) + list(intersection)))
     for nc in new_cols:
         if nc in mapping.keys():
@@ -216,8 +216,8 @@ def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.
     end_cols = get_columns_from_node(derivation_step.end_node)
     def kont(x):
         to_merge = cont(x)
-        intersection = set(keys).intersection(set(to_merge.columns))
-        return pd.merge(to_merge, table, on=list(set(cols + list(intersection))), how="outer").drop_duplicates()
+        intersection = set(keys).intersection(set(to_merge.columns).intersection(set(table.columns)))
+        return pd.merge(table, to_merge, on=list(set(cols + list(intersection))), how="outer").drop_duplicates()
 
     assert len(stack) == 1 or len(stack) == 2
     if len(stack) == 2:
