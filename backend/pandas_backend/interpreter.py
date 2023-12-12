@@ -67,7 +67,8 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
     values = derivation_step.values
     keys_str = [str(k) for k in keys]
     vals_str = [str(v) for v in values]
-    app = cont(table).drop_duplicates()
+    app = cont(table)
+    app = app.loc[app.astype(str).drop_duplicates().index]
     for k in keys_str:
         app[f"KEY_{k}"] = app[k]
     keys_str_with_marker = [f"KEY_{k}" for k in keys_str]
@@ -81,7 +82,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
         hidden_depends = set(val.keyed_by) - (set(keys + values[:i]) - set(columns_with_hidden_keys))
         for hd in hidden_depends:
             if hd in set(columns_with_hidden_keys):
-                continue
+                break
             candidates = deque()
             candidates.append(hd.keyed_by)
             visited = set()
@@ -89,7 +90,15 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
                 u = candidates.popleft()
                 if len(set([str(v) for v in u])) > 0 and set([str(v) for v in u]).issubset(set(keys_str + vals_str[:i]) - set(columns_with_hidden_keys_str)):
                     hidden_dependencies.discard(str(hd))
-                new_cands = list(map(list, itertools.product(*[k.keyed_by for k in u])))
+                def replace_with_dependencies(cols):
+                    if len(cols) == 0:
+                        return []
+                    else:
+                        xs = replace_with_dependencies(cols[-1])
+                        return [[cols[0]] + x for x in xs] + [cols[0].keyed_by + x for x in xs]
+
+                new_cands = replace_with_dependencies(candidates)
+
                 for nc in new_cands:
                     if tuple(nc) not in visited:
                         visited.add(tuple(nc))
@@ -146,7 +155,9 @@ def stt(derivation_step: StartTraversal, backend, table, cont, stack, _) -> tupl
         relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
         hidden_keys = next_step.hidden_keys
         intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
-        return pd.merge(table, relation, on=list(set(cols + list(intersection))), how="right").drop_duplicates(), cont, stack + [base] + [str(k) for k in hidden_keys], keys
+        df = pd.merge(table, relation, on=list(set(cols + list(intersection))), how="right")
+        df = df.loc[df.astype(str).drop_duplicates().index]
+        return df, cont, stack + [base] + [str(k) for k in hidden_keys], keys
     elif next_step.name == "EQU":
         start_node = next_step.start_node
         end_node = next_step.end_node
@@ -217,7 +228,9 @@ def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.
     def kont(x):
         to_merge = cont(x)
         intersection = set(keys).intersection(set(to_merge.columns).intersection(set(table.columns)))
-        return pd.merge(table, to_merge, on=list(set(cols + list(intersection))), how="outer").drop_duplicates()
+        df = pd.merge(table, to_merge, on=list(set(cols + list(intersection))), how="outer")
+        df = df.loc[df.astype(str).drop_duplicates().index]
+        return df
 
     assert len(stack) == 1 or len(stack) == 2
     if len(stack) == 2:

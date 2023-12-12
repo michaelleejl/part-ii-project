@@ -109,11 +109,12 @@ class PandasBackend(Backend):
                 keys = list(set([str(f) for f in function.column.get_explicit_keys()] + explicit_keys))
                 df = df.merge(fun(df)[keys + [str(edge.to_node)]], on=keys)
                 data = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
-                data_with_start_column_dropped = data[[c for c in data.columns if c != str(node_to_drop)]].drop_duplicates()
+                data_with_start_column_dropped = data[[c for c in data.columns if c != str(node_to_drop)]]
+                data_with_start_column_dropped=data_with_start_column_dropped.loc[data_with_start_column_dropped.astype(str).drop_duplicates().index]
                 self.edge_data[forward] = data_with_start_column_dropped
                 self.edge_data[reverse] = data_with_start_column_dropped
                 self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[str(edge.to_node)]).drop_duplicates())
-                return df.drop_duplicates()
+                return df.loc[df.astype(str).drop_duplicates().index]
 
         else:
             raise Exception()
