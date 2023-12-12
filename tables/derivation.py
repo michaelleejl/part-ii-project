@@ -138,6 +138,18 @@ class Filter(DerivationStep):
         return self.__repr__()
 
 
+class Sort(DerivationStep):
+    def __init__(self, columns: list[str]):
+        super().__init__("SRT")
+        self.columns = columns
+
+    def __repr__(self):
+        return f"{self.name} <{self.columns}>"
+
+    def __str__(self):
+        return self.__repr__()
+
+
 class End(DerivationStep):
     def __init__(self, keys, hidden_keys, values):
         super().__init__("END")

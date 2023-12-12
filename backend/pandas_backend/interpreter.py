@@ -9,7 +9,7 @@ import pandas as pd
 from schema import SchemaNode, SchemaEdge
 from tables.column import Column
 from tables.derivation import DerivationStep, Get, End, StartTraversal, Traverse, Equate, Project, EndTraversal, Rename, \
-    Cross, Expand, Filter
+    Cross, Expand, Filter, Sort
 from tables.predicate import *
 
 
@@ -226,6 +226,15 @@ def rnm(derivation_step: Rename, backend, table, cont, stack) -> tuple[pd.DataFr
     return table.rename(mapping, axis=1), cont, stack
 
 
+def srt(derivation_step: Sort, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
+    columns = derivation_step.columns
+    def kont(x):
+        t = cont(x)
+        return t.sort_values(by=columns)
+
+    return table, kont, stack
+
+
 def flt(derivation_step: Filter, backend, table, cont, stack) -> tuple[pd.DataFrame, any, list]:
     predicate = derivation_step.predicate
     def kont(x):
@@ -262,6 +271,9 @@ def step(next_step: DerivationStep, backend, table: pd.DataFrame, cont, stack: l
         case "FLT":
             next_step = typing.cast(Filter, next_step)
             return flt(next_step, backend, table, cont, stack)
+        case "SRT":
+            next_step = typing.cast(Sort, next_step)
+            return srt(next_step, backend, table, cont, stack)
 
 
 def interpret(steps: list[DerivationStep], backend, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, any]:

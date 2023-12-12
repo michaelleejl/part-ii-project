@@ -13,7 +13,7 @@ from tables.exceptions import KeyMismatchException
 from tables.function import Function
 from tables.predicate import Predicate
 from tables.raw_column import RawColumn, ColumnType
-from tables.derivation import DerivationStep, Rename, End, Filter, StartTraversal, EndTraversal, Traverse
+from tables.derivation import DerivationStep, Rename, End, Filter, StartTraversal, EndTraversal, Traverse, Sort
 
 
 def find_index(l: list, v):
@@ -483,6 +483,14 @@ class Table:
             End(keys, hidden_keys, vals)]
         new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count = new_table.schema.execute_query(
             new_table.table_id, self.table_id,
+            new_table.intermediate_representation)
+        new_table.schema = self.schema
+        return new_table
+
+    def sort(self, cols: list[str]):
+        new_table = Table.create_from_table(self)
+        new_table.intermediate_representation = self.intermediate_representation[:-1] + [Sort(cols), self.intermediate_representation[-1]]
+        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count = self.schema.execute_query(new_table.table_id, self.table_id,
             new_table.intermediate_representation)
         new_table.schema = self.schema
         return new_table

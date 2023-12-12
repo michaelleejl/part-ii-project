@@ -98,7 +98,7 @@ class TestEx1(expecttest.TestCase):
         # # did NOT make trips, I can simply do
         #
         t13 = t12.compose(["cardnum.val_id"], "person.cardnum")
-        print(t13)
+        print(t13.sort(["person.person"]))
         # # I have a mapping from val_id to cardnum
         # # [cardnum.val_id || person.person]
         # # 2               || Steve
