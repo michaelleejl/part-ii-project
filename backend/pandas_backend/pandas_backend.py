@@ -33,7 +33,13 @@ def interpret_aggregation_function(function: AggregationFunction, name):
     eks = function.column.get_explicit_keys()
 
     def interpreted_function(t):
-        return pd.DataFrame(t.groupby([str(e) for e in eks])[col.raw_column.name].agg(list).apply(fun)).rename({str(col.raw_column): name}, axis=1).reset_index()
+        if set(eks) == set(col.raw_column.keyed_by):
+            # then you are aggregating a function, i.e. this should not be an element wise aggregation but an aggregation of the whole column
+            t2 = copy_data(t)
+            t2[col.raw_column.name] = t2.drop_duplicates()[col.raw_column.name].aggregate(fun)
+            return t2.rename({str(col.raw_column): name}, axis=1)
+        else:
+            return pd.DataFrame(t.groupby([str(e) for e in eks])[col.raw_column.name].agg(list).apply(fun)).rename({str(col.raw_column): name}, axis=1).reset_index()
 
     return interpreted_function
 
@@ -86,7 +92,7 @@ class PandasBackend(Backend):
         if isinstance(function, Function):
             fun = interpret_function(function)
 
-            def snap_closure(table, keys):
+            def closure(table, keys):
                 df = copy_data(table)
                 df[str(edge.to_node)] = pd.Series(fun(df))
                 # to_merge = returned.apply(lambda x: x[0] if isinstance(x, list) else x).reset_index()
@@ -104,22 +110,23 @@ class PandasBackend(Backend):
             forward = SchemaEdge(modified_start_node, edge.to_node, edge.cardinality)
             reverse = SchemaEdge(modified_start_node, edge.to_node, reverse_cardinality(edge.cardinality))
 
-            def snap_closure(table, explicit_keys):
+            def closure(table, explicit_keys):
                 df = copy_data(table)
                 keys = list(set([str(f) for f in function.column.get_explicit_keys()] + explicit_keys))
                 df = df.merge(fun(df)[keys + [str(edge.to_node)]], on=keys)
                 data = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
                 data_with_start_column_dropped = data[[c for c in data.columns if c != str(node_to_drop)]]
-                data_with_start_column_dropped=data_with_start_column_dropped.loc[data_with_start_column_dropped.astype(str).drop_duplicates().index]
-                self.edge_data[forward] = data_with_start_column_dropped
-                self.edge_data[reverse] = data_with_start_column_dropped
+                data_with_start_column_dropped= data_with_start_column_dropped.loc[data_with_start_column_dropped.astype(str).drop_duplicates().index]
+                if len(data_with_start_column_dropped.columns) > 0:
+                    self.edge_data[forward] = data_with_start_column_dropped
+                    self.edge_data[reverse] = data_with_start_column_dropped
                 self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[str(edge.to_node)]).drop_duplicates())
                 return df.loc[df.astype(str).drop_duplicates().index]
 
         else:
             raise Exception()
 
-        self.edge_funs[edge] = snap_closure
+        self.edge_funs[edge] = closure
 
     def get_relation_from_edge(self, edge: SchemaEdge, table, keys) -> pd.DataFrame:
         rev = SchemaEdge(edge.to_node, edge.from_node)

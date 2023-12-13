@@ -28,8 +28,10 @@ class TestChi(expecttest.TestCase):
         ## compute total inflow
         t4 = t3.set_key(["ToCity"])
         print(t4)
-        t5 = t4.assign("total_inflow", t4["volume"].aggregate(sum)).sort(["FromCity", "ToCity"])
+        t4b = t4.assign("total_inflow", t4["volume"].aggregate(sum)).sort(["FromCity", "ToCity"])
+        t5 = t4b.assign("total_inflows", t4b["total_inflow"].aggregate(sum))
         print(t5)
+
 
         ## compute total outflow
         t6 = t3.set_key(["FromCity"])
@@ -37,20 +39,20 @@ class TestChi(expecttest.TestCase):
         t7 = t6.assign("total_outflow", t6["volume"].aggregate(sum)).sort(["FromCity", "ToCity"])
         print(t7)
 
+
+
         ## combine them back into the same table
-        t8 = t3.infer(["ToCity"], "total_inflow")
+        t8 = t3.infer(["ToCity"], "total_inflow").infer(["ToCity"], "total_inflows")
         print(t8)
         t9 = t8.infer(["FromCity"], "total_outflow")
         # TODO: Define aggregation over columns with no hidden keys
         print(t9)
 
+
         t10 = (t9.assign("relative_outflow", t9["volume"] / t9["total_outflow"])
-                 .assign("expected_outflow", t9["total_inflow"] / 21)
-                 .set_key(["FromCity"]).hide("volume").hide("total_outflow").hide("ToCity").hide("total_inflow"))
+                 .assign("expected_outflow", t9["total_inflow"] / t9["total_inflows"])
+                 .set_key(["FromCity"]).hide("volume").hide("total_outflow").hide("ToCity").hide("total_inflow").hide("total_inflows"))
         print(t10)
-
-        print(t10["relative_outflow"].raw_column.keyed_by)
-
 
     # print(t5)
 
