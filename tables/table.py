@@ -2,6 +2,7 @@ import copy
 import typing
 import uuid
 from collections import deque
+from enum import Enum
 
 import pandas as pd
 
@@ -9,7 +10,9 @@ from schema import SchemaEdge, Cardinality, reverse_cardinality
 from schema.node import SchemaNode
 from tables.aggregation import AggregationFunction
 from tables.column import Column
-from tables.exceptions import KeyMismatchException
+from tables.exceptions import KeyMismatchException, ColumnsNeedToBeUniqueException, \
+    ColumnsNeedToBeInTableAndVisibleException, ColumnsNeedToBeKeysException, ColumnsNeedToBeInTableException, \
+    ColumnsNeedToBeHiddenException, IntermediateRepresentationMustHaveEndMarkerException
 from tables.function import Function
 from tables.predicate import Predicate
 from tables.raw_column import RawColumn, ColumnType
@@ -34,7 +37,34 @@ def invert_derivation(derivation: list[SchemaEdge]):
     return is_relational, new_derivation
 
 
+def check_for_uniqueness(column_names):
+    if len(column_names) != len(set(column_names)):
+        raise ColumnsNeedToBeUniqueException()
+
+
+def replace_key_and_update_derivation(key_to_be_replaced, key_to_be_replaced_by, new_derivation):
+    def replacement_fun(column: RawColumn):
+        if key_to_be_replaced in set(column.keyed_by):
+            new_key = [k for k in column.keyed_by if k != key_to_be_replaced] + key_to_be_replaced_by
+            return RawColumn(column.name, column.node, new_key, column.type, new_derivation + column.derivation,
+                             column.table)
+        else:
+            return column
+
+    return replacement_fun
+
+
 class Table:
+    class ColumnRequirements(Enum):
+        IS_KEY = 1
+        IS_HIDDEN = 2
+        IS_VAL = 3
+        IS_KEY_OR_VAL = 4
+        IS_KEY_OR_HIDDEN = 5
+        IS_VAL_OR_HIDDEN = 6
+        IS_KEY_OR_VAL_OR_HIDDEN = 7
+        IS_UNIQUE = 8
+
     def __init__(self, table_id, intermediate_representation: list[DerivationStep], schema, derived_from=None, ):
         self.table_id = table_id
         self.derived_from = derived_from
@@ -66,10 +96,16 @@ class Table:
         table.execute()
         return table
 
+    def extend_intermediate_representation(self, with_new_representation: list[DerivationStep]):
+        if not isinstance(with_new_representation[-1], End):
+            raise IntermediateRepresentationMustHaveEndMarkerException()
+        self.intermediate_representation = self.intermediate_representation[:-1] + with_new_representation
+
     def execute(self):
-        self.df, self.dropped_keys_count, self.dropped_vals_count, self.schema  = self.schema.execute_query(self.table_id,
-                                                                                              self.derived_from,
-                                                                                              self.intermediate_representation)
+        self.df, self.dropped_keys_count, self.dropped_vals_count, self.schema = self.schema.execute_query(
+            self.table_id,
+            self.derived_from,
+            self.intermediate_representation)
 
     @classmethod
     def create_from_table(cls, table):
@@ -82,7 +118,8 @@ class Table:
         new_table.marker = table.marker
         new_table.keys = copy.copy({k: RawColumn.assign_new_table(v, new_table) for k, v in table.keys.items()})
         new_table.values = copy.copy({k: RawColumn.assign_new_table(v, new_table) for k, v in table.values.items()})
-        new_table.hidden_keys = copy.copy({k: RawColumn.assign_new_table(v, new_table) for k, v in table.hidden_keys.items()})
+        new_table.hidden_keys = copy.copy(
+            {k: RawColumn.assign_new_table(v, new_table) for k, v in table.hidden_keys.items()})
         new_table.namespace = copy.deepcopy(table.namespace)
         new_table.dropped_keys_count = table.dropped_keys_count
         new_table.dropped_vals_count = table.dropped_vals_count
@@ -117,74 +154,109 @@ class Table:
             new_node = node
         return RawColumn(name, new_node, [], type, table=self)
 
+    def verify_columns(self, column_names: list[str], requirements: set[ColumnRequirements]):
+        keys = set(self.keys.keys())
+        vals = set(self.values.keys())
+        hids = set(self.hidden_keys.keys())
+        if Table.ColumnRequirements.IS_UNIQUE in requirements and len(set(column_names)) != len(column_names):
+            raise ColumnsNeedToBeUniqueException()
+        if Table.ColumnRequirements.IS_KEY_OR_VAL_OR_HIDDEN in requirements and not set(column_names).issubset(
+                keys | vals | hids):
+            raise ColumnsNeedToBeInTableException()
+        if Table.ColumnRequirements.IS_KEY_OR_VAL in requirements and not set(column_names).issubset(keys | vals):
+            raise ColumnsNeedToBeInTableAndVisibleException()
+        if Table.ColumnRequirements.IS_KEY in requirements and not set(column_names).issubset(keys):
+            raise ColumnsNeedToBeKeysException()
+        if Table.ColumnRequirements.IS_VAL in requirements and not set(column_names).issubset(vals):
+            raise ColumnsNeedToBeHiddenException()
+        if Table.ColumnRequirements.IS_UNIQUE in requirements and not len(set(column_names)) == len(column_names):
+            raise ColumnsNeedToBeUniqueException()
+
+    def update_derivation(self):
+        pass
+
     def clone(self, column: RawColumn):
         name = self.get_fresh_name(column.name)
         new_node = self.schema.clone(column.node, name)
         return RawColumn(name, new_node, column.keyed_by, column.type, [], self)
 
+    def set_keys(self, new_keys: dict[str, RawColumn]):
+        self.keys = copy.copy({k: RawColumn.assign_new_table(v, self) for k, v in new_keys.items()})
+
+    def set_vals(self, new_values: dict[str, RawColumn]):
+        self.values = copy.copy({k: RawColumn.assign_new_table(v, self) for k, v in new_values.items()})
+
+    def set_hidden_keys(self, new_hidden_keys: dict[str, RawColumn]):
+        self.hidden_keys = copy.copy({k: RawColumn.assign_new_table(v, self) for k, v in new_hidden_keys.items()})
+
     def compose(self, from_keys: list[str], to_key: str, via: list[str] = None):
-        assert len(from_keys) == len(set(from_keys))
+        self.verify_columns(from_keys, {Table.ColumnRequirements.IS_UNIQUE})
+        self.verify_columns([to_key], {Table.ColumnRequirements.IS_KEY})
+
         key_idx = find_index(self.displayed_columns, to_key)
-        assert 0 <= key_idx < self.marker
+
+        # STEP 1
+        # Initialise the new table
+        # Delete the key we want to compose on from its namespace
+        t = Table.create_from_table(self)
+        t.namespace -= {to_key}
+
+        # STEP 2
+        # 2a. Update the columns to display
+        def key_from_name(name: str):
+            return t.new_col_from_node(t.schema.get_node_with_name(name), ColumnType.KEY)
+
+        cols_to_add = [key_from_name(key) for key in from_keys]
+        t.displayed_columns = (self.displayed_columns[:key_idx] + [str(c) for c in cols_to_add] + self.displayed_columns[key_idx + 1:])
+        # 2b. Update the marker
+        t.marker = self.marker + len(from_keys) - 1
+
+        # STEP 3
+        # Determine the derivation path
+        # Want a (backwards) path from from_keys <------- to_key
+        # Create start, via, and end nodes
         key = self.keys[to_key]
         start_node = key.node
         via_nodes = None
-
         if via is not None:
-            via_nodes = [self.schema.get_node_with_name(n) for n in via]
+            via_nodes = [t.schema.get_node_with_name(n) for n in via]
+        end_node = SchemaNode.product([c.node for c in cols_to_add])
+        shortest_p = t.schema.find_shortest_path(start_node, end_node, self.displayed_columns, via_nodes, True)
+        derivation, repr, hidden_keys = shortest_p
 
-        end_nodes = [self.schema.get_node_with_name(c) for c in from_keys]
+        # STEP 4
+        # Update the keys, values, and hidden keys for the new table
+        # If we are replacing u with x, y, z, then for all columns keyed by u, we
+        # need to replace u with x, y, z. We also need to update the derivation.
+        hidden_columns = [t.new_col_from_node(k, ColumnType.KEY) for k in hidden_keys]
 
-        new_table = Table.create_from_table(self)
-        new_cols = [new_table.new_col_from_node(node, ColumnType.KEY) if str(node) != str(start_node) else self.keys[str(start_node)]
-                    for node in end_nodes]
-        end_node = SchemaNode.product([c.node for c in new_cols])
-        retained = self.displayed_columns[:key_idx] + [str(c) for c in SchemaNode.get_constituents(
-            start_node)] + self.displayed_columns[key_idx + 1:]
-        derivation, d, hidden_keys = self.schema.find_shortest_path(start_node, end_node, retained, via_nodes,
-                                                                    backwards=True)
+        update_fn = replace_key_and_update_derivation(key, cols_to_add + hidden_columns, derivation)
+
+        t.set_keys(
+            {c: update_fn(self.keys[c]) for c in t.displayed_columns[:key_idx]} |
+            {t.displayed_columns[i + key_idx]: c for i, c in enumerate(cols_to_add)} |
+            {c: update_fn(self.keys[c]) for c in t.displayed_columns[key_idx + len(cols_to_add):t.marker]}
+        )
+
+        t.set_vals({c: update_fn(self.values[c]) for c in t.displayed_columns[t.marker:]})
+
+        t.set_hidden_keys(self.hidden_keys | {str(c): c for c in hidden_columns})
+
+        # STEP 5
+        # compute the new intermediate representation
+        keys = [t.keys[c] for c in t.displayed_columns[:t.marker]]
+        vals = [t.values[c] for c in t.displayed_columns[t.marker:]]
+        hids = list(set(t.hidden_keys.values()))
+
         old_names = from_keys
-        new_names = [str(c) for c in new_cols]
-        new_table.namespace -= set(to_key)
-        hidden_columns = [new_table.new_col_from_node(k, ColumnType.KEY) for k in hidden_keys]
+        new_names = [str(c) for c in cols_to_add]
+        renaming = {old_name: name for old_name, name in zip(old_names, new_names)}
 
-        for c in list(new_table.keys.values()) + list(new_table.values.values()) + list(new_table.hidden_keys.values()):
-            c = typing.cast(RawColumn, c)
-            if key in set(c.keyed_by):
-                c.set_derivation(derivation + c.get_derivation())
+        new_repr = repr[:-1] + [Rename(renaming), repr[-1], End(keys, hids, vals)]
+        t.extend_intermediate_representation(new_repr)
+        t.execute()
 
-        def compose_columns(column: RawColumn, column_type, table):
-            if key in set(column.keyed_by):
-                new_key = [k for k in column.keyed_by if k != key] + new_cols + hidden_columns
-                return RawColumn(column.name, column.node, new_key, column_type, column.derivation, table)
-            else:
-                return column
-
-        new_table.marker = self.marker + len(from_keys) - 1
-
-        new_table.displayed_columns = self.displayed_columns[:key_idx] + [str(c) for c in
-                                                                          new_cols] + self.displayed_columns[
-                                                                                      key_idx + 1:]
-
-        new_table.keys = (
-                    {c: compose_columns(self.keys[c], ColumnType.KEY, new_table) for c in new_table.displayed_columns[:key_idx]}
-                    | {new_table.displayed_columns[i + key_idx]: c for i, c in enumerate(new_cols)}
-                    | {c: compose_columns(self.keys[c], ColumnType.KEY, new_table) for c in
-                       new_table.displayed_columns[key_idx + len(new_cols):new_table.marker]})
-        new_table.hidden_keys = {k: RawColumn.assign_new_table(v, new_table) for k, v in self.hidden_keys.items()} | {str(col): col for col in hidden_columns}
-        new_table.values = {c: compose_columns(self.values[c], ColumnType.VALUE, new_table) for c in
-                            new_table.displayed_columns[new_table.marker:]}
-        keys = [new_table.keys[c] for c in new_table.displayed_columns[:new_table.marker]]
-        vals = [new_table.values[c] for c in new_table.displayed_columns[new_table.marker:]]
-
-        new_intermediate_representation = d[:-1] + [
-            Rename({old_name: name for old_name, name in zip(old_names, new_names)}), d[-1],
-            End(keys, [], vals)]
-        new_table.intermediate_representation = self.intermediate_representation[:-1] + new_intermediate_representation
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema  = self.schema.execute_query(
-            new_table.table_id, self.table_id, new_table.intermediate_representation)
-        new_table.schema = self.schema
-        return new_table
+        return t
 
     # TODO: Handle the case where from columns is zero
     def infer(self, from_columns: list[str], to_column: str, via: list[str] = None, with_name: str = None):
@@ -195,7 +267,9 @@ class Table:
         if via is not None:
             via_nodes = [self.schema.get_node_with_name(n) for n in via]
         end_node = self.schema.get_node_with_name(to_column)
-        derivation, representation, hidden_keys = self.schema.find_shortest_path(start_node, end_node, self.displayed_columns[:self.marker], via_nodes)
+        derivation, representation, hidden_keys = self.schema.find_shortest_path(start_node, end_node,
+                                                                                 self.displayed_columns[:self.marker],
+                                                                                 via_nodes)
         new_table = Table.create_from_table(self)
         name = str(to_column)
 
@@ -228,7 +302,7 @@ class Table:
                                                                  End(keys, hidden_keys_cols, vals)]
 
         new_table.intermediate_representation = self.intermediate_representation[:-1] + new_intermediate_representation
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema  = self.schema.execute_query(
+        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = self.schema.execute_query(
             new_table.table_id, self.table_id, new_table.intermediate_representation)
         new_table.schema = self.schema
         return new_table
@@ -259,7 +333,7 @@ class Table:
         new_table.values = {str(c): RawColumn.assign_new_table(c, new_table) for c in vals}
         new_table.hidden_keys = {str(c): RawColumn.assign_new_table(c, new_table) for c in hidden_keys}
         new_table.intermediate_representation = self.intermediate_representation[:-1] + [End(keys, hidden_keys, vals)]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema  = new_table.schema.execute_query(
+        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = new_table.schema.execute_query(
             new_table.table_id, self.table_id, new_table.intermediate_representation)
         new_table.schema = self.schema
         return new_table
@@ -295,7 +369,7 @@ class Table:
         new_table.values = {str(c): RawColumn.assign_new_table(c, new_table) for c in vals}
         new_table.hidden_keys = {str(c): RawColumn.assign_new_table(c, new_table) for c in hidden_keys}
         new_table.intermediate_representation = self.intermediate_representation[:-1] + [End(keys, hidden_keys, vals)]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema  = new_table.schema.execute_query(
+        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = new_table.schema.execute_query(
             new_table.table_id, self.table_id, new_table.intermediate_representation)
         new_table.schema = self.schema
         return new_table
@@ -305,7 +379,7 @@ class Table:
         new_table.intermediate_representation = self.intermediate_representation[:-1] + [Filter(predicate),
                                                                                          self.intermediate_representation[
                                                                                              -1]]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema  = new_table.schema.execute_query(
+        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = new_table.schema.execute_query(
             new_table.table_id, self.table_id, new_table.intermediate_representation)
         new_table.schema = self.schema
         return new_table
@@ -366,15 +440,15 @@ class Table:
 
         for hk in was_key:
             new_hidden_keys[str(hk)] = RawColumn(hk.name, hk.node, [], ColumnType.VALUE,
-                                             hk.derivation,
-                                             self)
+                                                 hk.derivation,
+                                                 self)
             new_values[str(hk)] = RawColumn(hk.name, hk.node, [hk], ColumnType.VALUE,
-                                             hk.derivation,
-                                             self)
+                                            hk.derivation,
+                                            self)
         for val in others:
             if val not in set(was_key):
-                new_values[str(val)] = RawColumn(val.name, val.node, val.keyed_by, ColumnType.VALUE, val.derivation, self)
-
+                new_values[str(val)] = RawColumn(val.name, val.node, val.keyed_by, ColumnType.VALUE, val.derivation,
+                                                 self)
 
         for val in derived_from_list:
             is_relational, new_derivation = invert_derivation(derived_from[val].derivation)
@@ -393,7 +467,7 @@ class Table:
         new_table.keys = {k: RawColumn.assign_new_table(v, new_table) for k, v in new_keys.items()}
         new_table.values = {k: RawColumn.assign_new_table(v, new_table) for k, v in new_values.items()}
         new_table.hidden_keys = ({k: RawColumn.assign_new_table(v, new_table) for k, v in self.hidden_keys.items()} |
-                                {k: RawColumn.assign_new_table(v, new_table) for k, v in new_hidden_keys.items()})
+                                 {k: RawColumn.assign_new_table(v, new_table) for k, v in new_hidden_keys.items()})
         new_table.displayed_columns = new_displayed_columns
 
         new_table.marker = len(key_list)
@@ -429,19 +503,22 @@ class Table:
             if col == column2:
                 continue
             keyed_by = [c if c != column2 else column1 for c in col.keyed_by]
-            new_table.keys[str(col)] = RawColumn(col.name, col.node, keyed_by, ColumnType.KEY, col.derivation, new_table)
+            new_table.keys[str(col)] = RawColumn(col.name, col.node, keyed_by, ColumnType.KEY, col.derivation,
+                                                 new_table)
 
         for col in list(self.values.values()):
             if col == column2:
                 continue
             keyed_by = [c if c != column2 else column1 for c in col.keyed_by]
-            new_table.values[str(col)] = RawColumn(col.name, col.node, keyed_by, ColumnType.VALUE, col.derivation, new_table)
+            new_table.values[str(col)] = RawColumn(col.name, col.node, keyed_by, ColumnType.VALUE, col.derivation,
+                                                   new_table)
 
         for col in list(self.values.values()):
             if col == column2:
                 continue
             keyed_by = [c if c != column2 else column1 for c in col.keyed_by]
-            new_table.hidden_keys[str(col)] = RawColumn(col.name, col.node, keyed_by, col.type, col.derivation, new_table)
+            new_table.hidden_keys[str(col)] = RawColumn(col.name, col.node, keyed_by, col.type, col.derivation,
+                                                        new_table)
 
         keys = [new_table.keys[c] for c in new_table.displayed_columns[:new_table.marker]]
         vals = [new_table.values[c] for c in new_table.displayed_columns[new_table.marker:]]
@@ -500,14 +577,16 @@ class Table:
         keys = [new_table.keys[c] for c in new_table.displayed_columns[:new_table.marker]]
         vals = [new_table.values[c] for c in new_table.displayed_columns[new_table.marker:]]
 
-        new_table.keys = {str(k):RawColumn.assign_new_table(k, new_table) for k in keys}
-        new_table.values = {str(v):RawColumn.assign_new_table(v, new_table) for v in vals}
+        new_table.keys = {str(k): RawColumn.assign_new_table(k, new_table) for k in keys}
+        new_table.values = {str(v): RawColumn.assign_new_table(v, new_table) for v in vals}
 
-        traversal = [StartTraversal(start_node, Traverse(start_node, end_node), new_table.displayed_columns[:new_table.marker]), EndTraversal(start_node, end_node)]
+        traversal = [
+            StartTraversal(start_node, Traverse(start_node, end_node), new_table.displayed_columns[:new_table.marker]),
+            EndTraversal(start_node, end_node)]
 
         new_table.intermediate_representation = self.intermediate_representation[:-1] + traversal + [
             End(keys, hidden_keys, vals)]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema  = new_table.schema.execute_query(
+        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = new_table.schema.execute_query(
             new_table.table_id, self.table_id,
             new_table.intermediate_representation)
         new_table.schema = self.schema
@@ -515,8 +594,11 @@ class Table:
 
     def sort(self, cols: list[str]):
         new_table = Table.create_from_table(self)
-        new_table.intermediate_representation = self.intermediate_representation[:-1] + [Sort(cols), self.intermediate_representation[-1]]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = self.schema.execute_query(new_table.table_id, self.table_id,
+        new_table.intermediate_representation = self.intermediate_representation[:-1] + [Sort(cols),
+                                                                                         self.intermediate_representation[
+                                                                                             -1]]
+        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = self.schema.execute_query(
+            new_table.table_id, self.table_id,
             new_table.intermediate_representation)
         new_table.schema = self.schema
         return new_table
