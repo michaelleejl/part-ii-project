@@ -6,7 +6,7 @@ from schema import Schema, SchemaNode
 
 class TestEx1(expecttest.TestCase):
 
-    def initialise(self):
+    def initialise(self) -> Schema:
         s = Schema()
 
         # Load up the CSVs
@@ -286,9 +286,9 @@ cardnum.val_id
 cardnum.val_id                                 
 1                          5172            5172
 2                          2354            2354
+5                          2354            2354
 3                          1410            1410
 4                          1111            1111
-5                          2354            2354
 8                          4412            4412
 
 """)

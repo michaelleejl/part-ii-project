@@ -90,6 +90,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
                 u = candidates.popleft()
                 if len(set([str(v) for v in u])) > 0 and set([str(v) for v in u]).issubset(set(keys_str + vals_str[:i]) - set(columns_with_hidden_keys_str)):
                     hidden_dependencies.discard(str(hd))
+
                 def replace_with_dependencies(cols):
                     if len(cols) == 0:
                         return []
@@ -138,7 +139,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
 def stt(derivation_step: StartTraversal, backend, table, cont, stack, _) -> tuple[pd.DataFrame, any, list, list]:
     base = table.copy(deep=True)
     keys = derivation_step.explicit_keys
-    first_cols = list(set(get_columns_from_node(derivation_step.start_node)).union(keys))
+    first_cols = list(set(get_columns_from_node(derivation_step.start_node)))
     table = cont(table.copy(deep=True))[first_cols]
     next_step = derivation_step.step
     if next_step.name == "PRJ":
@@ -158,7 +159,7 @@ def stt(derivation_step: StartTraversal, backend, table, cont, stack, _) -> tupl
         relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
         hidden_keys = next_step.hidden_keys
         intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
-        df = pd.merge(table, relation, on=list(set(cols + list(intersection))), how="right")
+        df = pd.merge(table, relation, on=list(set(cols)), how="right")
         df = df.loc[df.astype(str).drop_duplicates().index]
         return df, cont, stack + [base] + [str(k) for k in hidden_keys], keys
     elif next_step.name == "EQU":
@@ -180,7 +181,7 @@ def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[p
     cols = get_columns_from_node(start_node)
     relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys).rename(mapping, axis=1)
     intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
-    to_join = list(set(cols + list(mapping.values()) + list(intersection)))
+    to_join = list(set(cols + list(mapping.values())))
     for nc in new_cols:
         if nc in mapping.keys():
             relation[nc] = relation[mapping[nc]]
@@ -231,7 +232,7 @@ def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.
     def kont(x):
         to_merge = cont(x)
         intersection = set(keys).intersection(set(to_merge.columns).intersection(set(table.columns)))
-        df = pd.merge(table, to_merge, on=list(set(cols + list(intersection))), how="outer")
+        df = pd.merge(table, to_merge, on=list(set(cols)), how="outer")
         df = df.loc[df.astype(str).drop_duplicates().index]
         return df
 

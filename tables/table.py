@@ -148,11 +148,14 @@ class Table:
             name = self.get_fresh_name(str(node))
         else:
             name = self.get_fresh_name(name)
-        if name != str(node):
+        original_name = str(node)
+        if name != original_name:
+            if len(name.split(".")) > 1:
+                name = name.split(".")[1]
             new_node = self.schema.clone(node, name)
         else:
             new_node = node
-        return RawColumn(name, new_node, [], type, table=self)
+        return RawColumn(str(new_node), new_node, [], type, table=self)
 
     def verify_columns(self, column_names: list[str], requirements: set[ColumnRequirements]):
         keys = set(self.keys.keys())
