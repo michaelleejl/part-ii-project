@@ -355,9 +355,33 @@ cardnum.val_id
 
 """)
 
-    def test_ex1_goal5(self):
-        table = (s.get(['person.cardnum']).infer(['person.cardnum'], 'person.person'))
-        tbl1 = table.compose(['cardnum.val_id'], 'person.cardnum')
-        print(tbl1)
-        table2 = tbl1.set_key(["person.person"])
-        print(table2)
+    def test_ex1_goal5_step1_getAndCompose(self):
+        s = self.initialise()
+        t41 = (s.get(['person.cardnum']).infer(['person.cardnum'], 'person.person'))
+        t42 = t41.compose(['cardnum.val_id'], 'person.cardnum')
+        self.assertExpectedInline(str(t42), """\
+[cardnum.val_id || person.person]
+               person.person
+cardnum.val_id              
+2.0                    Steve
+5.0                    Steve
+3.0                      Tom
+4.0                    Steve
+2 keys hidden
+2 values hidden
+
+""")
+    def test_ex1_goal5_step2_setKey(self):
+        s = self.initialise()
+        t41 = (s.get(['person.cardnum']).infer(['person.cardnum'], 'person.person'))
+        t42 = t41.compose(['cardnum.val_id'], 'person.cardnum')
+        t43 = t42.set_key(["person.person"])
+        self.assertExpectedInline(str(t43), """\
+[person.person || cardnum.val_id]
+                cardnum.val_id
+person.person                 
+Steve          [2.0, 5.0, 4.0]
+Tom                      [3.0]
+3 keys hidden
+
+""")
