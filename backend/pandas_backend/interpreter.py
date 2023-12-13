@@ -94,10 +94,13 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
                     if len(cols) == 0:
                         return []
                     else:
-                        xs = replace_with_dependencies(cols[-1])
-                        return [[cols[0]] + x for x in xs] + [cols[0].keyed_by + x for x in xs]
+                        xs = replace_with_dependencies(cols[:-1])
+                        if len(xs) == 0:
+                            return [cols[0].keyed_by]
+                        else:
+                            return [[cols[0]] + x for x in xs if x != cols[:-1]] + [cols[0].keyed_by + x for x in xs]
 
-                new_cands = replace_with_dependencies(candidates)
+                new_cands = replace_with_dependencies(u)
 
                 for nc in new_cands:
                     if tuple(nc) not in visited:

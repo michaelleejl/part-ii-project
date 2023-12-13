@@ -183,6 +183,12 @@ class Table:
         new_node = self.schema.clone(column.node, name)
         return RawColumn(name, new_node, column.keyed_by, column.type, [], self)
 
+    def get_column_from_index(self, index: int):
+        if 0 <= index < self.marker:
+            return self.keys[index]
+        if index < len(self.displayed_columns):
+            return self.values[index]
+
     def get_columns_as_lists(self) -> tuple[list[RawColumn], list[RawColumn], list[RawColumn]]:
         keys = [self.keys[c] for c in self.displayed_columns[:self.marker]]
         vals = [self.values[c] for c in self.displayed_columns[self.marker:]]
@@ -322,36 +328,24 @@ class Table:
 
         return t
 
-    def get_column_from_index(self, index: int):
-        if 0 <= index < self.marker:
-            return self.keys[index]
-        if index < len(self.displayed_columns):
-            return self.values[index]
-
     def combine(self, with_table):
         pass
 
-    def hide(self, col):
-        new_table = Table.create_from_table(self)
-        idx = find_index(self.displayed_columns, col)
-        assert 0 <= idx
+    def hide(self, column: str):
+        self.verify_columns([column], {Table.ColumnRequirements.IS_KEY_OR_VAL})
+        t = Table.create_from_table(self)
+        idx = find_index(self.displayed_columns, column)
         if idx < self.marker:
-            new_table.marker -= 1
-            to_hide = self.keys[col]
+            t.marker -= 1
+            to_hide = t.keys[column]
         else:
-            to_hide = self.values[col]
-        new_table.displayed_columns = self.displayed_columns[:idx] + self.displayed_columns[idx + 1:]
-        keys = [new_table.keys[c] for c in new_table.displayed_columns[:new_table.marker]]
-        vals = [new_table.values[c] for c in new_table.displayed_columns[new_table.marker:]]
-        hidden_keys = list(set(self.hidden_keys.values())) + [to_hide]
-        new_table.keys = {str(c): RawColumn.assign_new_table(c, new_table) for c in keys}
-        new_table.values = {str(c): RawColumn.assign_new_table(c, new_table) for c in vals}
-        new_table.hidden_keys = {str(c): RawColumn.assign_new_table(c, new_table) for c in hidden_keys}
-        new_table.intermediate_representation = self.intermediate_representation[:-1] + [End(keys, hidden_keys, vals)]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = new_table.schema.execute_query(
-            new_table.table_id, self.table_id, new_table.intermediate_representation)
-        new_table.schema = self.schema
-        return new_table
+            to_hide = t.values[column]
+        t.displayed_columns = t.displayed_columns[:idx] + t.displayed_columns[idx + 1:]
+        t.set_hidden_keys(t.hidden_keys | {str(to_hide): to_hide})
+        keys, hids, vals = t.get_columns_as_lists()
+        t.extend_intermediate_representation([End(keys, hids, vals)])
+        t.execute()
+        return t
 
     def show(self, col):
         new_table = Table.create_from_table(self)
