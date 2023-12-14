@@ -53,11 +53,13 @@ def cartesian_product(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
 
 
 def get(derivation_step: Get, backend) -> pd.DataFrame:
-    nodes = derivation_step.nodes
+    columns = derivation_step.columns
+    nodes = [c.node for c in columns]
+    names = [c.name for c in columns]
     if len(nodes) == 1:
-        df = backend.get_domain_from_atomic_node(nodes[0])
+        df = backend.get_domain_from_atomic_node(nodes[0], names[0])
     else:
-        domains = [backend.get_domain_from_atomic_node(n) for n in nodes]
+        domains = [backend.get_domain_from_atomic_node(node, name) for node, name in zip(nodes, names)]
         df = reduce(cartesian_product, domains)
     return df
 
@@ -109,8 +111,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
                         candidates.appendleft(nc)
 
         if len(hidden_dependencies) > 0:
-            to_add = app[keys_str_with_marker + [str(val)]].groupby(keys_str_with_marker)[
-                str(val)].agg(list)
+            to_add = app[keys_str_with_marker + [str(val)]].groupby(keys_str_with_marker)[str(val)].agg(list)
             columns_with_hidden_keys_str += [str(val)]
             columns_with_hidden_keys += [val]
         else:
@@ -126,7 +127,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
         df2 = df
     df3 = df2.dropna(subset=keys_str_with_marker, how="any")
 
-    df3[columns_with_hidden_keys_str] = df3[columns_with_hidden_keys_str].map(lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else [])
+    df3[columns_with_hidden_keys_str] = df3[columns_with_hidden_keys_str].map(lambda d: d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else [])
 
     df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index(keys_str_with_marker)
     renaming = keys_str
@@ -139,7 +140,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
 def stt(derivation_step: StartTraversal, backend, table, cont, stack, _) -> tuple[pd.DataFrame, any, list, list]:
     base = table.copy(deep=True)
     keys = derivation_step.explicit_keys
-    first_cols = list(set(get_columns_from_node(derivation_step.start_node)))
+    first_cols = [str(c) for c in derivation_step.start_columns]
     table = cont(table.copy(deep=True))[first_cols]
     next_step = derivation_step.step
     if next_step.name == "PRJ":
@@ -157,15 +158,17 @@ def stt(derivation_step: StartTraversal, backend, table, cont, stack, _) -> tupl
         end_node = next_step.end_node
         end_cols = get_columns_from_node(end_node)
         relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
+        mapping = {str(col.node): col.name for col in derivation_step.start_columns}
+        relation = relation.rename(mapping, axis=1)
         hidden_keys = next_step.hidden_keys
         intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
-        df = pd.merge(table, relation, on=list(set(cols)), how="right")
+        df = pd.merge(table, relation, on=list(set(first_cols)), how="right")
         df = df.loc[df.astype(str).drop_duplicates().index]
         return df, cont, stack + [base] + [str(k) for k in hidden_keys], keys
     elif next_step.name == "EQU":
         start_node = next_step.start_node
         end_node = next_step.end_node
-        start_cols = get_columns_from_node(start_node)
+        start_cols = first_cols
         end_cols = get_columns_from_node(end_node)
         for s, e in zip(start_cols, end_cols):
             table[e] = table[s]
@@ -227,8 +230,8 @@ def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.
 
 
 def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
-    cols = get_columns_from_node(derivation_step.start_node)
-    end_cols = get_columns_from_node(derivation_step.end_node)
+    cols = [str(c) for c in derivation_step.start_columns]
+    end_cols = str(derivation_step.end_column)
     def kont(x):
         to_merge = cont(x)
         intersection = set(keys).intersection(set(to_merge.columns).intersection(set(table.columns)))

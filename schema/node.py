@@ -13,7 +13,7 @@ class SchemaNode:
         self.name = name
         self.constituents = constituents
         self.cluster = cluster
-        self.key = (self.name, self.cluster)
+        self.key = (self.name, self.cluster) if self.cluster is not None else self.name
         self.graph = graph
 
     def prepend_id(self, val: str) -> str:
@@ -24,22 +24,18 @@ class SchemaNode:
 
     @classmethod
     def product(cls, nodes: list[any]):
-        atomics_set = frozenset()
         atomics = []
         for node in nodes:
             cs = SchemaNode.get_constituents(node)
-            new_cs = list(filter(lambda c: c not in atomics_set, cs))
-            atomics_set = atomics_set.union(cs)
-            atomics += new_cs
-        if len(atomics_set) == 1:
-            x, = atomics_set
-            return x
+            atomics += cs
         name = ";".join([a.name for a in atomics])
         clusters = frozenset([n.cluster for n in nodes])
         cluster = None
         if len(clusters) == 1:
             cluster, = clusters
         constituents = atomics
+        if len(constituents) == 1:
+            constituents = None
         return SchemaNode(name, constituents, cluster)
 
     @classmethod

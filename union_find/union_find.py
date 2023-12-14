@@ -32,11 +32,9 @@ class UnionFind:
                  leaders: dict[UnionFindItem, UnionFindItem],
                  rank: dict[UnionFindItem, int],
                  graph: dict[UnionFindItem, frozenset[UnionFindItem]],
-                 classnames: dict[UnionFindItem, UnionFindItem],
-                 classname_aliases: dict[UnionFindItem, UnionFindItem]):
+                 classnames: dict[UnionFindItem, UnionFindItem]):
         self.leaders = leaders
         self.classnames = classnames
-        self.classname_aliases = classname_aliases
         self.rank = rank
         self.graph = graph
 
@@ -48,7 +46,7 @@ class UnionFind:
 
     @classmethod
     def initialise(cls):
-        return UnionFind({}, {}, {}, {}, {})
+        return UnionFind({}, {}, {}, {})
 
     @classmethod
     def add_singleton(cls, uf, v, classname=None):
@@ -59,8 +57,7 @@ class UnionFind:
         rank = uf.rank | {item: 0}
         graph = uf.graph | {item: frozenset()}
         classnames = uf.classnames | {item: UnionFindItem(classname) if classname is not None else None}
-        classname_aliases = uf.classname_aliases
-        return UnionFind(leaders, rank, graph, classnames, classname_aliases)
+        return UnionFind(leaders, rank, graph, classnames)
 
     @classmethod
     def add_singletons(cls, uf, vs):
@@ -70,7 +67,7 @@ class UnionFind:
         rank = uf.rank | {item: 0 for item in new_items}
         graph = uf.graph | {item: frozenset() for item in new_items}
         classnames = uf.classnames | {item: None for item in new_items}
-        return UnionFind(leaders, rank, graph, classnames, uf.classname_aliases)
+        return UnionFind(leaders, rank, graph, classnames)
 
     def find_leader(self, val):
         item = UnionFindItem(val)
@@ -97,10 +94,8 @@ class UnionFind:
 
     @classmethod
     def union(cls, uf, val1, val2):
-        from schema.schema_class import SchemaClass
         item1 = UnionFindItem(val1)
         item2 = UnionFindItem(val2)
-        classname_aliases = uf.classname_aliases
 
         if item1 not in uf.rank.keys():
             raise UnionFindDoesNotContainItemException(item1)
@@ -110,30 +105,21 @@ class UnionFind:
         clss1 = uf.classnames[item1]
         rank2 = uf.rank[item2]
         clss2 = uf.classnames[item2]
-        if isinstance(val1, SchemaClass) and isinstance(val2, SchemaClass):
-            if clss1 is not None:
-                classname_aliases |= {item2: item1}
-            else:
-                classname_aliases |= {item1: item2}
-            leaders = uf.leaders
-            rank = uf.rank
-            graph = uf.graph
+        assert clss1 is None or clss2 is None or clss1 == clss2
+        leaders = uf.leaders
+        graph = uf.graph
+        rank = uf.rank
+        if rank1 > rank2:
+            leaders[item2] = item1
+            graph[item1] = graph[item1].union([item2])
+        elif rank2 > rank1:
+            leaders[item1] = item2
+            graph[item2] = graph[item2].union([item1])
         else:
-            assert clss1 is None or clss2 is None or clss1 == clss2
-            leaders = uf.leaders
-            graph = uf.graph
-            rank = uf.rank
-            if rank1 > rank2:
-                leaders[item2] = item1
-                graph[item1] = graph[item1].union([item2])
-            elif rank2 > rank1:
-                leaders[item1] = item2
-                graph[item2] = graph[item2].union([item1])
-            else:
-                leaders[item2] = item1
-                graph[item1] = graph[item1].union([item2])
-                rank[item1] += 1
-        new_uf = UnionFind(leaders, rank, graph, uf.classnames, classname_aliases)
+            leaders[item2] = item1
+            graph[item1] = graph[item1].union([item2])
+            rank[item1] += 1
+        new_uf = UnionFind(leaders, rank, graph, uf.classnames)
         if clss1 is not None:
             new_uf.attach_classname(val2, clss1.val)
         if clss2 is not None:
@@ -145,17 +131,7 @@ class UnionFind:
         return self.classnames[item].val if item in self.classnames.keys() and self.classnames[item] is not None else None
 
     def get_equivalence_class(self, val) -> list[UnionFindItem]:
-        from schema.schema_class import SchemaClass
         es = {val}
-        if isinstance(val, SchemaClass):
-            item = UnionFindItem(val)
-            if item in self.classname_aliases:
-                val = self.classname_aliases[item].val
-
-            for k, v in self.classname_aliases.items():
-                if v.val == val:
-                    es.add(k.val)
-
         ldr = self.find_leader(val)
         to_explore = deque([UnionFindItem(ldr)])
         while len(to_explore) > 0:

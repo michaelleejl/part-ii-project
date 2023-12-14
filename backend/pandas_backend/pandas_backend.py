@@ -60,7 +60,7 @@ class PandasBackend(Backend):
         self.clones[node] = node
         self.node_data[node] = domain
 
-    def get_domain_from_atomic_node(self, node: SchemaNode):
+    def get_domain_from_atomic_node(self, node: SchemaNode, with_name: str):
         cs = SchemaNode.get_constituents(node)
         assert len(cs) == 1
         assert node in self.clones
@@ -68,7 +68,7 @@ class PandasBackend(Backend):
         while self.clones[lookup] != lookup:
             lookup = self.clones[node]
         copy = copy_data(self.node_data[lookup])
-        copy.columns = [str(node) for _ in copy.columns]
+        copy.columns = [with_name]
         return copy
 
     def clone(self, node: SchemaNode, new_node: SchemaNode):
@@ -140,7 +140,7 @@ class PandasBackend(Backend):
             return copy_data(self.edge_data[rev])
 
     def extend_domain(self, node: SchemaNode, domain_node: SchemaNode):
-        domain = self.get_domain_from_atomic_node(domain_node)
+        domain = self.get_domain_from_atomic_node(domain_node, str(domain_node))
         cs = SchemaNode.get_constituents(node)
         assert len(cs) == 1
         domain = copy_data(domain)

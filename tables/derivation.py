@@ -7,27 +7,27 @@ class DerivationStep:
 
 
 class StartTraversal(DerivationStep):
-    def __init__(self, start_node, step, explicit_keys):
+    def __init__(self, start_columns, step, explicit_keys):
         super().__init__("STT")
         self.step = step
-        self.start_node = start_node
+        self.start_columns = start_columns
         self.explicit_keys = explicit_keys
 
     def __repr__(self):
-        return f"{self.name} <{self.start_node}, {self.step}>"
+        return f"{self.name} <{self.start_columns}, {self.step}>"
 
     def __str__(self):
         return self.__repr__()
 
 
 class EndTraversal(DerivationStep):
-    def __init__(self, start_node, end_node):
+    def __init__(self, start_columns, end_column):
         super().__init__("ENT")
-        self.start_node = start_node
-        self.end_node = end_node
+        self.start_columns = start_columns
+        self.end_column = end_column
 
     def __repr__(self):
-        return f"{self.name} <{self.start_node}, {self.end_node}>"
+        return f"{self.name} <{self.start_columns}, {self.end_column}>"
 
     def __str__(self):
         return self.__repr__()
@@ -92,12 +92,12 @@ class Equate(DerivationStep):
 
 
 class Get(DerivationStep):
-    def __init__(self, nodes):
+    def __init__(self, columns):
         super().__init__("GET")
-        self.nodes = nodes
+        self.columns = columns
 
     def __repr__(self):
-        return f"{self.name} <{self.nodes}>"
+        return f"{self.name} <{self.columns}>"
 
     def __str__(self):
         return self.__repr__()

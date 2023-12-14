@@ -2,14 +2,14 @@ import pandas as pd
 
 from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.pandas_backend import PandasBackend
-from schema import SchemaClass
 from schema.edge import SchemaEdge
 from schema.exceptions import ClusterAlreadyExistsException, NodesDoNotExistInGraphException, \
     ClassAlreadyExistsException, CannotRenameClassException
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode
-from tables.derivation import Get, End
+from tables.derivation import Get, End, StartTraversal, EndTraversal
 from tables.function import Function
+from tables.raw_column import RawColumn
 from tables.table import Table
 
 
@@ -83,7 +83,7 @@ class Schema:
 
     def blend(self, node1: SchemaNode, node2: SchemaNode, under: str = None):
         if under is not None:
-            classname = SchemaClass(under)
+            classname = SchemaNode(under, cluster="type")
             clss1 = self.schema_graph.equivalence_class.get_classname(node1)
             clss2 = self.schema_graph.equivalence_class.get_classname(node2)
             if classname not in self.schema_graph.schema_nodes and clss1 is None and clss2 is None:
@@ -109,10 +109,7 @@ class Schema:
 
     def clone(self, node: SchemaNode, name: str):
         assert len(SchemaNode.get_constituents(node)) == 1
-        if isinstance(node, SchemaClass):
-            new_node = SchemaClass(name)
-        else:
-            new_node = SchemaNode(name, cluster=node.cluster)
+        new_node = SchemaNode(name, cluster=node.cluster)
         if new_node in self.schema_graph.schema_nodes:
             assert self.schema_graph.are_nodes_equal(new_node, node)
             return new_node
@@ -122,24 +119,38 @@ class Schema:
         return new_node
 
     def get(self, keys: list[str], with_names: list[str] = None):
+        names = keys
         keys = [self.schema_graph.get_node_in_graph_with_name(k) for k in keys]
         key_set = frozenset(keys)
         diff = key_set.difference(self.schema_graph.schema_nodes)
         if len(diff) > 0:
             raise NodesDoNotExistInGraphException(list(diff))
-        if with_names is not None:
-            assert len(with_names) == len(keys)
-            keys = [self.clone(k, with_names[i]) if with_names[i] is not None else k for i, k in enumerate(keys)]
+        # if with_names is not None:
+        #     assert len(with_names) == len(keys)
+        #     keys = [self.clone(k, with_names[i]) if with_names[i] is not None else k for i, k in enumerate(keys)]
+        if with_names is None:
+            with_names = names
         key_node = SchemaNode.product(keys)
         key_nodes = SchemaNode.get_constituents(key_node)
-        derivation = [Get(key_nodes), End(keys, [],  [])]
-        return Table.construct(key_nodes, derivation, self)
+        columns = list(zip(key_nodes, with_names))
+        return Table.construct(columns, self)
 
     def get_node_with_name(self, name: str) -> SchemaNode:
         return self.schema_graph.get_node_in_graph_with_name(name)
 
-    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, explicit_keys, via: list[SchemaNode] = None, backwards=False):
-        return self.schema_graph.find_shortest_path(node1, node2, via, backwards, explicit_keys)
+    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
+        return self.schema_graph.find_shortest_path(node1, node2, via, backwards)
+
+    def find_shortest_path_between_columns(self, from_columns: list[RawColumn], to_column: RawColumn, explicit_keys, via: list[SchemaNode] = None, backwards=False):
+        node1 = SchemaNode.product([c.node for c in from_columns])
+        node2 = to_column.node
+        path, commands, hidden_keys = self.find_shortest_path(node1, node2, via, backwards)
+        first = StartTraversal(from_columns, commands[0], explicit_keys)
+        last = EndTraversal(from_columns, to_column)
+        if len(commands) > 0:
+            return path, [first] + commands[1:] + [last], hidden_keys
+        else:
+            return path, [first, last], hidden_keys
 
     def execute_query(self, table_id, derived_from, derivation):
         x, y, z, new_backend = self.backend.execute_query(table_id, derived_from, derivation)

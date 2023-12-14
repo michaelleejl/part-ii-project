@@ -3,7 +3,6 @@ from collections import deque
 from dataclasses import dataclass
 
 from schema import Cardinality, SchemaEquality
-from schema.schema_class import SchemaClass
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.edge_list import SchemaEdgeList
 from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
@@ -51,7 +50,7 @@ class SchemaGraph:
             self.schema_nodes += [node]
             self.equivalence_class = UnionFind.add_singleton(self.equivalence_class, node)
 
-    def add_class(self, clss: SchemaClass):
+    def add_class(self, clss: SchemaNode):
         self.schema_nodes += [clss]
         self.equivalence_class = UnionFind.add_singleton(self.equivalence_class, clss)
         self.equivalence_class.attach_classname(clss, clss)
@@ -72,10 +71,7 @@ class SchemaGraph:
     def get_node_with_name(self, name: str) -> SchemaNode:
         decomposition = name.split(".")
         if len(decomposition) == 1:
-            if self.check_if_class(decomposition[0]):
-                n = SchemaClass(decomposition[0])
-            else:
-                n = SchemaNode(decomposition[0])
+            n = SchemaNode(decomposition[0])
         else:
             cluster, name = decomposition
             n = SchemaNode(name, cluster=cluster)
@@ -153,7 +149,7 @@ class SchemaGraph:
         else:
             return []
 
-    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode], backwards, explicit_keys):
+    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode], backwards):
         if via is None:
             waypoints = []
         else:
@@ -176,8 +172,8 @@ class SchemaGraph:
                 commands += cmds
                 hidden_keys += hks
                 current_leg_start = current_leg_end
-        commands[0] = StartTraversal(node1, commands[0], explicit_keys)
-        return edge_path, commands + [EndTraversal(node1, node2)], hidden_keys
+        # commands[0] = StartTraversal(node1, commands[0], explicit_keys)
+        return edge_path, commands, hidden_keys
 
     def find_all_shortest_paths_between_nodes(self, node1: SchemaNode, node2: SchemaNode, backwards: bool = False) -> (
     bool, SchemaEdge):

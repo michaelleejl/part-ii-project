@@ -13,16 +13,23 @@ class TestChi(expecttest.TestCase):
         s.insert_dataframe(flows, "flows")
         s.blend(SchemaNode("from_city", cluster="flows"), SchemaNode("to_city", cluster="flows"), under="City")
 
+        t0 = s.get(["flows.to_city", "flows.from_city"])
+        t01 = t0.infer(["flows.to_city", "flows.from_city"], "flows.volume")
+        print(t01)
 
-        t1 = s.get(["City", "City"], ["FromCity", "ToCity"])
+        t0 = s.get(["type.City", "type.City"], ["FromCity", "ToCity"])
+        t01 = t0.infer(["ToCity", "FromCity"], "flows.volume")
+        print(t01)
+
+        t1 = s.get(["type.City", "type.City"], ["FromCity", "ToCity"])
         print(t1)
 
-        t2 = t1.infer(["FromCity", "ToCity"], "flows.volume")
+        t2 = t1.infer(["ToCity", "FromCity"], "flows.volume")
         print(t2)
 
         fill_na = lambda x: 0 if pd.isnull(x) else x
         t3 = t2.assign("volume", t2["flows.volume"].apply(fill_na, Cardinality.ONE_TO_ONE)).sort(
-             ["FromCity", "ToCity"]).hide("flows.volume")
+             ["FromCity", "ToCity"])
         print(t3)
 
         ## compute total inflow
@@ -42,17 +49,16 @@ class TestChi(expecttest.TestCase):
 
 
         ## combine them back into the same table
-        t8 = t3.infer(["ToCity"], "total_inflow").infer(["ToCity"], "total_inflows")
+        t8 = t3.infer(["ToCity"], "total_inflow")
         print(t8)
         t9 = t8.infer(["FromCity"], "total_outflow")
-        # TODO: Define aggregation over columns with no hidden keys
         print(t9)
 
 
-        t10 = (t9.assign("relative_outflow", t9["volume"] / t9["total_outflow"])
-                 .assign("expected_outflow", t9["total_inflow"] / t9["total_inflows"])
-                 .set_key(["FromCity"]).hide("volume").hide("total_outflow").hide("ToCity").hide("total_inflow").hide("total_inflows"))
-        print(t10)
+        # t10 = (t9.assign("relative_outflow", t9["volume"] / t9["total_outflow"])
+        #          .assign("expected_outflow", t9["total_inflow"] / t9["total_inflows"])
+        #          .set_key(["FromCity"]).hide("volume").hide("total_outflow").hide("ToCity").hide("total_inflow").hide("total_inflows"))
+        # print(t10)
 
     # print(t5)
 

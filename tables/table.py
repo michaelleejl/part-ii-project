@@ -16,7 +16,8 @@ from tables.exceptions import KeyMismatchException, ColumnsNeedToBeUniqueExcepti
 from tables.function import Function
 from tables.predicate import Predicate
 from tables.raw_column import RawColumn, ColumnType
-from tables.derivation import DerivationStep, Rename, End, Filter, StartTraversal, EndTraversal, Traverse, Sort
+from tables.derivation import DerivationStep, Rename, End, Filter, StartTraversal, EndTraversal, Traverse, Sort, \
+    Project, Get
 
 
 def find_index(l: list, v):
@@ -81,14 +82,17 @@ class Table:
         self.dropped_vals_count = 0
 
     @classmethod
-    def construct(cls, key_nodes: list[SchemaNode], intermediate_representation, schema):
+    def construct(cls, columns: list[tuple[SchemaNode, str]], schema):
         table_id = uuid.uuid4().hex
-        table = Table(table_id, intermediate_representation, schema)
+        table = Table(table_id, [], schema)
         keys = []
-        for key_node in key_nodes:
-            key = table.create_column(key_node, [], ColumnType.KEY)
+        for key_node, name in columns:
+            key = table.create_column(name, key_node, [], ColumnType.KEY)
             keys += [key]
+
         table.displayed_columns = [str(k) for k in keys]
+        derivation = [Get(keys), End(table.displayed_columns, [], [])]
+        table.extend_intermediate_representation(derivation)
         table.keys = {str(k): k for k in keys}
         table.dropped_keys_count = 0
         table.dropped_vals_count = 0
@@ -99,7 +103,10 @@ class Table:
     def extend_intermediate_representation(self, with_new_representation: list[DerivationStep]):
         if not isinstance(with_new_representation[-1], End):
             raise IntermediateRepresentationMustHaveEndMarkerException()
-        self.intermediate_representation = self.intermediate_representation[:-1] + with_new_representation
+        if len(self.intermediate_representation) > 0:
+            self.intermediate_representation = self.intermediate_representation[:-1] + with_new_representation
+        else:
+            self.intermediate_representation = with_new_representation
 
     def execute(self):
         self.df, self.dropped_keys_count, self.dropped_vals_count, self.schema = self.schema.execute_query(
@@ -125,11 +132,10 @@ class Table:
         new_table.dropped_vals_count = table.dropped_vals_count
         return new_table
 
-    def create_column(self, node: SchemaNode, keys, type: ColumnType) -> RawColumn:
+    def create_column(self, name, node: SchemaNode, keys, type: ColumnType) -> RawColumn:
         constituents = SchemaNode.get_constituents(node)
         assert len(constituents) == 1
-        c = constituents[0]
-        name = self.get_fresh_name(str(c))
+        name = self.get_fresh_name(name)
         return RawColumn(name, node, keys, type, [], self)
 
     def get_fresh_name(self, name: str):
@@ -239,7 +245,7 @@ class Table:
         if via is not None:
             via_nodes = [t.schema.get_node_with_name(n) for n in via]
         end_node = SchemaNode.product([c.node for c in cols_to_add])
-        shortest_p = t.schema.find_shortest_path(start_node, end_node, self.displayed_columns, via_nodes, True)
+        shortest_p = t.schema.find_shortest_path_between_columns(cols_to_add, key, self.displayed_columns, via_nodes, True)
         derivation, repr, hidden_keys = shortest_p
 
         # STEP 4
@@ -294,14 +300,22 @@ class Table:
         # STEP 2
         # Get the shortest path in the schema graph
         assumption_columns = [t.get_col_with_name(fc) for fc in from_columns]
-        start_node = SchemaNode.product([c.node for c in assumption_columns])
-        via_nodes = None
-        if via is not None:
-            via_nodes = [self.schema.get_node_with_name(n) for n in via]
-        end_node = self.schema.get_node_with_name(to_column)
-
-        shortest_p = self.schema.find_shortest_path(start_node, end_node, t.displayed_columns[:t.marker], via_nodes)
-        derivation, repr, hidden_keys = shortest_p
+        if len(assumption_columns) == 0:
+            pass
+            # TODO
+            # end_node = self.schema.get_node_with_name(to_column)
+            # derivation = []
+            # repr = [StartTraversal(end_node, Project(end_node), []), EndTraversal(end_node, end_node)]
+            # hidden_keys = [end_node]
+        else:
+            start_node = SchemaNode.product([c.node for c in assumption_columns])
+            via_nodes = None
+            if via is not None:
+                via_nodes = [self.schema.get_node_with_name(n) for n in via]
+            end_node = self.schema.get_node_with_name(to_column)
+            conclusion_column = RawColumn(name, end_node, [], ColumnType.VALUE, [], t)
+            shortest_p = self.schema.find_shortest_path_between_columns(assumption_columns, conclusion_column, t.displayed_columns[:t.marker], via_nodes)
+            derivation, repr, hidden_keys = shortest_p
 
         # 2b. Turn the hidden keys into columns, and rename them if necessary.
         hidden_keys_raw_str = [str(hk) for hk in hidden_keys]  # old names
@@ -554,7 +568,8 @@ class Table:
             function.explicit_keys = self.displayed_columns[:self.marker]
             columns = [a for a in arguments if isinstance(a, Column)]
             columns_dedup = [c.raw_column for c in set(columns)]
-            nodes = [c.raw_column.node for c in columns]
+            start_columns = [c.raw_column for c in columns]
+            nodes = [c.node for c in start_columns]
             start_node = SchemaNode.product(nodes)
             hidden_keys = [c.get_hidden_keys() for c in columns]
             shk = set()
@@ -571,6 +586,7 @@ class Table:
         elif isinstance(function, AggregationFunction):
             start_column = function.column
             explicit_keys = start_column.get_explicit_keys()
+            start_columns = [c for c in explicit_keys] + [start_column.raw_column]
             nodes = [c.node for c in explicit_keys] + [start_column.raw_column.node]
             start_node = SchemaNode.product(nodes)
             new_start_node = SchemaNode.product([c.node for c in explicit_keys])
@@ -593,8 +609,8 @@ class Table:
         new_table.values = {str(v): RawColumn.assign_new_table(v, new_table) for v in vals}
 
         traversal = [
-            StartTraversal(start_node, Traverse(start_node, end_node), new_table.displayed_columns[:new_table.marker]),
-            EndTraversal(start_node, end_node)]
+            StartTraversal(start_columns, Traverse(start_node, end_node), new_table.displayed_columns[:new_table.marker]),
+            EndTraversal(start_columns, column)]
 
         new_table.intermediate_representation = self.intermediate_representation[:-1] + traversal + [
             End(keys, hidden_keys, vals)]
