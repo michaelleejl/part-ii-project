@@ -6,8 +6,9 @@ from enum import Enum
 
 import pandas as pd
 
-from schema import SchemaEdge, Cardinality, reverse_cardinality
+from schema.cardinality import Cardinality
 from schema.node import SchemaNode
+from schema.edge import SchemaEdge, reverse_cardinality
 from tables.aggregation import AggregationFunction
 from tables.column import Column
 from tables.exceptions import KeyMismatchException, ColumnsNeedToBeUniqueException, \

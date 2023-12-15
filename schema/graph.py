@@ -9,6 +9,7 @@ from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
     NodeNotInSchemaGraphException, \
     MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, \
     NoShortestPathBetweenNodesException, ClassAlreadyExistsException, NodeAlreadyInSchemaGraphException
+from schema.helpers.is_reachable_via_projection import is_reachable_via_projection
 from schema.node import SchemaNode
 from tables.derivation import Traverse, Equate, Project, StartTraversal, EndTraversal, Cross, Expand
 from union_find.union_find import UnionFind
@@ -175,6 +176,21 @@ class SchemaGraph:
         # commands[0] = StartTraversal(node1, commands[0], explicit_keys)
         return edge_path, commands, hidden_keys
 
+    def find_implicit_edge(self, from_node: SchemaNode, to_node: SchemaNode, backwards: bool):
+        # When does an implicit edge exist?
+        # Three cases.
+        # Case 1. node1 < node2.
+        #         If node1 is of the form n1 x n2 x ... x nm
+        #         And each ni can be found in
+        # Case 2.
+        # Case 3.
+        constituents1 = SchemaNode.get_constituents(from_node)
+        constituents2 = SchemaNode.get_constituents(to_node)
+        if not backwards:
+            pass
+        else:
+            pass
+
     def find_all_shortest_paths_between_nodes(self, node1: SchemaNode, node2: SchemaNode, backwards: bool = False) -> (
     bool, SchemaEdge):
         to_explore = deque()
@@ -215,7 +231,7 @@ class SchemaGraph:
                 # then we have POTENTIALLY found a shortest path
                 # adjacency list doesn't consider projections
                 if node2 not in visited:
-                    if not backwards and e > node2:
+                    if not backwards and is_reachable_via_projection(e, node2):
                         if u == e:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), path, backwards)
                             new_deriv = [Project(node2)]
@@ -226,7 +242,7 @@ class SchemaGraph:
                             new_deriv = [Equate(u, e), Project(node2)]
                             new_nodes = [e, node2]
                         to_explore.append((node2, node_path + new_nodes, new_path, deriv + new_deriv, hks, count + len(new_nodes)))
-                    if backwards and e < node2:
+                    if backwards and is_reachable_via_projection(node2, e):
                         if u == e:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.ONE_TO_MANY), path, backwards)
                             new_deriv = [Expand(node2)]

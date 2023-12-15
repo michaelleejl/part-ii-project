@@ -1,4 +1,4 @@
-from tables.table import find_index
+from schema.helpers.find_index import find_index
 
 
 def is_sublist(list1, list2):
