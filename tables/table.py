@@ -213,6 +213,20 @@ class Table:
     def set_hidden_keys(self, new_hidden_keys: dict[str, RawColumn]):
         self.hidden_keys = copy.copy({k: RawColumn.assign_new_table(v, self) for k, v in new_hidden_keys.items()})
 
+    def get_representation(self, start: list[RawColumn], end: RawColumn, keys, via, backwards):
+        shortest_p = self.schema.find_shortest_path_between_columns(start, end, keys, via, backwards)
+        derivation, repr, hidden_keys = shortest_p
+        new_repr = []
+        for step in repr:
+            from tables.derivation import Traverse, Expand
+            if isinstance(step, Traverse) or isinstance(step, Expand):
+                hidden_keys = step.hidden_keys
+                columns = [self.new_col_from_node(hk, ColumnType.KEY) for hk in hidden_keys]
+                new_repr += [Traverse(step.start_node, step.end_node, step.hidden_keys, columns)]
+            else:
+                new_repr += [step]
+        return derivation, new_repr, hidden_keys
+
     def compose(self, from_keys: list[str], to_key: str, via: list[str] = None):
         self.verify_columns(from_keys, {Table.ColumnRequirements.IS_UNIQUE})
         self.verify_columns([to_key], {Table.ColumnRequirements.IS_KEY})
@@ -245,7 +259,7 @@ class Table:
         if via is not None:
             via_nodes = [t.schema.get_node_with_name(n) for n in via]
         end_node = SchemaNode.product([c.node for c in cols_to_add])
-        shortest_p = t.schema.find_shortest_path_between_columns(cols_to_add, key, self.displayed_columns, via_nodes, True)
+        shortest_p = self.get_representation(cols_to_add, key, self.displayed_columns, via_nodes, True)
         derivation, repr, hidden_keys = shortest_p
 
         # STEP 4
@@ -279,6 +293,7 @@ class Table:
         t.execute()
 
         return t
+
 
     # TODO: Handle the case where from columns is zero
     def infer(self, from_columns: list[str], to_column: str, via: list[str] = None, with_name: str = None):
@@ -314,7 +329,7 @@ class Table:
                 via_nodes = [self.schema.get_node_with_name(n) for n in via]
             end_node = self.schema.get_node_with_name(to_column)
             conclusion_column = RawColumn(name, end_node, [], ColumnType.VALUE, [], t)
-            shortest_p = self.schema.find_shortest_path_between_columns(assumption_columns, conclusion_column, t.displayed_columns[:t.marker], via_nodes)
+            shortest_p = self.get_representation(assumption_columns, conclusion_column, t.displayed_columns[:t.marker], via_nodes, False)
             derivation, repr, hidden_keys = shortest_p
 
         # 2b. Turn the hidden keys into columns, and rename them if necessary.

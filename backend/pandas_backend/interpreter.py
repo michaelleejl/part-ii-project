@@ -137,114 +137,140 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
     return df3, dropped_keys_cnt, dropped_vals_cnt
 
 
-def stt(derivation_step: StartTraversal, backend, table, cont, stack, _) -> tuple[pd.DataFrame, any, list, list]:
-    base = table.copy(deep=True)
+# TODO: Edit
+def stt(derivation_step: StartTraversal, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
+    base = table.copy()
     keys = derivation_step.explicit_keys
-    first_cols = [str(c) for c in derivation_step.start_columns]
-    table = cont(table.copy(deep=True))[first_cols]
+    first_cols = [c.name for c in derivation_step.start_columns]
+    df = cont(base)[first_cols]
+    for i, col in enumerate(first_cols):
+        df[i] = df[col]
     next_step = derivation_step.step
-    if next_step.name == "PRJ":
-        return table, cont, stack + [base], keys
-    elif next_step.name == "EXP":
-        node = next_step.node
-        cs = SchemaNode.get_constituents(node)
-        domains = [backend.get_domain_from_atomic_node(c) for c in cs if str(c) not in table.columns]
-        df = reduce(cartesian_product, domains)
-        dfx = cartesian_product(table, df).drop_duplicates()
-        return dfx, cont, stack + [base], keys
-    elif next_step.name == "TRV":
-        start_node = next_step.start_node
-        cols = get_columns_from_node(start_node)
-        end_node = next_step.end_node
-        end_cols = get_columns_from_node(end_node)
-        relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
-        mapping = {str(col.node): col.name for col in derivation_step.start_columns}
-        relation = relation.rename(mapping, axis=1)
-        hidden_keys = next_step.hidden_keys
-        intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
-        df = pd.merge(table, relation, on=list(set(first_cols)), how="right")
-        df = df.loc[df.astype(str).drop_duplicates().index]
-        return df, cont, stack + [base] + [str(k) for k in hidden_keys], keys
-    elif next_step.name == "EQU":
-        start_node = next_step.start_node
-        end_node = next_step.end_node
-        start_cols = first_cols
-        end_cols = get_columns_from_node(end_node)
-        for s, e in zip(start_cols, end_cols):
-            table[e] = table[s]
-        return table, cont, stack + [base], keys
+    return step(next_step, backend, df, cont, [base], keys)
+    # if next_step.name == "PRJ":
+    #     return table, cont, stack + [base], keys
+    # elif next_step.name == "EXP":
+    #     node = next_step.node
+    #     cs = SchemaNode.get_constituents(node)
+    #     domains = [backend.get_domain_from_atomic_node(c) for c in cs if str(c) not in table.columns]
+    #     df = reduce(cartesian_product, domains)
+    #     dfx = cartesian_product(table, df).drop_duplicates()
+    #     return dfx, cont, stack + [base], keys
+    # elif next_step.name == "TRV":
+    #     start_node = next_step.start_node
+    #     cols = get_columns_from_node(start_node)
+    #     end_node = next_step.end_node
+    #     end_cols = get_columns_from_node(end_node)
+    #     relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
+    #     mapping = {str(col.node): col.name for col in derivation_step.start_columns}
+    #     relation = relation.rename(mapping, axis=1)
+    #     hidden_keys = next_step.hidden_keys
+    #     intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
+    #     df = pd.merge(table, relation, on=list(set(first_cols)), how="right")
+    #     df = df.loc[df.astype(str).drop_duplicates().index]
+    #     return df, cont, stack + [base] + [str(k) for k in hidden_keys], keys
+    # elif next_step.name == "EQU":
+    #     start_node = next_step.start_node
+    #     end_node = next_step.end_node
+    #     start_cols = first_cols
+    #     end_cols = get_columns_from_node(end_node)
+    #     for s, e in zip(start_cols, end_cols):
+    #         table[e] = table[s]
+    #     return table, cont, stack + [base], keys
 
 
 def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     start_node = derivation_step.start_node
+    start_nodes = SchemaNode.get_constituents(start_node)
     end_node = derivation_step.end_node
-    new_cols = get_columns_from_node(end_node)
+    end_nodes = SchemaNode.get_constituents(end_node)
+
+    relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
+
     hidden_keys = derivation_step.hidden_keys
-    mapping = derivation_step.mapping
-    cols = get_columns_from_node(start_node)
-    relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys).rename(mapping, axis=1)
-    intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
-    to_join = list(set(cols + list(mapping.values())))
-    for nc in new_cols:
-        if nc in mapping.keys():
-            relation[nc] = relation[mapping[nc]]
-    if len(stack) == 1:
-        to_drop = []
-        new_stack = stack
-        acc = []
-    else:
-        acc = stack[-1]
-        to_drop = [c for c in cols if c not in set(acc + new_cols + keys)]
-        new_stack = stack[:-1]
-    acc += [str(k) for k in hidden_keys]
-    return (pd.merge(table, relation, on=to_join, how="right")
-            .drop(columns=to_drop, axis=1).drop_duplicates(), cont, new_stack + [acc], keys)
+    idxs = []
+    i = 0
+    for hk in hidden_keys:
+        while end_nodes[i] != hk:
+            i += 1
+        idxs += [i]
+    new_cols = derivation_step.columns
+
+    to_join = list(range(len(start_nodes)))
+
+    df = pd.merge(table, relation, on=to_join, how="right").drop(columns=to_join, axis=1).drop_duplicates()
+    df = df.rename({k: k-len(start_nodes) for k in range(len(start_nodes), len(start_nodes) + len(end_nodes))}, axis=1)
+    for i, idx in enumerate(idxs):
+        df[new_cols[i].name] = df[idx]
+
+    return df, cont, stack, keys
 
 
 def equ(derivation_step: Equate, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
-    start_node = derivation_step.start_node
-    end_node = derivation_step.end_node
-    start_cols = get_columns_from_node(start_node)
-    end_cols = get_columns_from_node(end_node)
-    renaming = {s: e for s, e in zip(start_cols, end_cols)}
-    return table.rename(renaming, axis=1), cont, stack, keys
+    return table, cont, stack, keys
 
 
 def prj(derivation_step: Project, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
-    columns = get_columns_from_node(derivation_step.node)
-    hks = []
-    if len(stack) > 1:
-        hks = stack[-1]
-    return table[columns + hks], cont, stack, keys
+    start_node = derivation_step.start_node
+    end_node = derivation_step.end_node
+    start_nodes = SchemaNode.get_constituents(start_node)
+    end_nodes = SchemaNode.get_constituents(end_node)
+    i = 0
+    j = 0
+    df = table.copy()
+    renaming = {}
+    while j < len(end_nodes):
+        if start_nodes[i] == end_nodes[j]:
+            renaming |= {i: j}
+            i += 1
+            j += 1
+        else:
+            df = df.drop(i, axis=1)
+            i += 1
+    df = df.rename(renaming, axis=1)
+    return df, cont, stack, keys
 
 
 def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
-    node = derivation_step.node
-    cs = SchemaNode.get_constituents(node)
-    domains = [backend.get_domain_from_atomic_node(c) for c in cs if str(c) not in table.columns]
+    start_node = derivation_step.start_node
+    end_node = derivation_step.end_node
+    start_nodes = SchemaNode.get_constituents(start_node)
+    end_nodes = SchemaNode.get_constituents(end_node)
 
-    df = reduce(cartesian_product, domains)
-    dfx = cartesian_product(table, df)
+    df = table
+    i = 0
+    j = 0
+    exists = set()
+    while j < len(end_nodes):
+        if start_nodes[i] == end_nodes[j]:
+            df.rename({i: j})
+            exists.add(j)
+            i += 1
+            j += 1
+        else:
+            j += 1
+    j = 0
+    while j < len(end_nodes):
+        if j not in exists:
+            domain = backend.get_domain_from_atomic_node(end_nodes[j], j)
+            df = pd.merge(df, domain, how="cross")
 
-    return dfx, cont, stack, keys
+    return df, cont, stack, keys
 
 
 def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
-    cols = [str(c) for c in derivation_step.start_columns]
-    end_cols = str(derivation_step.end_column)
+    cols = [c.name for c in derivation_step.start_columns]
+    end_cols = derivation_step.end_column.name
+    renaming = {0: end_cols}
+
     def kont(x):
         to_merge = cont(x)
-        intersection = set(keys).intersection(set(to_merge.columns).intersection(set(table.columns)))
-        df = pd.merge(table, to_merge, on=list(set(cols)), how="outer")
+        df = pd.merge(table.rename(renaming, axis=1), to_merge, on=list(set(cols)), how="outer")
         df = df.loc[df.astype(str).drop_duplicates().index]
         return df
 
-    assert len(stack) == 1 or len(stack) == 2
-    if len(stack) == 2:
-        acc = [stack[1]]
-    else:
-        acc = []
-    return stack[0], kont, acc, keys
+    # TODO: Pass through table
+    return stack[0], kont, [], keys
 
 
 def rnm(derivation_step: Rename, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:

@@ -1,3 +1,5 @@
+from enum import Enum
+
 from backend.backend import Backend
 from schema.cardinality import Cardinality
 from schema.node import SchemaNode

@@ -60,7 +60,7 @@ class PandasBackend(Backend):
         self.clones[node] = node
         self.node_data[node] = domain
 
-    def get_domain_from_atomic_node(self, node: SchemaNode, with_name: str):
+    def get_domain_from_atomic_node(self, node: SchemaNode, with_name):
         cs = SchemaNode.get_constituents(node)
         assert len(cs) == 1
         assert node in self.clones
@@ -80,14 +80,15 @@ class PandasBackend(Backend):
         assert rev not in self.edge_data
         f_node_c = SchemaNode.get_constituents(edge.from_node)
         t_node_c = SchemaNode.get_constituents(edge.to_node)
-        mapping = {f.name: str(f) for f in f_node_c} | {t.name: str(t) for t in t_node_c}
-        self.edge_data[edge] = copy_data(relation).rename(mapping, axis=1)
+        assert len(f_node_c + t_node_c) == len(relation.columns)
+        df = copy_data(relation)
+        df.columns = list(range(len(df.columns)))
+        self.edge_data[edge] = copy_data(df)
 
     def map_edge_to_closure_function(self, edge, function: Function | AggregationFunction):
         rev = SchemaEdge(edge.to_node, edge.from_node, reverse_cardinality(edge.cardinality))
-        f_node_c = SchemaNode.get_constituents(edge.from_node)
-        t_node_c = SchemaNode.get_constituents(edge.to_node)
-        mapping = {f.name: str(f) for f in f_node_c} | {t.name: str(t) for t in t_node_c}
+        f_node_c = [str(c) for c in SchemaNode.get_constituents(edge.from_node)]
+        t_node_c = [str(c) for c in SchemaNode.get_constituents(edge.to_node)]
 
         if isinstance(function, Function):
             fun = interpret_function(function)
@@ -97,8 +98,8 @@ class PandasBackend(Backend):
                 df[str(edge.to_node)] = pd.Series(fun(df))
                 # to_merge = returned.apply(lambda x: x[0] if isinstance(x, list) else x).reset_index()
                 # df = df.merge(to_merge, on=keys, how="left")
-                data = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
-                self.edge_data[rev] = data
+                data = copy_data(pd.DataFrame(df))
+                self.map_edge_to_data_relation(rev, data[t_node_c + f_node_c])
                 self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[str(edge.to_node)]).drop_duplicates())
                 return df
 

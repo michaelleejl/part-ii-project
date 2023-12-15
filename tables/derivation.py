@@ -1,3 +1,4 @@
+from tables.column import Column
 from tables.predicate import Predicate
 
 
@@ -34,7 +35,7 @@ class EndTraversal(DerivationStep):
 
 
 class Traverse(DerivationStep):
-    def __init__(self, start_node, end_node, hidden_keys=None, mapping=None):
+    def __init__(self, start_node, end_node, hidden_keys=None, columns = None):
         super().__init__("TRV")
         self.start_node = start_node
         self.end_node = end_node
@@ -42,13 +43,13 @@ class Traverse(DerivationStep):
             self.hidden_keys = []
         else:
             self.hidden_keys = hidden_keys
-        if mapping is None:
-            self.mapping = {}
+        if columns is None:
+            self.columns = []
         else:
-            self.mapping = mapping
+            self.columns = []
 
     def __repr__(self):
-        return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.mapping}>"
+        return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.columns}>"
 
     def __str__(self):
         return self.__repr__()
@@ -67,12 +68,21 @@ class Cross(DerivationStep):
 
 
 class Expand(DerivationStep):
-    def __init__(self, node):
+    def __init__(self, start_node, end_node, hidden_keys=None, columns=None):
         super().__init__("EXP")
-        self.node = node
+        self.start_node = start_node
+        self.end_node = end_node
+        if hidden_keys is None:
+            self.hidden_keys = []
+        else:
+            self.hidden_keys = hidden_keys
+        if columns is None:
+            self.columns = []
+        else:
+            self.columns = []
 
     def __repr__(self):
-        return f"{self.name} <{self.node}>"
+        return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.columns}>"
 
     def __str__(self):
         return self.__repr__()
@@ -116,12 +126,21 @@ class Rename(DerivationStep):
 
 
 class Project(DerivationStep):
-    def __init__(self, node):
+    def __init__(self, start_node, end_node, hidden_keys=None, columns=None):
         super().__init__("PRJ")
-        self.node = node
+        self.start_node = start_node
+        self.end_node = end_node
+        if hidden_keys is None:
+            self.hidden_keys = []
+        else:
+            self.hidden_keys = hidden_keys
+        if columns is None:
+            self.columns = []
+        else:
+            self.columns = []
 
     def __repr__(self):
-        return f"{self.name} <{self.node}>"
+        return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.columns}>"
 
     def __str__(self):
         return self.__repr__()

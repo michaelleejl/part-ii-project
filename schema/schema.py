@@ -59,8 +59,8 @@ class Schema:
         for node in nodes:
             self.backend.map_atomic_node_to_domain(node, pd.DataFrame(dfa[node.name]).drop_duplicates())
 
-        for node in key_names:
-            self.backend.map_edge_to_data_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), dfa[key_names].drop_duplicates())
+        # for node in key_names:
+        #     self.backend.map_edge_to_data_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), dfa[key_names].drop_duplicates())
 
         for node in val_names:
             self.backend.map_edge_to_data_relation(SchemaEdge(key_node, SchemaNode(node, cluster=cluster)), df[node].reset_index().drop_duplicates())
