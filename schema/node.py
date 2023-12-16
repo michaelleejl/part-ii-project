@@ -69,27 +69,33 @@ class SchemaNode:
             if SchemaNode.is_atomic(self):
                 return SchemaNode.is_atomic(other) and self.get_key() == other.get_key()
             else:
-                return other.constituents is not None and frozenset(self.constituents) == frozenset(other.constituents)
+                return other.constituents is not None and self.constituents == other.constituents
         return NotImplemented
 
     def __le__(self, other):
         if isinstance(other, SchemaNode):
-            return frozenset(SchemaNode.get_constituents(self)) <= frozenset(SchemaNode.get_constituents(other))
+            from schema.helpers.is_sublist import is_sublist
+            return is_sublist(SchemaNode.get_constituents(self), SchemaNode.get_constituents(other))
         return NotImplemented
 
     def __lt__(self, other):
         if isinstance(other, SchemaNode):
-            return frozenset(SchemaNode.get_constituents(self)) < frozenset(SchemaNode.get_constituents(other))
+            from schema.helpers.is_sublist import is_sublist
+            return (is_sublist(SchemaNode.get_constituents(self), SchemaNode.get_constituents(other)) and
+                    SchemaNode.get_constituents(self) != SchemaNode.get_constituents(other))
         return NotImplemented
 
     def __ge__(self, other):
         if isinstance(other, SchemaNode):
-            return frozenset(SchemaNode.get_constituents(self)) >= frozenset(SchemaNode.get_constituents(other))
+            from schema.helpers.is_sublist import is_sublist
+            return is_sublist(SchemaNode.get_constituents(other), SchemaNode.get_constituents(self))
         return NotImplemented
 
     def __gt__(self, other):
         if isinstance(other, SchemaNode):
-            return frozenset(SchemaNode.get_constituents(self)) > frozenset(SchemaNode.get_constituents(other))
+            from schema.helpers.is_sublist import is_sublist
+            return (is_sublist(SchemaNode.get_constituents(other), SchemaNode.get_constituents(self)) and
+                    SchemaNode.get_constituents(self) != SchemaNode.get_constituents(other))
         return NotImplemented
 
     def __repr__(self):

@@ -44,10 +44,6 @@ def predicate_interpreter(predicate: Predicate):
             return lambda t: (p1(t)) | (p2(t))
 
 
-def get_columns_from_node(node) -> list[str]:
-    return [str(c) for c in SchemaNode.get_constituents(node)]
-
-
 def cartesian_product(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     return df1.merge(df2, how="cross").drop_duplicates()
 
@@ -137,7 +133,6 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
     return df3, dropped_keys_cnt, dropped_vals_cnt
 
 
-# TODO: Edit
 def stt(derivation_step: StartTraversal, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     base = table.copy()
     keys = derivation_step.explicit_keys
@@ -145,7 +140,7 @@ def stt(derivation_step: StartTraversal, backend, table, cont, stack, keys) -> t
     df: pd.DataFrame = cont(base)[first_cols]
     for i, col in enumerate(first_cols):
         df[i] = df[col]
-    return df, cont, [base], keys
+    return df, cont, [base], [c.name for c in keys]
 
 
 def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
@@ -175,18 +170,18 @@ def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[p
     return df, cont, stack, keys + [c.name for c in new_cols]
 
 
-def equ(derivation_step: Equate, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
-    return table, cont, stack, keys
-
-
 def prj(derivation_step: Project, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     start_node = derivation_step.start_node
     end_node = derivation_step.end_node
     start_nodes = SchemaNode.get_constituents(start_node)
     end_nodes = SchemaNode.get_constituents(end_node)
+    hidden_keys = derivation_step.hidden_keys
+    columns = derivation_step.columns
     i = 0
     j = 0
+    k = 0
     df = table.copy()
+    retained = []
     renaming = {}
     while j < len(end_nodes):
         if start_nodes[i] == end_nodes[j]:
@@ -194,10 +189,17 @@ def prj(derivation_step: Project, _, table, cont, stack, keys) -> tuple[pd.DataF
             i += 1
             j += 1
         else:
+            if k < len(hidden_keys) and start_nodes[i] == hidden_keys[k]:
+                column = columns[k]
+                if column not in set(keys):
+                    df[column.name] = df[i]
+                    retained += [column.name]
+                k += 1
             df = df.drop(i, axis=1)
             i += 1
+    df = df.drop(list(range(i, len(start_nodes))), axis=1)
     df = df.rename(renaming, axis=1)
-    return df, cont, stack, keys
+    return df, cont, stack, keys + retained
 
 
 def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
@@ -240,10 +242,14 @@ def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.
     return df, cont, stack, keys + [c.name for c in new_cols]
 
 
+def equ(derivation_step: Equate, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
+    return table, cont, stack, keys
+
+
 def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     cols = [c.name for c in derivation_step.start_columns]
     end_cols = [c.name for c in derivation_step.end_columns]
-    should_merge = [c not in set(cols + keys) for c in end_cols]
+    should_merge = [c not in set(keys) for c in end_cols]
     to_drop = [i for i, b in enumerate(should_merge) if not b]
     renaming = {i: n for (i, n) in enumerate(end_cols) if should_merge[i]}
 
