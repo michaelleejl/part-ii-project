@@ -20,26 +20,35 @@ def interpret_function(function: Function):
     arg = function.arguments
 
     def interpreted_function(t):
-        interpreted_args = [t[a.raw_column.name]
-                            if isinstance(a, Column) else a for a in arg]
-        return fun(interpreted_args)
+        interpreted_args = []
+        num_args = 0
+        for a in arg:
+            if isinstance(a, Column):
+                interpreted_args += [t[num_args]]
+                num_args += 1
+            else:
+                interpreted_args += a
+        return fun(interpreted_args), num_args
 
     return interpreted_function
 
 
-def interpret_aggregation_function(function: AggregationFunction, name):
+def interpret_aggregation_function(function: AggregationFunction):
     fun = function.function
     col = function.column
     eks = function.column.get_explicit_keys()
-
+    n = len(eks) + 1
     def interpreted_function(t):
         if set(eks) == set(col.raw_column.keyed_by):
             # then you are aggregating a function, i.e. this should not be an element wise aggregation but an aggregation of the whole column
             t2 = copy_data(t)
-            t2[col.raw_column.name] = t2.drop_duplicates()[col.raw_column.name].aggregate(fun)
-            return t2.rename({str(col.raw_column): name}, axis=1)
+            t2[n] = t2.drop_duplicates()[n-1].aggregate(fun)
+            return t2
         else:
-            return pd.DataFrame(t.groupby([str(e) for e in eks])[col.raw_column.name].agg(list).apply(fun)).rename({str(col.raw_column): name}, axis=1).reset_index()
+            t2 = copy_data(t)
+            to_merge = pd.DataFrame(t.groupby(list(range(n-1)))[n-1].agg(list).apply(fun))[n-1].reset_index().rename({n-1: n}, axis=1)
+            t2 = pd.merge(t2, to_merge, on=list(range(n-1)), how="right")
+            return t2
 
     return interpreted_function
 
@@ -95,16 +104,17 @@ class PandasBackend(Backend):
 
             def closure(table, keys):
                 df = copy_data(table)
-                df[str(edge.to_node)] = pd.Series(fun(df))
+                series, num_args = pd.Series(fun(df))
+                df[num_args] = series
                 # to_merge = returned.apply(lambda x: x[0] if isinstance(x, list) else x).reset_index()
                 # df = df.merge(to_merge, on=keys, how="left")
                 data = copy_data(pd.DataFrame(df))
-                self.map_edge_to_data_relation(rev, data[t_node_c + f_node_c])
-                self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[str(edge.to_node)]).drop_duplicates())
-                return df
+                self.map_edge_to_data_relation(rev, data[[num_args] + list(range(num_args))])
+                self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[num_args]).drop_duplicates())
+                return df[list(range(num_args+1))]
 
         elif isinstance(function, AggregationFunction):
-            fun = interpret_aggregation_function(function, str(edge.to_node))
+            fun = interpret_aggregation_function(function)
             node_to_drop = function.column.raw_column.node
             constituents = SchemaNode.get_constituents(edge.from_node)
             modified_start_node = SchemaNode.product([c for c in constituents if c != node_to_drop])
@@ -113,15 +123,15 @@ class PandasBackend(Backend):
 
             def closure(table, explicit_keys):
                 df = copy_data(table)
-                keys = list(set([str(f) for f in function.column.get_explicit_keys()] + explicit_keys))
-                df = df.merge(fun(df)[keys + [str(edge.to_node)]], on=keys)
-                data = copy_data(pd.DataFrame(df)).rename(mapping, axis=1)
-                data_with_start_column_dropped = data[[c for c in data.columns if c != str(node_to_drop)]]
-                data_with_start_column_dropped= data_with_start_column_dropped.loc[data_with_start_column_dropped.astype(str).drop_duplicates().index]
-                if len(data_with_start_column_dropped.columns) > 0:
-                    self.edge_data[forward] = data_with_start_column_dropped
-                    self.edge_data[reverse] = data_with_start_column_dropped
-                self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[str(edge.to_node)]).drop_duplicates())
+                n = len(function.column.get_explicit_keys()) + 1
+                keys = list(range(n - 1))
+                df = df.merge(fun(df)[keys + [n]], on=keys)[keys + [n-1, n]]
+                data = copy_data(pd.DataFrame(df)).drop(n-1, axis=1).rename({n: n-1}, axis=1)
+                data = data.loc[data.astype(str).drop_duplicates().index]
+                if len(data.columns) > 0:
+                    self.edge_data[forward] = data
+                    self.edge_data[reverse] = data[[n-1] + keys]
+                self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[n-1]).drop_duplicates())
                 return df.loc[df.astype(str).drop_duplicates().index]
 
         else:
@@ -131,14 +141,16 @@ class PandasBackend(Backend):
 
     def get_relation_from_edge(self, edge: SchemaEdge, table, keys) -> pd.DataFrame:
         rev = SchemaEdge(edge.to_node, edge.from_node)
+        n = len(SchemaNode.get_constituents(edge.from_node))
+        m = len(SchemaNode.get_constituents(edge.to_node))
         if edge in self.edge_funs:
             return self.edge_funs[edge](table, keys)
         elif edge in self.edge_data:
             return copy_data(self.edge_data[edge])
         elif rev in self.edge_funs:
-            return self.edge_funs[rev](table, keys)
+            return self.edge_funs[rev](table, keys).rename({i: i+n for i in range(m)} | {j: j for j in range(n)}, axis=1)
         elif rev in self.edge_data:
-            return copy_data(self.edge_data[rev])
+            return copy_data(self.edge_data[rev]).rename({i: i+n for i in range(m)} | {j+m: j for j in range(n)}, axis=1)
 
     def extend_domain(self, node: SchemaNode, domain_node: SchemaNode):
         domain = self.get_domain_from_atomic_node(domain_node, str(domain_node))

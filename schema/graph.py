@@ -226,13 +226,13 @@ class SchemaGraph:
                     if not backwards and e > node2:
                         if u == e:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), path, backwards)
-                            new_deriv = [Project(node2)]
+                            new_deriv = [Project(e, node2)]
                             new_nodes = [node2]
                         else:
                             new_path = add_edge_to_path(SchemaEquality(u, e), path, backwards)
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), new_path,
                                                         backwards)
-                            new_deriv = [Equate(u, e), Project(node2)]
+                            new_deriv = [Equate(u, e), Project(e, node2)]
                             new_nodes = [e, node2]
                         to_explore.append(
                             (node2, node_path + new_nodes, new_path, deriv + new_deriv, hks, count + len(new_nodes)))
@@ -255,10 +255,7 @@ class SchemaGraph:
             for (e, ns) in neighbours:
                 for (n, c) in ns:
                     if n not in visited:
-                        if not backwards:
-                            next_step = self.get_next_step(SchemaEdge(e, n, c), backwards)
-                        else:
-                            next_step = self.get_next_step(SchemaEdge(n, e, c), backwards)
+                        next_step = self.get_next_step(SchemaEdge(e, n, c), backwards)
                         if e == u:
                             new_path = add_edge_to_path(SchemaEdge(e, n, c), path, backwards)
                             to_explore.append(

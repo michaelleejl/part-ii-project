@@ -142,41 +142,10 @@ def stt(derivation_step: StartTraversal, backend, table, cont, stack, keys) -> t
     base = table.copy()
     keys = derivation_step.explicit_keys
     first_cols = [c.name for c in derivation_step.start_columns]
-    df = cont(base)[first_cols]
+    df: pd.DataFrame = cont(base)[first_cols]
     for i, col in enumerate(first_cols):
         df[i] = df[col]
-    next_step = derivation_step.step
-    return step(next_step, backend, df, cont, [base], keys)
-    # if next_step.name == "PRJ":
-    #     return table, cont, stack + [base], keys
-    # elif next_step.name == "EXP":
-    #     node = next_step.node
-    #     cs = SchemaNode.get_constituents(node)
-    #     domains = [backend.get_domain_from_atomic_node(c) for c in cs if str(c) not in table.columns]
-    #     df = reduce(cartesian_product, domains)
-    #     dfx = cartesian_product(table, df).drop_duplicates()
-    #     return dfx, cont, stack + [base], keys
-    # elif next_step.name == "TRV":
-    #     start_node = next_step.start_node
-    #     cols = get_columns_from_node(start_node)
-    #     end_node = next_step.end_node
-    #     end_cols = get_columns_from_node(end_node)
-    #     relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
-    #     mapping = {str(col.node): col.name for col in derivation_step.start_columns}
-    #     relation = relation.rename(mapping, axis=1)
-    #     hidden_keys = next_step.hidden_keys
-    #     intersection = set(keys).intersection(set(relation.columns).intersection(set(table.columns)))
-    #     df = pd.merge(table, relation, on=list(set(first_cols)), how="right")
-    #     df = df.loc[df.astype(str).drop_duplicates().index]
-    #     return df, cont, stack + [base] + [str(k) for k in hidden_keys], keys
-    # elif next_step.name == "EQU":
-    #     start_node = next_step.start_node
-    #     end_node = next_step.end_node
-    #     start_cols = first_cols
-    #     end_cols = get_columns_from_node(end_node)
-    #     for s, e in zip(start_cols, end_cols):
-    #         table[e] = table[s]
-    #     return table, cont, stack + [base], keys
+    return df, cont, [base], keys
 
 
 def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
@@ -187,7 +156,7 @@ def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[p
 
     relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
 
-    hidden_keys = derivation_step.hidden_keys
+    hidden_keys = [c for c in derivation_step.hidden_keys if c not in set(end_nodes)]
     idxs = []
     i = 0
     for hk in hidden_keys:
@@ -260,8 +229,8 @@ def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.
 
 def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     cols = [c.name for c in derivation_step.start_columns]
-    end_cols = derivation_step.end_column.name
-    renaming = {0: end_cols}
+    end_cols = [c.name for c in derivation_step.end_columns]
+    renaming = {i: n for (i, n) in enumerate(end_cols)}
 
     def kont(x):
         to_merge = cont(x)

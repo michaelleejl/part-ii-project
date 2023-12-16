@@ -213,7 +213,7 @@ class Table:
     def set_hidden_keys(self, new_hidden_keys: dict[str, RawColumn]):
         self.hidden_keys = copy.copy({k: RawColumn.assign_new_table(v, self) for k, v in new_hidden_keys.items()})
 
-    def get_representation(self, start: list[RawColumn], end: RawColumn, keys, via, backwards):
+    def get_representation(self, start: list[RawColumn], end: list[RawColumn], keys, via, backwards):
         shortest_p = self.schema.find_shortest_path_between_columns(start, end, keys, via, backwards)
         derivation, repr, hidden_keys = shortest_p
         new_repr = []
@@ -222,7 +222,10 @@ class Table:
             if isinstance(step, Traverse) or isinstance(step, Expand):
                 hidden_keys = step.hidden_keys
                 columns = [self.new_col_from_node(hk, ColumnType.KEY) for hk in hidden_keys]
-                new_repr += [Traverse(step.start_node, step.end_node, step.hidden_keys, columns)]
+                if isinstance(step, Traverse):
+                    new_repr += [Traverse(step.start_node, step.end_node, step.hidden_keys, columns)]
+                else:
+                    new_repr += [Expand(step.start_node, step.end_node, step.hidden_keys, columns)]
             else:
                 new_repr += [step]
         return derivation, new_repr, hidden_keys
@@ -259,7 +262,7 @@ class Table:
         if via is not None:
             via_nodes = [t.schema.get_node_with_name(n) for n in via]
         end_node = SchemaNode.product([c.node for c in cols_to_add])
-        shortest_p = self.get_representation(cols_to_add, key, self.displayed_columns, via_nodes, True)
+        shortest_p = self.get_representation([key], cols_to_add, self.displayed_columns, via_nodes, True)
         derivation, repr, hidden_keys = shortest_p
 
         # STEP 4
@@ -329,7 +332,7 @@ class Table:
                 via_nodes = [self.schema.get_node_with_name(n) for n in via]
             end_node = self.schema.get_node_with_name(to_column)
             conclusion_column = RawColumn(name, end_node, [], ColumnType.VALUE, [], t)
-            shortest_p = self.get_representation(assumption_columns, conclusion_column, t.displayed_columns[:t.marker], via_nodes, False)
+            shortest_p = self.get_representation(assumption_columns, [conclusion_column], t.displayed_columns[:t.marker], via_nodes, False)
             derivation, repr, hidden_keys = shortest_p
 
         # 2b. Turn the hidden keys into columns, and rename them if necessary.
@@ -624,8 +627,9 @@ class Table:
         new_table.values = {str(v): RawColumn.assign_new_table(v, new_table) for v in vals}
 
         traversal = [
-            StartTraversal(start_columns, Traverse(start_node, end_node), new_table.displayed_columns[:new_table.marker]),
-            EndTraversal(start_columns, column)]
+            StartTraversal(start_columns, new_table.displayed_columns[:new_table.marker]),
+            Traverse(start_node, end_node),
+            EndTraversal(start_columns, [column])]
 
         new_table.intermediate_representation = self.intermediate_representation[:-1] + traversal + [
             End(keys, hidden_keys, vals)]

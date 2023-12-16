@@ -1,5 +1,6 @@
 from tables.column import Column
 from tables.predicate import Predicate
+from tables.raw_column import RawColumn
 
 
 class DerivationStep:
@@ -8,27 +9,26 @@ class DerivationStep:
 
 
 class StartTraversal(DerivationStep):
-    def __init__(self, start_columns, step, explicit_keys):
+    def __init__(self, start_columns, explicit_keys):
         super().__init__("STT")
-        self.step = step
         self.start_columns = start_columns
         self.explicit_keys = explicit_keys
 
     def __repr__(self):
-        return f"{self.name} <{self.start_columns}, {self.step}>"
+        return f"{self.name} <{self.start_columns}>"
 
     def __str__(self):
         return self.__repr__()
 
 
 class EndTraversal(DerivationStep):
-    def __init__(self, start_columns, end_column):
+    def __init__(self, start_columns: list[RawColumn], end_columns: list[RawColumn]):
         super().__init__("ENT")
         self.start_columns = start_columns
-        self.end_column = end_column
+        self.end_columns = end_columns
 
     def __repr__(self):
-        return f"{self.name} <{self.start_columns}, {self.end_column}>"
+        return f"{self.name} <{self.start_columns}, {self.end_columns}>"
 
     def __str__(self):
         return self.__repr__()

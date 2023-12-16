@@ -141,14 +141,14 @@ class Schema:
     def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
         return self.schema_graph.find_shortest_path(node1, node2, via, backwards)
 
-    def find_shortest_path_between_columns(self, from_columns: list[RawColumn], to_column: RawColumn, explicit_keys, via: list[SchemaNode] = None, backwards=False):
+    def find_shortest_path_between_columns(self, from_columns: list[RawColumn], to_columns: list[RawColumn], explicit_keys, via: list[SchemaNode] = None, backwards=False):
         node1 = SchemaNode.product([c.node for c in from_columns])
-        node2 = to_column.node
+        node2 = SchemaNode.product([c.node for c in to_columns])
         path, commands, hidden_keys = self.find_shortest_path(node1, node2, via, backwards)
-        first = StartTraversal(from_columns, commands[0], explicit_keys)
-        last = EndTraversal(from_columns, to_column)
+        first = StartTraversal(from_columns, explicit_keys)
+        last = EndTraversal(from_columns, to_columns)
         if len(commands) > 0:
-            return path, [first] + commands[1:] + [last], hidden_keys
+            return path, [first] + commands + [last], hidden_keys
         else:
             return path, [first, last], hidden_keys
 

@@ -76,16 +76,17 @@ cardnum.cardnum
         t1 = s.get(["cardnum.cardnum"])
         t2 = t1.infer(["cardnum.cardnum"], "person.cardnum")
         t3 = t2.infer(["person.cardnum"], "person.person")
+        self.maxDiff = None
         self.assertExpectedInline(str(t3), """\
 [cardnum.cardnum || person.cardnum person.person]
                  person.cardnum person.person
 cardnum.cardnum                              
-1111.0                     1111         Steve
-1410.0                     1410           Tom
-2354.0                     2354         Steve
-5172.0                     5172           NaN
-4412.0                     4412           NaN
-4 values hidden
+1111.0                   1111.0         Steve
+1410.0                   1410.0           Tom
+2354.0                   2354.0         Steve
+5172.0                   5172.0           NaN
+4412.0                   4412.0           NaN
+2 values hidden
 
 """)
 
@@ -299,6 +300,7 @@ cardnum.val_id
         t32 = t31.infer(['cardnum.val_id'], 'cardnum.cardnum')
         t33 = t32.infer(['cardnum.cardnum'], 'person.cardnum')
         t34 = t33.infer(['person.cardnum'], 'person.person')
+        self.maxDiff = None
         self.assertExpectedInline(str(t34), """\
 [cardnum.val_id || cardnum.cardnum person.cardnum person.person]
                 cardnum.cardnum  person.cardnum person.person
@@ -341,6 +343,7 @@ cardnum.val_id
         t34 = t33.infer(['person.cardnum'], 'person.person')
         t35 = t34.hide('person.cardnum').hide('cardnum.cardnum')
         t36 = t35.show('person.cardnum').show('cardnum.cardnum')
+        self.maxDiff = None
         self.assertExpectedInline(str(t36), """\
 [cardnum.val_id || cardnum.cardnum person.cardnum person.person]
                 cardnum.cardnum  person.cardnum person.person
