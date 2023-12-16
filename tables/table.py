@@ -220,8 +220,8 @@ class Table:
         for step in repr:
             from tables.derivation import Traverse, Expand
             if isinstance(step, Traverse) or isinstance(step, Expand):
-                hidden_keys = step.hidden_keys
-                columns = [self.new_col_from_node(hk, ColumnType.KEY) for hk in hidden_keys]
+                step_hidden_keys = step.hidden_keys
+                columns = [self.new_col_from_node(hk, ColumnType.KEY) for hk in step_hidden_keys]
                 if isinstance(step, Traverse):
                     new_repr += [Traverse(step.start_node, step.end_node, step.hidden_keys, columns)]
                 else:

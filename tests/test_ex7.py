@@ -61,6 +61,7 @@ cardnum.val_id
         s = self.initialise()
         t1 = s.get(["cardnum.val_id"]).infer(["cardnum.val_id"], "cardnum.cardnum")
         t2 = t1.infer(["cardnum.val_id"], "bonus.bonus")
+        self.maxDiff = None
         self.assertExpectedInline(str(t2), """\
 [cardnum.val_id || cardnum.cardnum bonus.bonus]
                 cardnum.cardnum  bonus.bonus

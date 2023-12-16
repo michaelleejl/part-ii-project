@@ -83,7 +83,7 @@ class Schema:
 
     def blend(self, node1: SchemaNode, node2: SchemaNode, under: str = None):
         if under is not None:
-            classname = SchemaNode(under, cluster="type")
+            classname = SchemaNode(under)
             clss1 = self.schema_graph.equivalence_class.get_classname(node1)
             clss2 = self.schema_graph.equivalence_class.get_classname(node2)
             if classname not in self.schema_graph.schema_nodes and clss1 is None and clss2 is None:

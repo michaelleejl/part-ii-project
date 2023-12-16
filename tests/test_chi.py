@@ -17,11 +17,11 @@ class TestChi(expecttest.TestCase):
         t01 = t0.infer(["flows.to_city", "flows.from_city"], "flows.volume")
         print(t01)
 
-        t0 = s.get(["type.City", "type.City"], ["FromCity", "ToCity"])
+        t0 = s.get(["City", "City"], ["FromCity", "ToCity"])
         t01 = t0.infer(["ToCity", "FromCity"], "flows.volume")
         print(t01)
 
-        t1 = s.get(["type.City", "type.City"], ["FromCity", "ToCity"])
+        t1 = s.get(["City", "City"], ["FromCity", "ToCity"])
         print(t1)
 
         t2 = t1.infer(["ToCity", "FromCity"], "flows.volume")

@@ -206,23 +206,36 @@ def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.
     start_nodes = SchemaNode.get_constituents(start_node)
     end_nodes = SchemaNode.get_constituents(end_node)
 
+    hidden_keys = [c for c in derivation_step.hidden_keys]
+    idxs = []
+    i = 0
+
+    for hk in hidden_keys:
+        while end_nodes[i] != hk:
+            i += 1
+        idxs += [i]
+
     df = table
     i = 0
     j = 0
     exists = set()
-    while j < len(end_nodes):
+    while i < len(start_nodes):
         if start_nodes[i] == end_nodes[j]:
             df.rename({i: j})
             exists.add(j)
             i += 1
             j += 1
         else:
-            j += 1
-    j = 0
-    while j < len(end_nodes):
+            i += 1
+
+    for j in range(len(end_nodes)):
         if j not in exists:
             domain = backend.get_domain_from_atomic_node(end_nodes[j], j)
             df = pd.merge(df, domain, how="cross")
+
+    new_cols = derivation_step.columns
+    for i, idx in enumerate(idxs):
+        df[new_cols[i].name] = df[idx]
 
     return df, cont, stack, keys
 
@@ -230,11 +243,13 @@ def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.
 def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     cols = [c.name for c in derivation_step.start_columns]
     end_cols = [c.name for c in derivation_step.end_columns]
-    renaming = {i: n for (i, n) in enumerate(end_cols)}
+    should_merge = [c not in set(cols) for c in end_cols]
+    to_drop = [i for i, b in enumerate(should_merge) if not b]
+    renaming = {i: n for (i, n) in enumerate(end_cols) if should_merge[i]}
 
     def kont(x):
         to_merge = cont(x)
-        df = pd.merge(table.rename(renaming, axis=1), to_merge, on=list(set(cols)), how="outer")
+        df = pd.merge(table.drop(to_drop, axis=1).rename(renaming, axis=1), to_merge, on=list(set(cols)), how="outer")
         df = df.loc[df.astype(str).drop_duplicates().index]
         return df
 

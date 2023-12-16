@@ -11,4 +11,4 @@ def list_difference(list1, list2):
         else:
             i += 1
             j += 1
-    return diff
+    return diff + list2[j:]

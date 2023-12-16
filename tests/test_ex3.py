@@ -39,6 +39,7 @@ class TestEx3(expecttest.TestCase):
         # Get every Val_id, Cardnum pair
         s = self.initialise()
         t1 = s.get(["Val_id", "Cardnum"])
+        self.maxDiff = None
         self.assertExpectedInline(str(t1), """\
 [Val_id Cardnum || ]
 Empty DataFrame
@@ -99,6 +100,7 @@ Val_id Cardnum
         t1 = s.get(["Val_id", "Cardnum"])
         t2 = t1.infer(["Val_id", "Cardnum"], "bonus.bonus")
         t3 = t2.infer(["Val_id"], "tstart.tstart")
+        self.maxDiff = None
         self.assertExpectedInline(str(t3), """\
 [Val_id Cardnum || bonus.bonus tstart.tstart]
                 bonus.bonus        tstart.tstart
@@ -259,6 +261,7 @@ Index: [1, 2, 3, 4, 5, 6, 7, 8]
         t12 = (t11.infer(["Val_id"], "cardnum.cardnum")
                .infer(["Val_id"], "tstart.tstart")
                .infer(["Val_id"], "bonus.bonus"))
+        self.maxDiff = None
         self.assertExpectedInline(str(t12), """\
 [Val_id || cardnum.cardnum tstart.tstart bonus.bonus]
         cardnum.cardnum        tstart.tstart  bonus.bonus

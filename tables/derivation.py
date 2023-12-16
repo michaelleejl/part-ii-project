@@ -46,7 +46,7 @@ class Traverse(DerivationStep):
         if columns is None:
             self.columns = []
         else:
-            self.columns = []
+            self.columns = columns
 
     def __repr__(self):
         return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.columns}>"
@@ -79,7 +79,7 @@ class Expand(DerivationStep):
         if columns is None:
             self.columns = []
         else:
-            self.columns = []
+            self.columns = columns
 
     def __repr__(self):
         return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.columns}>"
@@ -137,7 +137,7 @@ class Project(DerivationStep):
         if columns is None:
             self.columns = []
         else:
-            self.columns = []
+            self.columns = columns
 
     def __repr__(self):
         return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.columns}>"
