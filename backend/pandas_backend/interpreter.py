@@ -140,7 +140,7 @@ def stt(derivation_step: StartTraversal, backend, table, cont, stack, keys) -> t
     df: pd.DataFrame = cont(base)[first_cols]
     for i, col in enumerate(first_cols):
         df[i] = df[col]
-    return df, cont, [base], [c.name for c in keys]
+    return df, cont, [base], keys
 
 
 def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
@@ -176,15 +176,16 @@ def prj(derivation_step: Project, _, table, cont, stack, keys) -> tuple[pd.DataF
     start_nodes = SchemaNode.get_constituents(start_node)
     end_nodes = SchemaNode.get_constituents(end_node)
     hidden_keys = derivation_step.hidden_keys
+    indices = derivation_step.indices
     columns = derivation_step.columns
     i = 0
     j = 0
     k = 0
     df = table.copy()
     retained = []
-    renaming = {}
+    renaming = {j:i for i, j in enumerate(indices)}
     while j < len(end_nodes):
-        if start_nodes[i] == end_nodes[j]:
+        if indices[j] == i:
             renaming |= {i: j}
             i += 1
             j += 1
@@ -207,7 +208,7 @@ def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.
     end_node = derivation_step.end_node
     start_nodes = SchemaNode.get_constituents(start_node)
     end_nodes = SchemaNode.get_constituents(end_node)
-
+    indices = derivation_step.indices
     hidden_keys = [c for c in derivation_step.hidden_keys]
     idxs = []
     i = 0
@@ -218,17 +219,8 @@ def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.
         idxs += [i]
 
     df = table
-    i = 0
-    j = 0
-    exists = set()
-    while i < len(start_nodes):
-        if start_nodes[i] == end_nodes[j]:
-            df.rename({i: j})
-            exists.add(j)
-            i += 1
-            j += 1
-        else:
-            i += 1
+    exists = {indices}
+    df = df.rename({i: j} for i, j in enumerate(indices))
 
     for j in range(len(end_nodes)):
         if j not in exists:

@@ -230,6 +230,31 @@ class Table:
                 new_repr += [step]
         return derivation, new_repr, hidden_keys
 
+    def find_index_to_insert(self, column, table):
+        #must_be_before tracks the LAST place where it may be inserted
+        must_be_before = len(self.displayed_columns) - 1
+        #the first place
+        must_be_after = 0
+        for (i, x) in enumerate(self.displayed_columns):
+            if i < self.marker:
+                c = self.keys[x]
+            else:
+                c = self.values[x]
+            # if the column keys c, then the column must be before c
+            if column in set(c.keyed_by):
+                must_be_before = min(must_be_before, i)
+            if c in set(column.keyed_by):
+                must_be_after = max(must_be_after, i)
+        assert must_be_after < must_be_before
+        # for a valid range, consider the start of that range
+        idx = must_be_after
+        # do we insert it as a key or a value?
+        if idx <= self.marker:
+            idx = min(must_be_before, table.marker)
+            if column.type == ColumnType.KEY or str(column) in self.displayed_columns:
+                table.marker += 1
+        return idx
+
     def compose(self, from_keys: list[str], to_key: str, via: list[str] = None):
         self.verify_columns(from_keys, {Table.ColumnRequirements.IS_UNIQUE})
         self.verify_columns([to_key], {Table.ColumnRequirements.IS_KEY})
@@ -383,50 +408,28 @@ class Table:
         return t
 
     def show(self, col):
-        new_table = Table.create_from_table(self)
-        assert col in self.hidden_keys.keys()
+        self.verify_columns([col], {Table.ColumnRequirements.IS_HIDDEN})
+        t = Table.create_from_table(self)
         column = self.hidden_keys[col]
-        must_be_before = len(self.displayed_columns) - 1
-        must_be_after = 0
-        for (i, x) in enumerate(self.displayed_columns):
-            if i < self.marker:
-                c = self.keys[x]
-            else:
-                c = self.values[x]
-            if column in set(c.keyed_by):
-                must_be_before = min(must_be_before, i)
-            if c in set(column.keyed_by):
-                must_be_after = max(must_be_after, i)
-        assert must_be_after < must_be_before
-        idx = must_be_after
-        if idx <= self.marker:
-            idx = min(must_be_before, new_table.marker)
-            if column.type == ColumnType.KEY or str(column) in self.displayed_columns:
-                new_table.marker += 1
-        new_table.displayed_columns.insert(idx, col)
-        keys = [new_table.keys[c] if c in new_table.keys.keys() else column for c in
-                new_table.displayed_columns[:new_table.marker]]
-        vals = [new_table.values[c] if c in new_table.values.keys() else column for c in
-                new_table.displayed_columns[new_table.marker:]]
+        idx = self.find_index_to_insert(column, t)
+        t.displayed_columns.insert(idx, col)
+        keys = [t.keys[c] if c in t.keys.keys() else column for c in
+                t.displayed_columns[:t.marker]]
+        vals = [t.values[c] if c in t.values.keys() else column for c in
+                t.displayed_columns[t.marker:]]
         hidden_keys = list(set(self.hidden_keys.values()) - {column})
-        new_table.keys = {str(c): RawColumn.assign_new_table(c, new_table) for c in keys}
-        new_table.values = {str(c): RawColumn.assign_new_table(c, new_table) for c in vals}
-        new_table.hidden_keys = {str(c): RawColumn.assign_new_table(c, new_table) for c in hidden_keys}
-        new_table.intermediate_representation = self.intermediate_representation[:-1] + [End(keys, hidden_keys, vals)]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = new_table.schema.execute_query(
-            new_table.table_id, self.table_id, new_table.intermediate_representation)
-        new_table.schema = self.schema
-        return new_table
+        t.set_keys({str(c):c for c in keys})
+        t.set_vals({str(c):c for c in vals})
+        t.set_hidden_keys({str(c): c for c in hidden_keys})
+        t.extend_intermediate_representation([End(keys, hidden_keys, vals)])
+        t.execute()
+        return t
 
     def filter(self, predicate: Predicate):
-        new_table = Table.create_from_table(self)
-        new_table.intermediate_representation = self.intermediate_representation[:-1] + [Filter(predicate),
-                                                                                         self.intermediate_representation[
-                                                                                             -1]]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = new_table.schema.execute_query(
-            new_table.table_id, self.table_id, new_table.intermediate_representation)
-        new_table.schema = self.schema
-        return new_table
+        t = Table.create_from_table(self)
+        t.extend_intermediate_representation([Filter(predicate), self.intermediate_representation[-1]])
+        t.execute()
+        return t
 
     def set_key(self, key_list: list[str]):
         new_keys = {}

@@ -68,10 +68,11 @@ class Cross(DerivationStep):
 
 
 class Expand(DerivationStep):
-    def __init__(self, start_node, end_node, hidden_keys=None, columns=None):
+    def __init__(self, start_node, end_node, indices, hidden_keys=None, columns=None):
         super().__init__("EXP")
         self.start_node = start_node
         self.end_node = end_node
+        self.indices = indices
         if hidden_keys is None:
             self.hidden_keys = []
         else:
@@ -126,10 +127,11 @@ class Rename(DerivationStep):
 
 
 class Project(DerivationStep):
-    def __init__(self, start_node, end_node, hidden_keys=None, columns=None):
+    def __init__(self, start_node, end_node, indices, hidden_keys=None, columns=None):
         super().__init__("PRJ")
         self.start_node = start_node
         self.end_node = end_node
+        self.indices = indices
         if hidden_keys is None:
             self.hidden_keys = []
         else:

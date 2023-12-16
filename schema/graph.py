@@ -9,6 +9,7 @@ from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
     NodeNotInSchemaGraphException, \
     MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, \
     NoShortestPathBetweenNodesException, ClassAlreadyExistsException, NodeAlreadyInSchemaGraphException
+from schema.helpers.get_indices_of_sublist import get_indices_of_sublist
 from schema.helpers.is_sublist import is_sublist
 from schema.node import SchemaNode
 from tables.derivation import Traverse, Equate, Project, StartTraversal, EndTraversal, Cross, Expand
@@ -203,6 +204,7 @@ class SchemaGraph:
             # we will never find another shortest path
             if 0 < shortest_path_length < count:
                 break
+
             equivs = self.find_all_equivalent_nodes(u)
             visited = visited.union(equivs)
             # if we see the goal, then we have found a shortest path
@@ -224,31 +226,33 @@ class SchemaGraph:
                 # adjacency list doesn't consider projections
                 if node2 not in visited:
                     if not backwards and e > node2:
+                        indices = get_indices_of_sublist(node2, e)
                         if u == e:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), path, backwards)
-                            new_deriv = [Project(e, node2)]
+                            new_deriv = [Project(e, node2, indices)]
                             new_nodes = [node2]
                         else:
                             new_path = add_edge_to_path(SchemaEquality(u, e), path, backwards)
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), new_path,
                                                         backwards)
-                            new_deriv = [Equate(u, e), Project(e, node2)]
+                            new_deriv = [Equate(u, e), Project(e, node2, indices)]
                             new_nodes = [e, node2]
                         to_explore.append(
                             (node2, node_path + new_nodes, new_path, deriv + new_deriv, hks, count + len(new_nodes)))
                     if backwards and e < node2:
+                        indices = get_indices_of_sublist(node2, e)
                         from schema.helpers.list_difference import list_difference
                         if u == e:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.ONE_TO_MANY), path, backwards)
-                            new_deriv = [Expand(e, node2, [])]
+                            new_deriv = [Expand(e, node2, indices, [])]
                             new_nodes = [node2]
                         else:
                             new_path = add_edge_to_path(SchemaEquality(u, e), path, backwards)
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.ONE_TO_MANY), new_path,
                                                         backwards)
-                            new_deriv = [Equate(u, e), Expand(e, node2, [])]
+                            new_deriv = [Equate(u, e), Expand(e, node2, indices, [])]
                             new_nodes = [e, node2]
-                        to_explore.append((node2, node_path + new_nodes, path + new_path, deriv + new_deriv, hks,
+                        to_explore.append((node2, node_path + new_nodes, new_path, deriv + new_deriv, hks,
                                            count + len(new_nodes)))
 
             neighbours = [(e, self.get_all_neighbours_of_node(e)) for e in equivs]
@@ -276,27 +280,31 @@ class SchemaGraph:
 
         return nodes[0], shortest_paths[0], derivation[0], hidden_keys[0]
 
-    def get_next_step(self, edge: SchemaEdge, backwards: bool) -> Traverse | Expand:
-
+    def get_next_step(self, edge: SchemaEdge, backwards: bool) -> Traverse | Expand | Project:
         cardinality = edge.cardinality
-
+        start = edge.from_node
+        end = edge.to_node
+        start_keys = SchemaNode.get_constituents(start)
+        end_keys = SchemaNode.get_constituents(end)
         if is_relational(cardinality, backwards):
-            start = edge.from_node
-            end = edge.to_node
-            start_keys = SchemaNode.get_constituents(start)
-            end_keys = SchemaNode.get_constituents(end)
-            # if it's a projection
+            from schema.helpers.list_difference import list_difference
             if is_sublist(start_keys, end_keys):
-                from schema.helpers.list_difference import list_difference
-                # TODO: Check that the logic makes sense for backwards too
                 hidden_keys = list_difference(start_keys, end_keys)
-                return Expand(start, end, hidden_keys)
-            # otherwise
+                indices = get_indices_of_sublist(start_keys, end_keys)
+                return Expand(start, end, indices, hidden_keys)
+            if is_sublist(end_keys, start_keys):
+                hidden_keys = list_difference(end_keys, start_keys)
+                indices = get_indices_of_sublist(end_keys, start_keys)
+                return Project(start, end, indices, hidden_keys)
             else:
                 return Traverse(start, end, end_keys)
         else:
-            start = edge.from_node
-            end = edge.to_node
+            if is_sublist(start_keys, end_keys):
+                indices = get_indices_of_sublist(start_keys, end_keys)
+                return Expand(start, end, indices, [])
+            if is_sublist(end_keys, start_keys):
+                indices = get_indices_of_sublist(end_keys, start_keys)
+                return Project(start, end, indices, [])
             return Traverse(start, end, [])
 
     def __repr__(self):

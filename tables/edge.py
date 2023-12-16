@@ -1,2 +1,0 @@
-class DerivationEdge:
-    pass
