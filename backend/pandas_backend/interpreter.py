@@ -156,7 +156,7 @@ def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[p
 
     relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
 
-    hidden_keys = [c for c in derivation_step.hidden_keys if c not in set(end_nodes)]
+    hidden_keys = [c for c in derivation_step.hidden_keys]
     idxs = []
     i = 0
     for hk in hidden_keys:
@@ -172,7 +172,7 @@ def trv(derivation_step: Traverse, backend, table, cont, stack, keys) -> tuple[p
     for i, idx in enumerate(idxs):
         df[new_cols[i].name] = df[idx]
 
-    return df, cont, stack, keys
+    return df, cont, stack, keys + [c.name for c in new_cols]
 
 
 def equ(derivation_step: Equate, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
@@ -237,13 +237,13 @@ def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.
     for i, idx in enumerate(idxs):
         df[new_cols[i].name] = df[idx]
 
-    return df, cont, stack, keys
+    return df, cont, stack, keys + [c.name for c in new_cols]
 
 
 def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     cols = [c.name for c in derivation_step.start_columns]
     end_cols = [c.name for c in derivation_step.end_columns]
-    should_merge = [c not in set(cols) for c in end_cols]
+    should_merge = [c not in set(cols + keys) for c in end_cols]
     to_drop = [i for i, b in enumerate(should_merge) if not b]
     renaming = {i: n for (i, n) in enumerate(end_cols) if should_merge[i]}
 
