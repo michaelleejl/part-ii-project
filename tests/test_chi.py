@@ -13,7 +13,7 @@ class TestChi(expecttest.TestCase):
         s.insert_dataframe(flows, "flows")
         s.blend(SchemaNode("from_city", cluster="flows"), SchemaNode("to_city", cluster="flows"), under="City")
 
-        t0 = s.get(["flows.to_city", "flows.from_city"])
+        t0 = s.get(["flows.from_city", "flows.to_city"])
         t01 = t0.infer(["flows.to_city", "flows.from_city"], "flows.volume")
         print(t01)
 
@@ -34,8 +34,9 @@ class TestChi(expecttest.TestCase):
 
         ## compute total inflow
         t4 = t3.set_key(["ToCity"])
-        print(t4)
         t4b = t4.assign("total_inflow", t4["volume"].aggregate(sum)).sort(["FromCity", "ToCity"])
+        t4a = t4b.hide("volume")
+        print(t4a)
         t5 = t4b.assign("total_inflows", t4b["total_inflow"].aggregate(sum))
         print(t5)
 

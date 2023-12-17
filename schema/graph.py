@@ -226,7 +226,9 @@ class SchemaGraph:
                 # adjacency list doesn't consider projections
                 if node2 not in visited:
                     if not backwards and e > node2:
-                        indices = get_indices_of_sublist(node2, e)
+                        c1 = SchemaNode.get_constituents(e)
+                        c2 = SchemaNode.get_constituents(node2)
+                        indices = get_indices_of_sublist(c2, c1)
                         if u == e:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), path, backwards)
                             new_deriv = [Project(e, node2, indices)]
@@ -240,7 +242,9 @@ class SchemaGraph:
                         to_explore.append(
                             (node2, node_path + new_nodes, new_path, deriv + new_deriv, hks, count + len(new_nodes)))
                     if backwards and e < node2:
-                        indices = get_indices_of_sublist(node2, e)
+                        c1 = SchemaNode.get_constituents(e)
+                        c2 = SchemaNode.get_constituents(node2)
+                        indices = get_indices_of_sublist(c1, c2)
                         from schema.helpers.list_difference import list_difference
                         if u == e:
                             new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.ONE_TO_MANY), path, backwards)

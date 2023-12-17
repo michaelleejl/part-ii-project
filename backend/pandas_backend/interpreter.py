@@ -116,7 +116,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
         df = df.loc[df.astype(str).drop_duplicates().index]
 
     df[columns_with_hidden_keys_str] = df[columns_with_hidden_keys_str].map(
-        lambda d: d if isinstance(d, list) and not np.any(pd.isnull(np.array(d))) else np.nan)
+        lambda d: d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else np.nan)
     if len(values) > 0:
         df2 = df.dropna(subset=vals_str, how="all")
     else:

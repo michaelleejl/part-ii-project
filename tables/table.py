@@ -670,33 +670,3 @@ class Table:
 
     def __getitem__(self, item):
         return Column(self.keys[item]) if item in self.keys.keys() else Column(self.values[item])
-
-    ## the task is
-    ## given a schema where (bank | cardnum) and (bonus | cardnum, person)
-    ## I want [cardnum person || bank bonus] as the values
-
-    ## t = schema.get([cardnum, person]) [cardnum person || unit]
-    ## 2 possibilities: cardnum x person or the specific cardnum, person pairs that key bonus.
-
-    ## t = t.infer([cardnum, person] -> cardnum)
-    ## t = t.infer(cardnum -> bank).add_value(bank)
-    ## t = t.infer([cardnum, person] -> bonus).add_value(bonus)
-
-    ## Example of composition
-    ## Schema: Order -> payment method -> billing address
-    ## Goal is: [order || billing address]
-
-    ## I can do
-    ## t = schema.get([payment method]) [payment method || unit]
-
-    ## t = t.compose(order -> payment method)
-    ## t = t.infer(payment method -> billing address).add_value(billing address) [order || billing address]
-    ## t = t.infer(billing address -> shipping fee)
-
-    ## Order
-    ##  |
-    ## payment method
-    ##  |
-    ## billing address
-
-    ## turn them into test suites
