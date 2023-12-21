@@ -234,7 +234,7 @@ class Table:
     def find_hidden_keys_for_column(self, inferred_from: list[RawColumn]):
         hidden_keys = set()
         for column in inferred_from:
-            hidden_keys_of_column = column.get_strong_keys()
+            hidden_keys_of_column = column.get_hidden_keys()
             hidden_keys = hidden_keys.union(hidden_keys_of_column)
 
         return list(hidden_keys)
@@ -250,19 +250,18 @@ class Table:
                     column.set_hidden_keys(column.get_hidden_keys() + [column])
 
     def show_strong_key(self, key: RawColumn):
-        if len(key.get_strong_keys()) == 0:
-            keys, hids, vals = self.get_columns_as_lists()
-            for column in keys + hids + vals:
-                strong_keys = column.get_strong_keys()
-                hidden_keys = column.get_hidden_keys()
+        keys, hids, vals = self.get_columns_as_lists()
+        for column in keys + hids + vals:
+            strong_keys = column.get_strong_keys()
+            hidden_keys = column.get_hidden_keys()
 
-                idx = find_index(hidden_keys, key)
+            idx = find_index(hidden_keys, key)
 
-                column.set_hidden_keys(hidden_keys[:idx] + hidden_keys[idx + 1:])
-                idxs = [find_index(self.displayed_columns, c) for c in strong_keys]
-                strong_key_idx = find_index(self.displayed_columns, key)
-                ins = binary_search(idxs, strong_key_idx)
-                column.set_strong_keys(strong_keys[:ins] + [key] + strong_keys[ins + 1:])
+            column.set_hidden_keys(hidden_keys[:idx] + hidden_keys[idx + 1:])
+            idxs = [find_index(self.displayed_columns, c.name) for c in strong_keys]
+            strong_key_idx = find_index(self.displayed_columns, key.name)
+            ins = binary_search(idxs, strong_key_idx)
+            column.set_strong_keys(strong_keys[:ins] + [key] + strong_keys[ins + 1:])
 
     def replace_strong_key(self,
                            to_replace: RawColumn,
@@ -291,7 +290,7 @@ class Table:
                 if isinstance(step, Traverse):
                     new_repr += [Traverse(step.start_node, step.end_node, step.hidden_keys, columns)]
                 else:
-                    new_repr += [Expand(step.start_node, step.end_node, step.hidden_keys, columns)]
+                    new_repr += [Expand(step.start_node, step.end_node, step.indices, step.hidden_keys, columns)]
             else:
                 new_repr += [step]
         return cardinality, new_repr, hidden_keys
@@ -411,7 +410,7 @@ class Table:
         # Get the shortest path in the schema graph
         assumption_columns = [t.get_col_with_name(fc) for fc in from_columns]
         strong_keys = t.find_strong_keys_for_column(assumption_columns)
-        hidden_keys = t.find_hidden_keys_for_column(assumption_columns)
+        old_hidden_keys = t.find_hidden_keys_for_column(assumption_columns)
         cardinalities = [column.cardinality for column in assumption_columns]
 
         if len(assumption_columns) == 0:
@@ -450,7 +449,7 @@ class Table:
             if c is not None:
                 cardinality = compose_cardinality(c, cardinality)
 
-        new_col = RawColumn(name, end_node, strong_keys, hidden_keys + hidden_assumptions, False, cardinality,
+        new_col = RawColumn(name, end_node, strong_keys, old_hidden_keys + hidden_assumptions, False, cardinality,
                             ColumnType.VALUE, t)
 
         t.set_vals(t.values | {str(new_col): new_col})
@@ -502,7 +501,8 @@ class Table:
         t.set_vals({str(c): c for c in vals})
         t.set_hidden_keys({str(c): c for c in hidden_keys})
         t.show_strong_key(column)
-        t.extend_intermediate_representation([End(keys, hidden_keys, vals)])
+        keys, hids, vals = t.get_columns_as_lists()
+        t.extend_intermediate_representation([End(keys, hids, vals)])
         t.execute()
         return t
 

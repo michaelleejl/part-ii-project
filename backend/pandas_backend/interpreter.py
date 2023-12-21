@@ -190,8 +190,8 @@ def exp(derivation_step: Expand, backend, table, cont, stack, keys) -> tuple[pd.
         idxs += [i]
 
     df = table
-    exists = {indices}
-    df = df.rename({i: j} for i, j in enumerate(indices))
+    exists = set(indices)
+    df = df.rename({i: j for i, j in enumerate(indices)})
 
     for j in range(len(end_nodes)):
         if j not in exists:
