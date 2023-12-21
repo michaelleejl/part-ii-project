@@ -75,36 +75,7 @@ def end(derivation_step: End, table: pd.DataFrame, cont) -> tuple[pd.DataFrame, 
     columns_with_hidden_keys = []
 
     for i, val in enumerate(values):
-        dependencies = [str(v) for v in val.keyed_by]
-        hidden_dependencies = set(dependencies) - (set(keys_str + vals_str[:i]) - set(columns_with_hidden_keys_str))
-        hidden_depends = set(val.keyed_by) - (set(keys + values[:i]) - set(columns_with_hidden_keys))
-        for hd in hidden_depends:
-            if hd in set(columns_with_hidden_keys):
-                break
-            candidates = deque()
-            candidates.append(hd.keyed_by)
-            visited = set()
-            while len(candidates) > 0:
-                u = candidates.popleft()
-                if len(set([str(v) for v in u])) > 0 and set([str(v) for v in u]).issubset(set(keys_str + vals_str[:i]) - set(columns_with_hidden_keys_str)):
-                    hidden_dependencies.discard(str(hd))
-
-                def replace_with_dependencies(cols):
-                    if len(cols) == 0:
-                        return []
-                    else:
-                        xs = replace_with_dependencies(cols[:-1])
-                        if len(xs) == 0:
-                            return [cols[0].keyed_by]
-                        else:
-                            return [[cols[0]] + x for x in xs if x != cols[:-1]] + [cols[0].keyed_by + x for x in xs]
-
-                new_cands = replace_with_dependencies(u)
-
-                for nc in new_cands:
-                    if tuple(nc) not in visited:
-                        visited.add(tuple(nc))
-                        candidates.appendleft(nc)
+        hidden_dependencies = [str(v) for v in val.get_hidden_keys()]
 
         if len(hidden_dependencies) > 0:
             to_add = app[keys_str_with_marker + [str(val)]].groupby(keys_str_with_marker)[str(val)].agg(list)

@@ -36,7 +36,7 @@ def interpret_function(function: Function):
 def interpret_aggregation_function(function: AggregationFunction):
     fun = function.function
     col = function.column
-    eks = function.column.get_explicit_keys()
+    eks = function.column.get_strong_keys()
     n = len(eks) + 1
     def interpreted_function(t):
         if set(eks) == set(col.raw_column.keyed_by):
@@ -123,7 +123,7 @@ class PandasBackend(Backend):
 
             def closure(table, explicit_keys):
                 df = copy_data(table)
-                n = len(function.column.get_explicit_keys()) + 1
+                n = len(function.column.get_strong_keys()) + 1
                 keys = list(range(n - 1))
                 df = df.merge(fun(df)[keys + [n]], on=keys)[keys + [n-1, n]]
                 data = copy_data(pd.DataFrame(df)).drop(n-1, axis=1).rename({n: n-1}, axis=1)

@@ -1,7 +1,7 @@
 import unittest
 
 from schema.cardinality import Cardinality
-from schema.helpers.invert_cardinality import invert_cardinality
+from helpers.invert_cardinality import invert_cardinality
 
 
 class TestInvertCardinality(unittest.TestCase):

@@ -2,6 +2,7 @@ import itertools
 from collections import deque
 from dataclasses import dataclass
 
+from helpers.compose_cardinality import compose_cardinality
 from schema import Cardinality, SchemaEquality
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.edge_list import SchemaEdgeList
@@ -21,6 +22,13 @@ class Transform:
     from_node: SchemaNode
     to_node: SchemaNode
     via: SchemaNode = None
+
+
+def compute_cardinality_of_path(path: list[SchemaEdge]):
+    c = Cardinality.ONE_TO_ONE
+    for edge in path:
+        c = compose_cardinality(c, edge.cardinality)
+    return c
 
 
 def add_edge_to_path(edge: SchemaEdge, path: list, backwards: bool) -> list:
@@ -182,7 +190,7 @@ class SchemaGraph:
                 hidden_keys += hks
                 current_leg_start = current_leg_end
         # commands[0] = StartTraversal(node1, commands[0], explicit_keys)
-        return edge_path, commands, hidden_keys
+        return compute_cardinality_of_path(edge_path), commands, hidden_keys
 
     def find_all_shortest_paths_between_nodes(self, node1: SchemaNode, node2: SchemaNode, backwards: bool = False) -> (
             bool, SchemaEdge):

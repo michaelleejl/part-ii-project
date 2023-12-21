@@ -72,7 +72,7 @@ class Column:
         return Function(operator.truediv, [self, other])
 
     def get_explicit_keys(self):
-        return self.raw_column.get_explicit_keys()
+        return self.raw_column.get_strong_keys()
 
     def get_hidden_keys(self):
         return self.raw_column.get_hidden_keys()

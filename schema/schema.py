@@ -144,13 +144,13 @@ class Schema:
     def find_shortest_path_between_columns(self, from_columns: list[RawColumn], to_columns: list[RawColumn], explicit_keys, via: list[SchemaNode] = None, backwards=False):
         node1 = SchemaNode.product([c.node for c in from_columns])
         node2 = SchemaNode.product([c.node for c in to_columns])
-        path, commands, hidden_keys = self.find_shortest_path(node1, node2, via, backwards)
+        cardinality, commands, hidden_keys = self.find_shortest_path(node1, node2, via, backwards)
         first = StartTraversal(from_columns, explicit_keys)
         last = EndTraversal(from_columns, to_columns)
         if len(commands) > 0:
-            return path, [first] + commands + [last], hidden_keys
+            return cardinality, [first] + commands + [last], hidden_keys
         else:
-            return path, [first, last], hidden_keys
+            return cardinality, [first, last], hidden_keys
 
     def execute_query(self, table_id, derived_from, derivation):
         x, y, z, new_backend = self.backend.execute_query(table_id, derived_from, derivation)
