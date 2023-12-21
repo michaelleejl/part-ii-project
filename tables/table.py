@@ -611,6 +611,7 @@ class Table:
                 new_hidden_key = RawColumn(v, col.node, [], [], True, None, ColumnType.KEY, t)
                 new_hidden_keys_for_column = [new_hidden_key]
                 hidden_keys[str(new_hidden_key)] = new_hidden_key
+            new_strong_keys = list(sorted(new_strong_keys, key=lambda x: find_index(t.displayed_columns, x.name)))
             values[v] = RawColumn(v, col.node, new_strong_keys, new_hidden_keys_for_column, False, new_cardinality, ColumnType.VALUE, t)
 
         t.set_keys(keys)
