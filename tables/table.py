@@ -117,6 +117,7 @@ class Table:
             self.intermediate_representation = with_new_representation
         keys, hids, vals = self.get_columns_as_lists()
         self.intermediate_representation += [End(keys, hids, vals)]
+
     def execute(self):
         self.df, self.dropped_keys_count, self.dropped_vals_count, self.schema = self.schema.execute_query(
             self.table_id,
@@ -274,8 +275,10 @@ class Table:
             strong_keys = column.get_strong_keys()
             idx = find_index(strong_keys, to_replace)
             if idx > 0:
-                column.set_strong_keys(strong_keys[:idx] + replace_with_explicit + strong_keys[idx + 1:])
-                column.set_hidden_keys(column.get_hidden_keys() + replace_with_hidden)
+                new_strong_keys = set(strong_keys[:idx] + replace_with_explicit + strong_keys[idx + 1:])
+                new_strong_keys = list(sorted(new_strong_keys, key=lambda x: find_index(self.displayed_columns, x.name)))
+                column.set_strong_keys(new_strong_keys)
+                column.set_hidden_keys(list(set(column.get_hidden_keys() + replace_with_hidden)))
                 new_cardinality = compose_cardinality(cardinality, column.cardinality)
                 column.set_cardinality(new_cardinality)
 
@@ -350,11 +353,9 @@ class Table:
         # Want a (backwards) path from from_keys <------- to_key
         # Create start, via, and end nodes
         key = self.keys[to_key]
-        start_node = key.node
         via_nodes = None
         if via is not None:
             via_nodes = [t.schema.get_node_with_name(n) for n in via]
-        end_node = SchemaNode.product([c.node for c in cols_to_add])
         shortest_p = self.get_representation([key], cols_to_add, self.displayed_columns, via_nodes, True)
         cardinality, repr, hidden_keys = shortest_p
 
@@ -378,8 +379,6 @@ class Table:
 
         # STEP 5
         # compute the new intermediate representation
-        keys, hids, vals = t.get_columns_as_lists()
-
         old_names = from_keys
         new_names = [str(c) for c in cols_to_add]
         renaming = {old_name: name for old_name, name in zip(old_names, new_names)}
@@ -456,8 +455,6 @@ class Table:
         t.set_vals(t.values | {str(new_col): new_col})
         t.set_hidden_keys(t.hidden_keys | {str(h): h for h in hidden_assumptions})
 
-        keys, hids, vals = t.get_columns_as_lists()
-
         # STEP 4
         # Update intermediate representation
         new_repr = repr[:-1] + [Rename({old_name: name} | renaming), repr[-1]]
@@ -482,7 +479,6 @@ class Table:
         t.displayed_columns = t.displayed_columns[:idx] + t.displayed_columns[idx + 1:]
         t.hide_strong_key(to_hide)
         t.set_hidden_keys(t.hidden_keys | {str(to_hide): to_hide})
-        keys, hids, vals = t.get_columns_as_lists()
         t.extend_intermediate_representation()
         t.execute()
         return t
@@ -512,6 +508,7 @@ class Table:
         t.execute()
         return t
 
+    #TODO: Cleanup
     def set_key(self, key_list: list[str]):
         self.verify_columns(key_list, {Table.ColumnRequirements.IS_KEY_OR_VAL})
         t = Table.create_from_table(self)
@@ -625,53 +622,28 @@ class Table:
         return t
 
     def equate(self, col1, col2):
-        assert 0 <= self.displayed_columns.index(col1)
-        assert 0 <= self.displayed_columns.index(col2)
-        new_table = Table.create_from_table(self)
+        self.verify_columns([col1, col2], {Table.ColumnRequirements.IS_KEY_OR_VAL})
+
+        t = Table.create_from_table(self)
         idx = self.displayed_columns.index(col2)
-        new_table.displayed_columns = [c for c in self.displayed_columns if c != col2]
+        t.displayed_columns = [c for c in self.displayed_columns if c != col2]
+
         if idx < self.marker:
-            new_table.marker -= 1
+            t.marker -= 1
             column2 = self.keys[col2]
         else:
             column2 = self.values[col2]
+
         if self.displayed_columns.index(col1) < self.marker:
             column1 = self.keys[col1]
         else:
             column1 = self.values[col1]
 
-        for col in list(self.keys.values()):
-            if col == column2:
-                continue
-            keyed_by = [c if c != column2 else column1 for c in col.keyed_by]
-            new_table.keys[str(col)] = RawColumn(col.name, col.node, keyed_by, ColumnType.KEY,
-                                                 new_table)
+        self.replace_strong_key(column2, [column1], [], Cardinality.ONE_TO_ONE)
 
-        for col in list(self.values.values()):
-            if col == column2:
-                continue
-            keyed_by = [c if c != column2 else column1 for c in col.keyed_by]
-            new_table.values[str(col)] = RawColumn(col.name, col.node, keyed_by, ColumnType.VALUE,
-                                                   new_table)
-
-        for col in list(self.values.values()):
-            if col == column2:
-                continue
-            keyed_by = [c if c != column2 else column1 for c in col.keyed_by]
-            new_table.hidden_keys[str(col)] = RawColumn(col.name, col.node, keyed_by, col.type,
-                                                        new_table)
-
-        keys = [new_table.keys[c] for c in new_table.displayed_columns[:new_table.marker]]
-        vals = [new_table.values[c] for c in new_table.displayed_columns[new_table.marker:]]
-        hidden_keys = list(set(self.hidden_keys.values()))
-
-        new_table.intermediate_representation = self.intermediate_representation[:-1] + [
-            Filter(Column(column1) == Column(column2)), End(keys, hidden_keys, vals)]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = new_table.schema.execute_query(
-            new_table.table_id, self.table_id,
-            new_table.intermediate_representation)
-        new_table.schema = self.schema
-        return new_table
+        t.extend_intermediate_representation([Filter(Column(column1) == Column(column2))])
+        t.execute()
+        return t
 
     def assign(self, name: str, function: Function | AggregationFunction):
         if isinstance(function, Column):
@@ -737,15 +709,10 @@ class Table:
         return new_table
 
     def sort(self, cols: list[str]):
-        new_table = Table.create_from_table(self)
-        new_table.intermediate_representation = self.intermediate_representation[:-1] + [Sort(cols),
-                                                                                         self.intermediate_representation[
-                                                                                             -1]]
-        new_table.df, new_table.dropped_keys_count, new_table.dropped_vals_count, new_table.schema = self.schema.execute_query(
-            new_table.table_id, self.table_id,
-            new_table.intermediate_representation)
-        new_table.schema = self.schema
-        return new_table
+        t = Table.create_from_table(self)
+        t.extend_intermediate_representation([Sort(cols)])
+        t.execute()
+        return t
 
     def __repr__(self):
         keys = ' '.join([str(self.keys[k]) for k in self.displayed_columns[:self.marker]])
