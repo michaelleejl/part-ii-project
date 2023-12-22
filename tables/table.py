@@ -99,23 +99,24 @@ class Table:
             keys += [key]
 
         table.displayed_columns = [str(k) for k in keys]
-        representation = [Get(keys), End(table.displayed_columns, [], [])]
-        table.extend_intermediate_representation(representation)
         table.keys = {str(k): k for k in keys}
         table.dropped_keys_count = 0
         table.dropped_vals_count = 0
         table.marker = len(keys)
+        table.extend_intermediate_representation([Get(keys)])
+
         table.execute()
         return table
 
-    def extend_intermediate_representation(self, with_new_representation: list[DerivationStep]):
-        if not isinstance(with_new_representation[-1], End):
-            raise IntermediateRepresentationMustHaveEndMarkerException()
+    def extend_intermediate_representation(self, with_new_representation: list[DerivationStep] | None = None):
+        if with_new_representation is None:
+            with_new_representation = []
         if len(self.intermediate_representation) > 0:
             self.intermediate_representation = self.intermediate_representation[:-1] + with_new_representation
         else:
             self.intermediate_representation = with_new_representation
-
+        keys, hids, vals = self.get_columns_as_lists()
+        self.intermediate_representation += [End(keys, hids, vals)]
     def execute(self):
         self.df, self.dropped_keys_count, self.dropped_vals_count, self.schema = self.schema.execute_query(
             self.table_id,
@@ -383,7 +384,7 @@ class Table:
         new_names = [str(c) for c in cols_to_add]
         renaming = {old_name: name for old_name, name in zip(old_names, new_names)}
 
-        new_repr = repr[:-1] + [Rename(renaming), repr[-1], End(keys, hids, vals)]
+        new_repr = repr[:-1] + [Rename(renaming), repr[-1]]
         t.extend_intermediate_representation(new_repr)
         t.execute()
 
@@ -459,7 +460,7 @@ class Table:
 
         # STEP 4
         # Update intermediate representation
-        new_repr = repr[:-1] + [Rename({old_name: name} | renaming), repr[-1], End(keys, hids, vals)]
+        new_repr = repr[:-1] + [Rename({old_name: name} | renaming), repr[-1]]
 
         t.extend_intermediate_representation(new_repr)
         t.execute()
@@ -482,7 +483,7 @@ class Table:
         t.hide_strong_key(to_hide)
         t.set_hidden_keys(t.hidden_keys | {str(to_hide): to_hide})
         keys, hids, vals = t.get_columns_as_lists()
-        t.extend_intermediate_representation([End(keys, hids, vals)])
+        t.extend_intermediate_representation()
         t.execute()
         return t
 
@@ -501,14 +502,13 @@ class Table:
         t.set_vals({str(c): c for c in vals})
         t.set_hidden_keys({str(c): c for c in hidden_keys})
         t.show_strong_key(column)
-        keys, hids, vals = t.get_columns_as_lists()
-        t.extend_intermediate_representation([End(keys, hids, vals)])
+        t.extend_intermediate_representation()
         t.execute()
         return t
 
     def filter(self, predicate: Predicate):
         t = Table.create_from_table(self)
-        t.extend_intermediate_representation([Filter(predicate), self.intermediate_representation[-1]])
+        t.extend_intermediate_representation([Filter(predicate)])
         t.execute()
         return t
 
@@ -533,7 +533,7 @@ class Table:
             else:
                 raise Exception()
             strong_keys = col.get_strong_keys()
-            remains_strong_key = np.array([find_index(t.displayed_columns, k.name) < idx for k in strong_keys])
+            remains_strong_key = np.array([find_index(t.displayed_columns, k.name) <= idx for k in strong_keys])
             becomes_value = ~remains_strong_key
 
             new_strong_keys = np.array(strong_keys)[remains_strong_key]
@@ -620,7 +620,7 @@ class Table:
 
         keys, hids, vals = t.get_columns_as_lists()
 
-        t.extend_intermediate_representation([End(keys, hids, vals)])
+        t.extend_intermediate_representation()
         t.execute()
         return t
 

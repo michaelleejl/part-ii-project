@@ -299,6 +299,7 @@ Ringo          Pepper                  29
     def test_ex8_goal3_step1_get(self):
         s = self.initialise()
         t21 = s.get(["Person", "Pet"])
+        self.maxDiff = None
         self.assertExpectedInline(str(t21), """\
 [Person Pet || ]
 Empty DataFrame
