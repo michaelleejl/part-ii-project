@@ -91,8 +91,11 @@ Steve         funding        funding
         s = self.initialise()
         t1 = s.get(["person.person"])
         t2 = t1.infer(["person.person"], "task.task")
+        print(t2)
         t3 = t2.show("task.task")
+        print(t3)
         t4 = t3.hide("task.task")
+        print(t4)
         self.assertExpectedInline(str(t4), """\
 [person.person || task.task]
                                    task.task

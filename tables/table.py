@@ -240,14 +240,13 @@ class Table:
         return list(hidden_keys)
 
     def hide_strong_key(self, key: RawColumn):
-        if len(key.get_strong_keys()) == 0:
-            keys, hids, vals = self.get_columns_as_lists()
-            for column in keys + hids + vals:
-                strong_keys = column.get_strong_keys()
-                idx = find_index(strong_keys, key)
-                if idx > 0:
-                    column.set_strong_keys(strong_keys[:idx] + strong_keys[idx + 1:])
-                    column.set_hidden_keys(column.get_hidden_keys() + [column])
+        keys, hids, vals = self.get_columns_as_lists()
+        for column in keys + hids + vals:
+            strong_keys = column.get_strong_keys()
+            idx = find_index(strong_keys, key)
+            if idx >= 0:
+                column.set_strong_keys(strong_keys[:idx] + strong_keys[idx + 1:])
+                column.set_hidden_keys(column.get_hidden_keys() + strong_keys[idx])
 
     def show_strong_key(self, key: RawColumn):
         keys, hids, vals = self.get_columns_as_lists()
@@ -257,11 +256,12 @@ class Table:
 
             idx = find_index(hidden_keys, key)
 
-            column.set_hidden_keys(hidden_keys[:idx] + hidden_keys[idx + 1:])
-            idxs = [find_index(self.displayed_columns, c.name) for c in strong_keys]
-            strong_key_idx = find_index(self.displayed_columns, key.name)
-            ins = binary_search(idxs, strong_key_idx)
-            column.set_strong_keys(strong_keys[:ins] + [key] + strong_keys[ins + 1:])
+            if idx > 0:
+                column.set_hidden_keys(hidden_keys[:idx] + hidden_keys[idx + 1:])
+                idxs = [find_index(self.displayed_columns, c.name) for c in strong_keys]
+                strong_key_idx = find_index(self.displayed_columns, key.name)
+                ins = binary_search(idxs, strong_key_idx)
+                column.set_strong_keys(strong_keys[:ins] + [key] + strong_keys[ins + 1:])
 
     def replace_strong_key(self,
                            to_replace: RawColumn,
@@ -437,7 +437,7 @@ class Table:
         hidden_assumptions = [
             t.new_col_from_node(hk, ColumnType.KEY)
             if str(hk) != name
-            else RawColumn(name, hk, [], [], False,
+            else RawColumn(name, hk, [], [], True,
                            None, ColumnType.KEY, t)
             for hk in hidden_keys]
         hidden_keys_str = [str(c) for c in hidden_assumptions]
