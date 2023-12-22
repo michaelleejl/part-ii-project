@@ -246,7 +246,7 @@ class Table:
             idx = find_index(strong_keys, key)
             if idx >= 0:
                 column.set_strong_keys(strong_keys[:idx] + strong_keys[idx + 1:])
-                column.set_hidden_keys(column.get_hidden_keys() + strong_keys[idx])
+                column.set_hidden_keys(column.get_hidden_keys() + [strong_keys[idx]])
 
     def show_strong_key(self, key: RawColumn):
         keys, hids, vals = self.get_columns_as_lists()
@@ -256,7 +256,7 @@ class Table:
 
             idx = find_index(hidden_keys, key)
 
-            if idx > 0:
+            if idx >= 0:
                 column.set_hidden_keys(hidden_keys[:idx] + hidden_keys[idx + 1:])
                 idxs = [find_index(self.displayed_columns, c.name) for c in strong_keys]
                 strong_key_idx = find_index(self.displayed_columns, key.name)
