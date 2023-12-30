@@ -1,42 +1,125 @@
 import operator
 
-from schema import Cardinality
+from schema import Cardinality, BaseType
+from tables.aexp import ConstAexp, ColumnAexp, Aexp, AddAexp, SubAexp, MulAexp, DivAexp
 from tables.aggregation import AggregationFunction
+from tables.exceptions import ColumnTypeException
 from tables.function import Function, create_function, create_bijection
-from tables.predicate import EqualityPredicate, NotPredicate, LessThanPredicate, NAPredicate, OrPredicate, AndPredicate
+from tables.bexp import EqualityBexp, NotBexp, LessThanBexp, NABexp, OrBexp, AndBexp, ColumnBexp, ConstBexp, Bexp
 from tables.raw_column import RawColumn
 
 
+def wrap_bexp(exp):
+    if isinstance(exp, bool):
+        return ConstBexp(exp)
+    elif isinstance(exp, Column):
+        if exp.raw_column.node.node_type is not BaseType.BOOL:
+            raise ColumnTypeException("bool", str(exp.raw_column.node.node_type))
+        return ColumnBexp(exp)
+    elif isinstance(exp, Bexp):
+        return exp
+
+
+def wrap_aexp(exp):
+    if isinstance(exp, float) or isinstance(exp, int):
+        return ConstAexp(exp)
+    elif isinstance(exp, Column):
+        if exp.raw_column.node.node_type is not BaseType.FLOAT:
+            raise ColumnTypeException("float", str(exp.raw_column.node.node_type))
+        return ColumnAexp(exp)
+    elif isinstance(exp, Aexp):
+        return exp
+
+
+def get_arguments_for_binary_aexp(x, y):
+    lexp = wrap_aexp(x)
+    rexp = wrap_aexp(y)
+    if lexp is None or rexp is None:
+        raise ColumnTypeException("float", "other")
+    return lexp, rexp
+
+def get_arguments_for_binary_bexp(x, y):
+    lexp = wrap_bexp(x)
+    rexp = wrap_bexp(y)
+    if lexp is None or rexp is None:
+        raise ColumnTypeException("bool", "other")
+    return lexp, rexp
 class Column:
     def __init__(self, raw_column: RawColumn):
         self.raw_column = raw_column
 
-    def __eq__(self, other) -> EqualityPredicate:
-        return EqualityPredicate(self.raw_column.name, other)
+    def __eq__(self, other) -> EqualityBexp:
+        data_type = self.raw_column.node.node_type
+        lexp = None
+        rexp = None
+        if data_type == BaseType.BOOL:
+            lexp = wrap_bexp(self)
+            rexp = wrap_bexp(other)
+        elif data_type == BaseType.FLOAT:
+            lexp = wrap_aexp(self)
+            rexp = wrap_aexp(other)
+        if lexp is None or rexp is None:
+            raise ColumnTypeException(str(data_type), "other")
+        return EqualityBexp(lexp, rexp)
 
-    def __bool__(self):
-        raise NotImplemented()
+    def __ne__(self, other) -> NotBexp:
+        return NotBexp(self.raw_column.name == other)
 
-    def __ne__(self, other) -> NotPredicate:
-        return NotPredicate(EqualityPredicate(self.raw_column.name, other))
+    def __lt__(self, other) -> LessThanBexp:
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        lexp, rexp = get_arguments_for_binary_aexp(self, other)
+        return LessThanBexp(lexp, rexp)
 
-    def __lt__(self, other) -> LessThanPredicate:
-        return LessThanPredicate(self.raw_column.name, other)
+    def __gt__(self, other) -> AndBexp:
+        return AndBexp(NotBexp(self < other), self != other)
 
-    def __gt__(self, other) -> NotPredicate:
-        return NotPredicate(LessThanPredicate(self.raw_column.name, other))
+    def __le__(self, other) -> OrBexp:
+        return OrBexp(self < other, self == other)
 
-    def __le__(self, other) -> OrPredicate:
-        return OrPredicate(LessThanPredicate(self.raw_column.name, other), EqualityPredicate(self.raw_column.name, other))
+    def __ge__(self, other) -> NotBexp:
+        return NotBexp(self < other)
 
-    def __ge__(self, other) -> OrPredicate:
-        return OrPredicate(NotPredicate(LessThanPredicate(self.raw_column.name, other)), EqualityPredicate(self.raw_column.name, other))
+    def __and__(self, other):
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.BOOL:
+            raise ColumnTypeException("bool", str(data_type))
+        lexp, rexp = get_arguments_for_binary_bexp(self, other)
+        return AndBexp(lexp, rexp)
 
-    def isnull(self) -> NAPredicate:
-        return NAPredicate(self.raw_column.name)
+    def __rand__(self, other):
+        self.__and__(other)
 
-    def isnotnull(self) -> NotPredicate:
-        return NotPredicate(NAPredicate(self.raw_column.name))
+    def __or__(self, other):
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.BOOL:
+            raise ColumnTypeException("bool", str(data_type))
+        lexp, rexp = get_arguments_for_binary_bexp(self, other)
+        return OrBexp(lexp, rexp)
+
+    def __ror__(self, other):
+        self.__or__(other)
+
+    def __invert__(self):
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.BOOL:
+            raise ColumnTypeException("bool", str(data_type))
+        exp = wrap_bexp(self)
+        return NotBexp(exp)
+
+    def isnull(self) -> NABexp:
+        data_type = self.raw_column.node.node_type
+        if data_type == BaseType.FLOAT:
+            exp = ColumnAexp(self)
+        elif data_type == BaseType.BOOL:
+            exp = ColumnBexp(self)
+        else:
+            raise NotImplemented()
+        return NABexp(exp)
+
+    def isnotnull(self) -> NotBexp:
+        return NotBexp(self.isnull())
 
     def __hash__(self):
         return self.raw_column.__hash__()
@@ -48,28 +131,52 @@ class Column:
             return Function(op, [self, other], Cardinality.ONE_TO_ONE)
 
     def __add__(self, other):
-        return self.create_function(other, operator.add)
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        lexp, rexp = get_arguments_for_binary_aexp(self, other)
+        return AddAexp(lexp, rexp)
 
     def __radd__(self, other):
         return self.__add__(other)
 
     def __sub__(self, other):
-        return self.create_function(other, operator.sub)
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        lexp, rexp = get_arguments_for_binary_aexp(self, other)
+        return SubAexp(lexp, rexp)
 
     def __rsub__(self, other):
-        return self.__sub__(other)
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        lexp, rexp = get_arguments_for_binary_aexp(other, self)
+        return SubAexp(lexp, rexp)
 
     def __mul__(self, other):
-        return self.create_function(other, operator.mul)
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        lexp, rexp = get_arguments_for_binary_aexp(self, other)
+        return MulAexp(lexp, rexp)
 
     def __rmul__(self, other):
         return self.__mul__(other)
 
     def __truediv__(self, other):
-        return self.create_function(other, operator.truediv)
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        lexp, rexp = get_arguments_for_binary_aexp(self, other)
+        return DivAexp(lexp, rexp)
 
     def __rtruediv__(self, other):
-        return Function(operator.truediv, [self, other])
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        lexp, rexp = get_arguments_for_binary_aexp(other, self)
+        return DivAexp(lexp, rexp)
 
     def get_explicit_keys(self):
         return self.raw_column.get_strong_keys()

@@ -215,28 +215,29 @@ cardnum
         #  4412
 
     def test_ex1_goal3_step2_assignAndPlus(self):
-        s = self.initialise()
-        t21 = s.get(["cardnum.cardnum"])
-        t22 = t21.infer(["cardnum.cardnum"], "cardnum.val_id")
-        t23 = t22.assign("cardnum.plusone", t22["cardnum.cardnum"] + t22["cardnum.val_id"])
+        s, cardnum, person = self.initialise()
+        t21 = s.get([cardnum["cardnum"]])
+        t22 = t21.infer(["cardnum"], cardnum["val_id"])
+        t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid")
         self.assertExpectedInline(str(t23), """\
-[cardnum.cardnum || cardnum.val_id cardnum.plusone]
-                cardnum.val_id cardnum.plusone
-cardnum.cardnum                               
-5172                       [1]          [5173]
-2354                    [2, 5]    [2356, 2359]
-1410                       [3]          [1413]
-1111                       [4]          [1115]
-4412                       [8]          [4420]
+[cardnum || val_id numplusvalid]
+         val_id  numplusvalid
+cardnum                      
+5172        [1]        [5173]
+2354     [2, 5]  [2356, 2359]
+1410        [3]        [1413]
+1111        [4]        [1115]
+4412        [8]        [4420]
 
 """)
 
+    #TODO: Fix test
     def test_ex1_goal3_step3_setKey(self):
-        s = self.initialise()
-        t21 = s.get(["cardnum.cardnum"])
-        t22 = t21.infer(["cardnum.cardnum"], "cardnum.val_id")
-        t23 = t22.assign("cardnum.plusone", t22["cardnum.cardnum"] + t22["cardnum.val_id"])
-        t24 = t23.set_key(["cardnum.plusone"])
+        s, cardnum, person = self.initialise()
+        t21 = s.get([cardnum["cardnum"]])
+        t22 = t21.infer(["cardnum"], cardnum["val_id"])
+        t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid")
+        t24 = t23.set_key(["numplusvalid"])
 
         self.assertExpectedInline(str(t24), """\
 [cardnum.plusone || cardnum.cardnum cardnum.val_id]

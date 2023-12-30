@@ -64,8 +64,8 @@ class Schema:
 
         return {node.name: node for node in nodes}
 
-    def add_node(self, node: SchemaNode) -> SchemaNode:
-        self.schema_graph.check_node_in_graph(node)
+    def add_node(self, node: AtomicNode) -> SchemaNode:
+        self.schema_graph.check_node_not_in_graph(node)
         self.schema_graph.add_node(node)
         return node
 
@@ -74,8 +74,8 @@ class Schema:
         self.schema_graph.add_edge(node1, node2, cardinality)
         return edge
 
-    def map_edge_to_closure_function(self, edge, function: Function):
-        self.backend.map_edge_to_closure_function(edge, function)
+    def map_edge_to_closure_function(self, edge, function: Function, num_args):
+        self.backend.map_edge_to_closure_function(edge, function, num_args)
 
     def create_class(self, name: str) -> SchemaClass:
         return SchemaClass(name)

@@ -9,15 +9,17 @@ from helpers.compose_cardinality import compose_cardinality
 from helpers.find_cardinality_from_new_key_to_hidden_key import find_cardinality_from_new_key_to_hidden_key
 from helpers.find_cardinality_from_new_key_to_new_value import find_cardinality_from_new_key_to_new_value
 from helpers.min_cardinality import min_cardinality
-from schema import SchemaEdge, Cardinality, reverse_cardinality
+from schema import SchemaEdge, Cardinality, reverse_cardinality, BaseType
 from schema.node import SchemaNode, AtomicNode
+from tables.aexp import Aexp
 from tables.aggregation import AggregationFunction
 from tables.column import Column
 from tables.exceptions import KeyMismatchException, ColumnsNeedToBeUniqueException, \
     ColumnsNeedToBeInTableAndVisibleException, ColumnsNeedToBeKeysException, ColumnsNeedToBeInTableException, \
     ColumnsNeedToBeHiddenException
+from tables.exp import Exp
 from tables.function import Function
-from tables.predicate import Predicate
+from tables.bexp import Bexp
 from tables.raw_column import RawColumn, ColumnType
 from tables.derivation import DerivationStep, Rename, End, Filter, StartTraversal, EndTraversal, Traverse, Sort, Get
 
@@ -387,21 +389,70 @@ class Table:
 
         # STEP 5
         # compute the new intermediate representation
-        old_names = from_keys_names
-        new_names = [str(c) for c in cols_to_add]
-        renaming = {old_name: name for old_name, name in zip(old_names, new_names)}
-
-        new_repr = repr[:-1] + [Rename(renaming), repr[-1]]
-        t.extend_intermediate_representation(new_repr)
+        t.extend_intermediate_representation(repr)
         t.execute()
 
         return t
 
-    def deduce(self):
-        pass
+    def deduce(self, function: Exp, with_name: str):
+        t = Table.create_from_table(self)
+        name = t.get_fresh_name(with_name)
+        if isinstance(function, Exp):
+            exp, start_columns = Exp.convert_exp(function)
+            nodes = [c.node for c in start_columns]
+            start_node = SchemaNode.product(nodes)
+            strong_keys = t.find_strong_keys_for_column(start_columns)
+            hidden_keys = [c.get_hidden_keys() for c in start_columns]
+            shk = set()
+            for hk in hidden_keys:
+                if shk.issubset(hk) or hk.issubset(shk):
+                    shk.union(hk)
+                else:
+                    raise KeyMismatchException(shk, hk)
+            if isinstance(exp, Aexp):
+                node_type = BaseType.FLOAT
+            elif isinstance(exp, Bexp):
+                node_type = BaseType.name
+            else:
+                raise NotImplemented()
+            end_node = self.schema.add_node(AtomicNode(name, node_type))
+            # TODO: Consider special ONE-TO-ONE Functions
+            edge = self.schema.add_edge(start_node, end_node, Cardinality.MANY_TO_ONE)
+            self.schema.map_edge_to_closure_function(edge, exp, len(start_columns))
+            cardinality = Cardinality.MANY_TO_ONE
+            for column in start_columns:
+                cardinality = compose_cardinality(column.cardinality, cardinality)
+            column = RawColumn(name, end_node, strong_keys, hidden_keys, False, cardinality, ColumnType.VALUE, t)
+
+        # elif isinstance(function, AggregationFunction):
+        #     start_column = function.column
+        #     explicit_keys = start_column.get_strong_keys()
+        #     start_columns = [c for c in explicit_keys] + [start_column.raw_column]
+        #     nodes = [c.node for c in explicit_keys] + [start_column.raw_column.node]
+        #     start_node = SchemaNode.product(nodes)
+        #     new_start_node = SchemaNode.product([c.node for c in explicit_keys])
+        #     end_node = self.schema.add_node(name)
+        #     edge = self.schema.add_edge(start_node, end_node, Cardinality.MANY_TO_ONE)
+        #     self.schema.map_edge_to_closure_function(edge, function)
+        #     self.schema.add_edge(new_start_node, end_node, Cardinality.MANY_TO_ONE)
+        #     column = RawColumn(name, end_node, list(explicit_keys), ColumnType.VALUE, self)
+        else:
+            raise Exception()
+
+        t.displayed_columns += [str(column)]
+        t.set_vals(t.values | {str(column): column})
+        traversal = [
+            StartTraversal(start_columns, t.displayed_columns[:t.marker]),
+            Traverse(start_node, end_node),
+            EndTraversal(start_columns, [column])]
+
+        t.extend_intermediate_representation(traversal)
+        t.execute()
+        return t
 
     # TODO: Handle the case where from columns is zero
-    def infer(self, from_columns: list[str], to_column: input_column_type, via: list[str] = None, with_name: str = None):
+    def infer(self, from_columns: list[str], to_column: input_column_type, via: list[str] = None,
+              with_name: str = None):
         # An inference from a set of assumption columns to a conclusion column
         self.verify_columns(from_columns, {Table.ColumnRequirements.IS_KEY_OR_VAL, Table.ColumnRequirements.IS_UNIQUE})
 
@@ -468,7 +519,6 @@ class Table:
 
         # STEP 4
         # Update intermediate representation
-        new_repr = repr[:-1] + [Rename({old_name: name} | renaming), repr[-1]]
 
         t.extend_intermediate_representation(repr)
         t.execute()
@@ -514,7 +564,7 @@ class Table:
         t.execute()
         return t
 
-    def filter(self, predicate: Predicate):
+    def filter(self, predicate: Bexp):
         t = Table.create_from_table(self)
         t.extend_intermediate_representation([Filter(predicate)])
         t.execute()

@@ -37,6 +37,12 @@ class ColumnsNeedToBeInTableAndVisibleException(Exception):
     def __init__(self):
         super().__init__("All columns need to be in the table and visible")
 
+
 class IntermediateRepresentationMustHaveEndMarkerException(Exception):
     def __init__(self):
         super().__init__("Intermediate representation must end with End marker")
+
+
+class ColumnTypeException(Exception):
+    def __init__(self, expected_type, got_type):
+        super().__init__(f"Expected column of type {expected_type}. Got column of type {got_type}")

@@ -1,5 +1,5 @@
 from tables.column import Column
-from tables.predicate import Predicate
+from tables.bexp import Bexp
 from tables.raw_column import RawColumn
 
 
@@ -149,7 +149,7 @@ class Project(DerivationStep):
 
 
 class Filter(DerivationStep):
-    def __init__(self, predicate: Predicate):
+    def __init__(self, predicate: Bexp):
         super().__init__("FLT")
         self.predicate = predicate
 

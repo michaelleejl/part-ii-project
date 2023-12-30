@@ -10,35 +10,35 @@ from schema import SchemaNode, SchemaEdge
 from tables.column import Column
 from tables.derivation import DerivationStep, Get, End, StartTraversal, Traverse, Equate, Project, EndTraversal, Rename, \
     Expand, Filter, Sort
-from tables.predicate import *
+from tables.bexp import *
 
 
-def predicate_interpreter(predicate: Predicate):
+def predicate_interpreter(predicate: Bexp):
     match predicate.predicate_type:
         case "EQ":
-            eq = typing.cast(EqualityPredicate, predicate)
+            eq = typing.cast(EqualityBexp, predicate)
             if isinstance(eq.value, Column):
                 return lambda t: t[eq.name] == t[eq.value.raw_column.name]
             return lambda t: t[eq.name] == eq.value
         case "LT":
-            lt = typing.cast(LessThanPredicate, predicate)
+            lt = typing.cast(LessThanBexp, predicate)
             if isinstance(lt.value, Column):
                 return lambda t: t[eq.name] < t[eq.value.raw_column.name]
             return lambda t: t[lt.name] < lt.value
         case "NA":
-            na = typing.cast(NAPredicate, predicate)
+            na = typing.cast(NABexp, predicate)
             return lambda t: t[na.name].isnull()
         case "NOT":
-            nt = typing.cast(NotPredicate, predicate)
+            nt = typing.cast(NotBexp, predicate)
             p = predicate_interpreter(nt.predicate1)
             return lambda t: ~p(t)
         case "AND":
-            an = typing.cast(AndPredicate, predicate)
+            an = typing.cast(AndBexp, predicate)
             p1 = predicate_interpreter(an.predicate1)
             p2 = predicate_interpreter(an.predicate2)
             return lambda t: (p1(t)) & (p2(t))
         case "OR":
-            rr = typing.cast(AndPredicate, predicate)
+            rr = typing.cast(AndBexp, predicate)
             p1 = predicate_interpreter(rr.predicate1)
             p2 = predicate_interpreter(rr.predicate2)
             return lambda t: (p1(t)) | (p2(t))

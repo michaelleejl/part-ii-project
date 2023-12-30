@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from backend.backend import Backend
+from backend.pandas_backend.exp_interpreter import exp_interpreter
 from backend.pandas_backend.helpers import copy_data, get_cols_of_node, determine_cardinality
 from backend.pandas_backend.interpreter import get, interpret, end
 from backend.pandas_backend.relation import Relation, DataRelation
@@ -12,24 +13,12 @@ from schema.node import SchemaNode, AtomicNode, SchemaClass
 from tables.aggregation import AggregationFunction
 from tables.column import Column
 from tables.derivation import DerivationStep, Get, End
+from tables.exp import Exp
 from tables.function import Function
 
-def interpret_function(function: Function):
-    fun = function.function
-    arg = function.arguments
 
-    def interpreted_function(t):
-        interpreted_args = []
-        num_args = 0
-        for a in arg:
-            if isinstance(a, Column):
-                interpreted_args += [t[num_args]]
-                num_args += 1
-            else:
-                interpreted_args += a
-        return fun(interpreted_args), num_args
-
-    return interpreted_function
+def interpret_function(function: Exp):
+    return exp_interpreter(function)
 
 
 def interpret_aggregation_function(function: AggregationFunction):
@@ -93,20 +82,18 @@ class PandasBackend(Backend):
         df.columns = list(range(len(df.columns)))
         self.edge_data[edge] = copy_data(df)
 
-    def map_edge_to_closure_function(self, edge, function: Function | AggregationFunction):
+    def map_edge_to_closure_function(self, edge, function: Exp | AggregationFunction, num_args: int):
         rev = SchemaEdge(edge.to_node, edge.from_node, reverse_cardinality(edge.cardinality))
         f_node_c = [str(c) for c in SchemaNode.get_constituents(edge.from_node)]
         t_node_c = [str(c) for c in SchemaNode.get_constituents(edge.to_node)]
 
-        if isinstance(function, Function):
+        if isinstance(function, Exp):
             fun = interpret_function(function)
 
             def closure(table, keys):
                 df = copy_data(table)
-                series, num_args = pd.Series(fun(df))
+                series = pd.Series(fun(df))
                 df[num_args] = series
-                # to_merge = returned.apply(lambda x: x[0] if isinstance(x, list) else x).reset_index()
-                # df = df.merge(to_merge, on=keys, how="left")
                 data = copy_data(pd.DataFrame(df))
                 self.map_edge_to_data_relation(rev, data[[num_args] + list(range(num_args))])
                 self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[num_args]).drop_duplicates())
