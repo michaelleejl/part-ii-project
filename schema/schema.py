@@ -117,7 +117,7 @@ class Schema:
         self.schema_graph.blend_nodes(new_node, node)
         return new_node
 
-    def get(self, keys: list[AtomicNode], with_names: list[str] = None):
+    def get(self, keys: list[AtomicNode | SchemaClass], with_names: list[str] = None):
         self.schema_graph.check_nodes_in_graph(keys)
         key_set = frozenset(keys)
         diff = key_set.difference(self.schema_graph.schema_nodes)
