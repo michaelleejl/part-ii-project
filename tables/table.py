@@ -615,8 +615,6 @@ class Table:
         t.set_vals(values)
         t.set_hidden_keys(hidden_keys)
 
-        keys, hids, vals = t.get_columns_as_lists()
-
         t.extend_intermediate_representation()
         t.execute()
         return t
