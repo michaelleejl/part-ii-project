@@ -1,8 +1,6 @@
 import expecttest
 
 import pandas as pd
-
-from schema.node import SchemaNode
 from schema.schema import Schema
 
 
@@ -10,43 +8,47 @@ class TestSchema(expecttest.TestCase):
     # [cardnum trip_id || bonus t_start]
 
     def test_schema_insert(self):
-        test = pd.read_csv("./test_schema.csv").dropna()
-        test = test.set_index(["trip_id", "cardnum"])
+        test_df = pd.read_csv("./schema/tests/test_schema.csv").dropna()
+        test_df = test_df.set_index(["trip_id", "cardnum"])
         schema = Schema()
-        schema.insert_dataframe(test)
+        test = schema.insert_dataframe(test_df)
+        test["trip_id"].id_prefix = 0
+        test["cardnum"].id_prefix = 0
+        test["person"].id_prefix = 0
+        test["bonus"].id_prefix = 0
         self.assertExpectedInline(str(schema), """\
 ADJACENCY LIST 
 ==========================
 
 ==========================
-test_schema.trip_id;cardnum
+trip_id;cardnum
 --------------------------
-trip_id;cardnum ---> person
-trip_id;cardnum ---> trip_id
 trip_id;cardnum ---> bonus
+trip_id;cardnum ---> trip_id
 trip_id;cardnum ---> cardnum
+trip_id;cardnum ---> person
 ==========================
 
 ==========================
-test_schema.trip_id
+trip_id
 --------------------------
 trip_id;cardnum ---> trip_id
 ==========================
 
 ==========================
-test_schema.cardnum
+cardnum
 --------------------------
 trip_id;cardnum ---> cardnum
 ==========================
 
 ==========================
-test_schema.person
+person
 --------------------------
 trip_id;cardnum ---> person
 ==========================
 
 ==========================
-test_schema.bonus
+bonus
 --------------------------
 trip_id;cardnum ---> bonus
 ==========================
@@ -59,45 +61,51 @@ EQUIVALENCE CLASSES
 ==========================
 Class 0
 --------------------------
-test_schema.trip_id
+trip_id
 ==========================
 
 ==========================
 Class 1
 --------------------------
-test_schema.cardnum
+cardnum
 ==========================
 
 ==========================
 Class 2
 --------------------------
-test_schema.person
+person
 ==========================
 
 ==========================
 Class 3
 --------------------------
-test_schema.bonus
+bonus
 ==========================
 
 ==========================
 """)
 
     def test_schema_blend(self):
-        bonus = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
-        person = pd.read_csv("./person.csv").dropna().set_index(["cardnum"])
+        bonus_df = pd.read_csv("./schema/tests/bonus.csv").dropna().set_index(["trip_id", "cardnum"])
+        person_df = pd.read_csv("./schema/tests/person.csv").dropna().set_index(["cardnum"])
         schema = Schema()
-        schema.insert_dataframe(bonus, "bonus")
-        schema.insert_dataframe(person, "person")
-        cardnum_bonus = SchemaNode("cardnum", cluster="bonus")
-        cardnum_person = SchemaNode("cardnum", cluster="person")
-        schema.blend(cardnum_bonus, cardnum_person, "Cardnum")
+        bonus = schema.insert_dataframe(bonus_df)
+        person = schema.insert_dataframe(person_df)
+        bonus["trip_id"].id_prefix = 0
+        bonus["cardnum"].id_prefix = 0
+        bonus["bonus"].id_prefix = 0
+        person["person"].id_prefix = 0
+        person["cardnum"].id_prefix = 0
+        cardnum_bonus = bonus["cardnum"]
+        cardnum_person = person["cardnum"]
+        Cardnum = schema.create_class("Cardnum")
+        schema.blend(cardnum_bonus, cardnum_person, Cardnum)
         self.assertExpectedInline(str(schema), """\
 ADJACENCY LIST 
 ==========================
 
 ==========================
-bonus.trip_id;cardnum
+trip_id;cardnum
 --------------------------
 trip_id;cardnum ---> cardnum
 trip_id;cardnum ---> bonus
@@ -105,31 +113,31 @@ trip_id;cardnum ---> trip_id
 ==========================
 
 ==========================
-bonus.trip_id
+trip_id
 --------------------------
 trip_id;cardnum ---> trip_id
 ==========================
 
 ==========================
-bonus.cardnum
+cardnum
 --------------------------
 trip_id;cardnum ---> cardnum
 ==========================
 
 ==========================
-bonus.bonus
+bonus
 --------------------------
 trip_id;cardnum ---> bonus
 ==========================
 
 ==========================
-person.cardnum
+cardnum
 --------------------------
 cardnum ---> person
 ==========================
 
 ==========================
-person.person
+person
 --------------------------
 cardnum ---> person
 ==========================
@@ -142,44 +150,45 @@ EQUIVALENCE CLASSES
 ==========================
 Class 0
 --------------------------
-bonus.trip_id
+trip_id
 ==========================
 
 ==========================
 Class 1
 --------------------------
-bonus.cardnum
 Cardnum
-person.cardnum
+cardnum
+cardnum
 ==========================
 
 ==========================
 Class 2
 --------------------------
-bonus.bonus
+bonus
 ==========================
 
 ==========================
 Class 3
 --------------------------
-person.person
+person
 ==========================
 
 ==========================
 """)
 
     def test_schema_get(self):
-        bonus = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
-        person = pd.read_csv("./person.csv").dropna().set_index(["cardnum"])
+        bonus_df = pd.read_csv("./schema/tests/bonus.csv").dropna().set_index(["trip_id", "cardnum"])
+        person_df = pd.read_csv("./schema/tests/person.csv").dropna().set_index(["cardnum"])
         schema = Schema()
-        schema.insert_dataframe(bonus, "bonus")
-        schema.insert_dataframe(person, "person")
-        cardnum_bonus = SchemaNode("cardnum", cluster="bonus")
-        cardnum_person = SchemaNode("cardnum", cluster="person")
-        schema.blend(cardnum_bonus, cardnum_person, "Cardnum")
-        t = schema.get(["person.cardnum", "bonus.cardnum"])
+        bonus = schema.insert_dataframe(bonus_df)
+        person = schema.insert_dataframe(person_df)
+        cardnum_bonus = bonus["cardnum"]
+        cardnum_person = person["cardnum"]
+        Cardnum = schema.create_class("Cardnum")
+        schema.blend(cardnum_bonus, cardnum_person, Cardnum)
+        t = schema.get([cardnum_person, cardnum_bonus])
         self.assertExpectedInline(str(t), """\
-[person.cardnum bonus.cardnum || ]
+[cardnum cardnum_1 || ]
 Empty DataFrame
 Columns: []
 Index: [(101, 101), (101, 111), (101, 100), (111, 101), (111, 111), (111, 100)]

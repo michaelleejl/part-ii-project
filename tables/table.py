@@ -168,19 +168,17 @@ class Table:
         self.namespace.add(candidate)
         return candidate
 
-    def new_col_from_node(self, node: SchemaNode, type: ColumnType, name: str = None):
+    def new_col_from_node(self, node: AtomicNode, type: ColumnType, name: str = None):
         if name is None:
-            name = self.get_fresh_name(str(node))
+            name = self.get_fresh_name(node.name)
         else:
             name = self.get_fresh_name(name)
-        original_name = str(node)
+        original_name = node.name
         if name != original_name:
-            if len(name.split(".")) > 1:
-                name = name.split(".")[1]
             new_node = self.schema.clone(node, name)
         else:
             new_node = node
-        return RawColumn(str(new_node), new_node, [], [], True, None, type, table=self)
+        return RawColumn(new_node.name, new_node, [], [], True, None, type, table=self)
 
     def verify_columns(self, column_names: list[str], requirements: set[ColumnRequirements]):
         keys = set(self.keys.keys())

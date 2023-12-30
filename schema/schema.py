@@ -31,7 +31,7 @@ class Schema:
         self.schema_types = {}
         self.backend = None
 
-    def insert_dataframe(self, df):
+    def insert_dataframe(self, df) -> dict[str, AtomicNode]:
         if self.backend is None:
             self.backend = PandasBackend()
         else:

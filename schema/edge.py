@@ -59,4 +59,4 @@ class SchemaEdge:
             arrow = "<---"
         else:
             arrow = "---"
-        return f"{self.from_node.name} {arrow} {self.to_node.name}"
+        return f"{self.from_node} {arrow} {self.to_node}"

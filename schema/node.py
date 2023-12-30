@@ -72,7 +72,7 @@ class UnknownBaseClassException(Exception):
 
 
 class AtomicNode(SchemaNode):
-    def __init__(self, name: str, node_type: BaseType):
+    def __init__(self, name: str, node_type: BaseType = BaseType.OBJECT):
         super().__init__()
         self.node_type = node_type
         self.name = name
@@ -134,10 +134,13 @@ class AtomicNode(SchemaNode):
         raise NotImplemented()
 
     def __repr__(self):
-        return f"{self.name} <{str(self.id)[:self.id_prefix]}>"
+        if self.id_prefix == 0:
+            return self.name
+        else:
+            return f"{self.name} <{str(self.id)[:self.id_prefix]}>"
 
     def __str__(self):
-        return self.name
+        return self.__repr__()
 
 
 class ProductNodeShouldHaveAtLeastTwoConstituentsException(Exception):
@@ -206,7 +209,7 @@ class ProductNode(SchemaNode):
         raise NotImplemented()
 
     def __repr__(self):
-        return ";".join([str(c) for c in self.constituents])
+        return ";".join([repr(c) for c in self.constituents])
 
     def __str__(self):
         return self.__repr__()

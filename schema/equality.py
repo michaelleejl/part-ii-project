@@ -9,7 +9,7 @@ class SchemaEquality(SchemaEdge):
 
     def __repr__(self):
         arrow = "==="
-        return f"{self.from_node.name} {arrow} {self.to_node.name}"
+        return f"{self.from_node} {arrow} {self.to_node}"
 
     def is_equality(self):
         return True
