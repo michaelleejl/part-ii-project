@@ -5,29 +5,31 @@ from schema import Schema, SchemaNode
 
 
 class TestEx2(expecttest.TestCase):
-    def initialise(self) -> Schema:
+    def initialise(self):
         # SCHEMA:
         # cardnum <--- val_id ---> t_start
         s = Schema()
-        cardnum = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
-        tstart = pd.read_csv("./csv/bonuses/tstart.csv").set_index("val_id")
-        s.insert_dataframe(cardnum, "cardnum")
-        s.insert_dataframe(tstart, "tstart")
+        cardnum_df = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
+        tstart_df = pd.read_csv("./csv/bonuses/tstart.csv").set_index("val_id")
+        cardnum = s.insert_dataframe(cardnum_df)
+        tstart = s.insert_dataframe(tstart_df)
 
-        c_val_id = SchemaNode("val_id", cluster="cardnum")
-        t_val_id = SchemaNode("val_id", cluster="tstart")
+        c_val_id = cardnum["val_id"]
+        t_val_id = tstart["val_id"]
 
-        s.blend(c_val_id, t_val_id, under="Val_id")
-        return s
+        Val_id = s.create_class("Val_id")
+
+        s.blend(c_val_id, t_val_id, under=Val_id)
+        return s, cardnum, tstart
 
 # GOAL: For each trip (val_id), tell me when the trip started (t_start)
 # Only two obvious ways to do it
 
     def test_ex2_goal1_step1_get(self):
-        s = self.initialise()
-        t1 = s.get(["tstart.val_id"])
+        s, cardnum, tstart = self.initialise()
+        t1 = s.get([tstart["val_id"]])
         self.assertExpectedInline(str(t1), """\
-[tstart.val_id || ]
+[val_id || ]
 Empty DataFrame
 Columns: []
 Index: [1, 2, 3, 4, 5, 6, 7]
@@ -44,8 +46,8 @@ Index: [1, 2, 3, 4, 5, 6, 7]
         #  7
 
     def test_ex2_goal1_step2_infer(self):
-        s = self.initialise()
-        t1 = s.get(["tstart.val_id"])
+        s, cardnum, tstart = self.initialise()
+        t1 = s.get([tstart["val_id"]])
         t2 = t1.infer(["tstart.val_id"], "tstart.tstart")
         self.assertExpectedInline(str(t2), """\
 [tstart.val_id || tstart.tstart]

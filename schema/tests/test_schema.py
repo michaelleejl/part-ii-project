@@ -13,7 +13,7 @@ class TestSchema(expecttest.TestCase):
         test = pd.read_csv("./test_schema.csv").dropna()
         test = test.set_index(["trip_id", "cardnum"])
         schema = Schema()
-        schema.insert_dataframe(test, "test_schema")
+        schema.insert_dataframe(test)
         self.assertExpectedInline(str(schema), """\
 ADJACENCY LIST 
 ==========================

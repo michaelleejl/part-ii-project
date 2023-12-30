@@ -1,9 +1,6 @@
 import copy
-import typing
 import uuid
-from collections import deque
 from enum import Enum
-from itertools import compress
 
 import numpy as np
 import pandas as pd
@@ -13,17 +10,16 @@ from helpers.find_cardinality_from_new_key_to_hidden_key import find_cardinality
 from helpers.find_cardinality_from_new_key_to_new_value import find_cardinality_from_new_key_to_new_value
 from helpers.min_cardinality import min_cardinality
 from schema import SchemaEdge, Cardinality, reverse_cardinality
-from schema.node import SchemaNode
+from schema.node import SchemaNode, AtomicNode
 from tables.aggregation import AggregationFunction
 from tables.column import Column
 from tables.exceptions import KeyMismatchException, ColumnsNeedToBeUniqueException, \
     ColumnsNeedToBeInTableAndVisibleException, ColumnsNeedToBeKeysException, ColumnsNeedToBeInTableException, \
-    ColumnsNeedToBeHiddenException, IntermediateRepresentationMustHaveEndMarkerException
+    ColumnsNeedToBeHiddenException
 from tables.function import Function
 from tables.predicate import Predicate
 from tables.raw_column import RawColumn, ColumnType
-from tables.derivation import DerivationStep, Rename, End, Filter, StartTraversal, EndTraversal, Traverse, Sort, \
-    Project, Get
+from tables.derivation import DerivationStep, Rename, End, Filter, StartTraversal, EndTraversal, Traverse, Sort, Get
 
 
 def binary_search(l: list, v):
@@ -63,6 +59,20 @@ def check_for_uniqueness(column_names):
         raise ColumnsNeedToBeUniqueException()
 
 
+input_column_type = AtomicNode | Column
+
+
+def get_name_and_node_from_input_type(input_column: input_column_type) -> tuple[str, AtomicNode]:
+    if isinstance(input_column, AtomicNode):
+        return input_column.name, input_column
+    if isinstance(input_column, Column):
+        return input_column.raw_column.name, input_column.raw_column.node
+
+
+def get_names_and_nodes_from_input_type(input_columns: list[input_column_type]) -> tuple[list[str], list[AtomicNode]]:
+    return tuple([list(x) for x in zip(*[get_name_and_node_from_input_type(ic) for ic in input_columns])])
+
+
 class Table:
     class ColumnRequirements(Enum):
         IS_KEY = 1
@@ -90,7 +100,7 @@ class Table:
         self.dropped_vals_count = 0
 
     @classmethod
-    def construct(cls, columns: list[tuple[SchemaNode, str]], schema):
+    def construct(cls, columns: list[tuple[AtomicNode, str]], schema):
         table_id = uuid.uuid4().hex
         table = Table(table_id, [], schema)
         keys = []
@@ -142,10 +152,8 @@ class Table:
         new_table.dropped_vals_count = table.dropped_vals_count
         return new_table
 
-    def create_column(self, name, node: SchemaNode, strong_keys, hidden_keys, is_strong_key_for_self, cardinality,
+    def create_column(self, name, node: AtomicNode, strong_keys, hidden_keys, is_strong_key_for_self, cardinality,
                       type: ColumnType) -> RawColumn:
-        constituents = SchemaNode.get_constituents(node)
-        assert len(constituents) == 1
         name = self.get_fresh_name(name)
         return RawColumn(name, node, strong_keys, hidden_keys, is_strong_key_for_self, cardinality, type, self)
 
@@ -276,7 +284,8 @@ class Table:
             idx = find_index(strong_keys, to_replace)
             if idx > 0:
                 new_strong_keys = set(strong_keys[:idx] + replace_with_explicit + strong_keys[idx + 1:])
-                new_strong_keys = list(sorted(new_strong_keys, key=lambda x: find_index(self.displayed_columns, x.name)))
+                new_strong_keys = list(
+                    sorted(new_strong_keys, key=lambda x: find_index(self.displayed_columns, x.name)))
                 column.set_strong_keys(new_strong_keys)
                 column.set_hidden_keys(list(set(column.get_hidden_keys() + replace_with_hidden)))
                 new_cardinality = compose_cardinality(cardinality, column.cardinality)
@@ -324,8 +333,9 @@ class Table:
                 table.marker += 1
         return idx
 
-    def compose(self, from_keys: list[str], to_key: str, via: list[str] = None):
-        self.verify_columns(from_keys, {Table.ColumnRequirements.IS_UNIQUE})
+    def compose(self, from_keys: list[input_column_type], to_key: str, via: list[str] = None):
+        from_keys_names, from_keys_nodes = get_names_and_nodes_from_input_type(from_keys)
+        self.verify_columns(from_keys_names, {Table.ColumnRequirements.IS_UNIQUE})
         self.verify_columns([to_key], {Table.ColumnRequirements.IS_KEY})
 
         key_idx = find_index(self.displayed_columns, to_key)
@@ -338,10 +348,10 @@ class Table:
 
         # STEP 2
         # 2a. Update the columns to display
-        def key_from_name(name: str):
-            return t.new_col_from_node(t.schema.get_node_with_name(name), ColumnType.KEY)
+        def key_from_node(node: AtomicNode):
+            return t.new_col_from_node(node, ColumnType.KEY)
 
-        cols_to_add = [key_from_name(key) for key in from_keys]
+        cols_to_add = [key_from_node(key) for key in from_keys_nodes]
         t.displayed_columns = (
                 self.displayed_columns[:key_idx] + [str(c) for c in cols_to_add] + self.displayed_columns[
                                                                                    key_idx + 1:])
@@ -379,7 +389,7 @@ class Table:
 
         # STEP 5
         # compute the new intermediate representation
-        old_names = from_keys
+        old_names = from_keys_names
         new_names = [str(c) for c in cols_to_add]
         renaming = {old_name: name for old_name, name in zip(old_names, new_names)}
 
@@ -389,21 +399,25 @@ class Table:
 
         return t
 
+    def deduce(self):
+        pass
+
     # TODO: Handle the case where from columns is zero
-    def infer(self, from_columns: list[str], to_column: str, via: list[str] = None, with_name: str = None):
+    def infer(self, from_columns: list[str], to_column: input_column_type, via: list[str] = None, with_name: str = None):
         # An inference from a set of assumption columns to a conclusion column
         self.verify_columns(from_columns, {Table.ColumnRequirements.IS_KEY_OR_VAL, Table.ColumnRequirements.IS_UNIQUE})
+
+        to_column_name, to_column_node = get_name_and_node_from_input_type(to_column)
+        if with_name is not None:
+            to_column_name = with_name
 
         t = Table.create_from_table(self)
 
         # STEP 1
         # Get name for inferred column
         # Append column to end of displayed columns
-        name = str(to_column)
-        if with_name is not None:
-            name = with_name
-        old_name = name
-        name = t.get_fresh_name(name)
+        old_name = to_column_name
+        name = t.get_fresh_name(to_column_name)
         t.displayed_columns += [name]
 
         # STEP 2
@@ -425,8 +439,7 @@ class Table:
             via_nodes = None
             if via is not None:
                 via_nodes = [self.schema.get_node_with_name(n) for n in via]
-            end_node = self.schema.get_node_with_name(to_column)
-            conclusion_column = RawColumn(name, end_node, [], [], False,
+            conclusion_column = RawColumn(name, to_column_node, [], [], False,
                                           Cardinality.MANY_TO_MANY, ColumnType.VALUE, t)
             shortest_p = self.get_representation(assumption_columns, [conclusion_column],
                                                  t.displayed_columns[:t.marker], via_nodes, False)
@@ -449,7 +462,7 @@ class Table:
             if c is not None:
                 cardinality = compose_cardinality(c, cardinality)
 
-        new_col = RawColumn(name, end_node, strong_keys, old_hidden_keys + hidden_assumptions, False, cardinality,
+        new_col = RawColumn(name, to_column_node, strong_keys, old_hidden_keys + hidden_assumptions, False, cardinality,
                             ColumnType.VALUE, t)
 
         t.set_vals(t.values | {str(new_col): new_col})
@@ -459,7 +472,7 @@ class Table:
         # Update intermediate representation
         new_repr = repr[:-1] + [Rename({old_name: name} | renaming), repr[-1]]
 
-        t.extend_intermediate_representation(new_repr)
+        t.extend_intermediate_representation(repr)
         t.execute()
 
         return t
@@ -483,12 +496,13 @@ class Table:
         t.execute()
         return t
 
-    def show(self, col):
-        self.verify_columns([col], {Table.ColumnRequirements.IS_HIDDEN})
+    def show(self, column: str):
+        name = column
+        self.verify_columns([name], {Table.ColumnRequirements.IS_HIDDEN})
         t = Table.create_from_table(self)
-        column = self.hidden_keys[col]
+        column = self.hidden_keys[name]
         idx = self.find_index_to_insert(column, t)
-        t.displayed_columns.insert(idx, col)
+        t.displayed_columns.insert(idx, name)
         keys = [t.keys[c] if c in t.keys.keys() else column for c in
                 t.displayed_columns[:t.marker]]
         vals = [t.values[c] if c in t.values.keys() else column for c in
@@ -508,7 +522,7 @@ class Table:
         t.execute()
         return t
 
-    #TODO: Cleanup
+    # TODO: Cleanup
     def set_key(self, key_list: list[str]):
         self.verify_columns(key_list, {Table.ColumnRequirements.IS_KEY_OR_VAL})
         t = Table.create_from_table(self)
@@ -563,7 +577,8 @@ class Table:
                 key_to_hidden_key_cardinality = (find_cardinality_from_new_key_to_hidden_key(key)
                                                  if key.name != hidden_key.name else Cardinality.ONE_TO_ONE)
                 derived_hidden_keys_cardinalities[hidden_key] = min_cardinality(key_to_hidden_key_cardinality,
-                                                                                derived_hidden_keys_cardinalities[hidden_key])
+                                                                                derived_hidden_keys_cardinalities[
+                                                                                    hidden_key])
 
         values = {}
         hidden_keys = {}
@@ -604,12 +619,14 @@ class Table:
                 else:
                     new_hidden_keys_for_column += [old_hidden_key]
                     hidden_keys[str(old_hidden_key)] = old_hidden_key
-            if new_cardinality == Cardinality.ONE_TO_MANY or new_cardinality == Cardinality.MANY_TO_MANY and len(new_hidden_keys_for_column) == 0:
+            if new_cardinality == Cardinality.ONE_TO_MANY or new_cardinality == Cardinality.MANY_TO_MANY and len(
+                    new_hidden_keys_for_column) == 0:
                 new_hidden_key = RawColumn(v, col.node, [], [], True, None, ColumnType.KEY, t)
                 new_hidden_keys_for_column = [new_hidden_key]
                 hidden_keys[str(new_hidden_key)] = new_hidden_key
             new_strong_keys = list(sorted(new_strong_keys, key=lambda x: find_index(t.displayed_columns, x.name)))
-            values[v] = RawColumn(v, col.node, new_strong_keys, new_hidden_keys_for_column, False, new_cardinality, ColumnType.VALUE, t)
+            values[v] = RawColumn(v, col.node, new_strong_keys, new_hidden_keys_for_column, False, new_cardinality,
+                                  ColumnType.VALUE, t)
 
         t.set_keys(keys)
         t.set_vals(values)

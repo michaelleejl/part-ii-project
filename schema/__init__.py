@@ -5,6 +5,5 @@ from schema.equality import *
 from schema.exceptions import *
 from schema.graph import *
 from schema.node import *
-from schema.schema_class import *
 from schema.edge_list import *
 from schema.schema import *

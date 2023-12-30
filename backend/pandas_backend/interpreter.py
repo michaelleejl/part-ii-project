@@ -228,7 +228,7 @@ def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.
 
 def rnm(derivation_step: Rename, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     mapping = derivation_step.mapping
-    return table.rename(mapping, axis=1), cont, stack, keys
+    return table, lambda x: cont(x).rename(mapping, axis=1), stack, keys
 
 
 def srt(derivation_step: Sort, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:

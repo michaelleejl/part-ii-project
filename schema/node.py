@@ -1,4 +1,9 @@
+import abc
+import uuid
+
 import numpy as np
+
+from schema.base_types import BaseType
 
 
 class SchemaNodeNameShouldNotContainSemicolonException(Exception):
@@ -6,21 +11,7 @@ class SchemaNodeNameShouldNotContainSemicolonException(Exception):
         super().__init__(f"Schema node name should not contain a semicolon. Name: {name}")
 
 
-class SchemaNode:
-    def __init__(self, name: str, constituents: list[any] = None, cluster: str = None, graph=None):
-        if ";" in name and constituents is None:
-            raise SchemaNodeNameShouldNotContainSemicolonException(name)
-        self.name = name
-        self.constituents = constituents
-        self.cluster = cluster
-        self.key = (self.name, self.cluster) if self.cluster is not None else self.name
-        self.graph = graph
-
-    def prepend_id(self, val: str) -> str:
-        return f"{hash(self.key)}_{val}"
-
-    def get_key(self):
-        return self.key
+class SchemaNode(abc.ABC):
 
     @classmethod
     def product(cls, nodes: list[any]):
@@ -28,81 +19,239 @@ class SchemaNode:
         for node in nodes:
             cs = SchemaNode.get_constituents(node)
             atomics += cs
-        name = ";".join([a.name for a in atomics])
-        clusters = frozenset([n.cluster for n in nodes])
-        cluster = None
-        if len(clusters) == 1:
-            cluster, = clusters
         constituents = atomics
         if len(constituents) == 1:
-            constituents = None
-        return SchemaNode(name, constituents, cluster)
+            node, = atomics
+            return node
+        else:
+            return ProductNode(constituents)
 
     @classmethod
     def get_constituents(cls, node):
-        c = node.constituents
-        if c is None:
+        if isinstance(node, AtomicNode) or isinstance(node, SchemaClass):
             return [node]
         else:
-            return c
+            return node.constituents
 
     @classmethod
     def is_atomic(cls, node):
-        return len(SchemaNode.get_constituents(node)) == 1
+        return isinstance(node, AtomicNode)
 
     @classmethod
     def is_equivalent(cls, node1, node2, equivalence_class):
         c1 = SchemaNode.get_constituents(node1)
         c2 = SchemaNode.get_constituents(node2)
-        eq = np.all(np.array(list(map(lambda x: equivalence_class.find_leader(x[0]) == equivalence_class.find_leader(x[1]), zip(c1, c2)))))
+        eq = np.all(np.array(list(
+            map(lambda x: equivalence_class.find_leader(x[0]) == equivalence_class.find_leader(x[1]), zip(c1, c2)))))
         return len(c1) == len(c2) and eq
 
+    @abc.abstractmethod
+    def __eq__(self, other):
+        pass
+
+    @abc.abstractmethod
+    def __le__(self, other):
+        pass
+
+    @abc.abstractmethod
+    def __lt__(self, other):
+        pass
+
+    @abc.abstractmethod
+    def __ge__(self, other):
+        pass
+
+    @abc.abstractmethod
+    def __gt__(self, other):
+        pass
+
+
+class UnknownBaseClassException(Exception):
+    def __init__(self, base_class):
+        super().__init__(f"Base class must be one of Object, Float, Bool, or String, not {base_class}")
+
+
+class AtomicNode(SchemaNode):
+    def __init__(self, name: str, node_type: BaseType):
+        super().__init__()
+        self.node_type = node_type
+        self.name = name
+        self.id = uuid.uuid4()
+        self.id_prefix = 3
+
+    @classmethod
+    def clone(cls, node, name: str | None):
+        if name is None:
+            name = node.name
+        return AtomicNode(name, node.node_type)
+
+    def get_id(self):
+        return self.id
+
     def __hash__(self):
-        if self.constituents is None:
-            return hash(self.get_key())
-        else:
-            return hash(frozenset(self.constituents))
+        return hash(self.id)
 
     def __eq__(self, other):
         if isinstance(other, SchemaNode):
-            # check if it's atomic
-            if SchemaNode.is_atomic(self):
-                return SchemaNode.is_atomic(other) and self.get_key() == other.get_key()
-            else:
-                return other.constituents is not None and self.constituents == other.constituents
-        return NotImplemented
+            if isinstance(other, AtomicNode):
+                return self.id == other.id
+            elif isinstance(other, ProductNode):
+                return False
+            return False
+        else:
+            raise NotImplemented()
 
     def __le__(self, other):
         if isinstance(other, SchemaNode):
-            from schema.helpers.is_sublist import is_sublist
-            return is_sublist(SchemaNode.get_constituents(self), SchemaNode.get_constituents(other))
-        return NotImplemented
+            if isinstance(other, AtomicNode):
+                return self == other
+            elif isinstance(other, ProductNode):
+                return self in other.constituents
+            return False
+        raise NotImplemented()
 
     def __lt__(self, other):
         if isinstance(other, SchemaNode):
-            from schema.helpers.is_sublist import is_sublist
-            return (is_sublist(SchemaNode.get_constituents(self), SchemaNode.get_constituents(other)) and
-                    SchemaNode.get_constituents(self) != SchemaNode.get_constituents(other))
-        return NotImplemented
+            if isinstance(other, AtomicNode):
+                return False
+            elif isinstance(other, ProductNode):
+                return self in other.constituents
+            return False
+        raise NotImplemented()
 
     def __ge__(self, other):
         if isinstance(other, SchemaNode):
-            from schema.helpers.is_sublist import is_sublist
-            return is_sublist(SchemaNode.get_constituents(other), SchemaNode.get_constituents(self))
-        return NotImplemented
+            if isinstance(other, AtomicNode):
+                return self == other
+            elif isinstance(other, ProductNode):
+                return False
+            return False
+        raise NotImplemented()
 
     def __gt__(self, other):
         if isinstance(other, SchemaNode):
-            from schema.helpers.is_sublist import is_sublist
-            return (is_sublist(SchemaNode.get_constituents(other), SchemaNode.get_constituents(self)) and
-                    SchemaNode.get_constituents(self) != SchemaNode.get_constituents(other))
-        return NotImplemented
+            return False
+        raise NotImplemented()
 
     def __repr__(self):
-        if self.cluster is not None:
-            return f"{self.cluster}.{self.name}"
-        else:
-            return self.name
+        return f"{self.name} <{str(self.id)[:self.id_prefix]}>"
+
+    def __str__(self):
+        return self.name
+
+
+class ProductNodeShouldHaveAtLeastTwoConstituentsException(Exception):
+    def __init__(self, constituents):
+        super().__init__(f"Product node should have at least two constituents. Constituents: {constituents}")
+
+
+class ProductNode(SchemaNode):
+
+    def __init__(self, constituents: list[AtomicNode]):
+        super().__init__()
+        if len(constituents) <= 1:
+            raise ProductNodeShouldHaveAtLeastTwoConstituentsException(constituents)
+        self.constituents = constituents
+
+    def __hash__(self):
+        return hash(tuple(self.constituents))
+
+    def __eq__(self, other):
+        if isinstance(other, SchemaNode):
+            if isinstance(other, AtomicNode):
+                return False
+            elif isinstance(other, ProductNode):
+                return self.constituents == other.constituents
+            return False
+        raise NotImplemented()
+
+    def __lt__(self, other):
+        if isinstance(other, SchemaNode):
+            if isinstance(other, AtomicNode):
+                return False
+            elif isinstance(other, ProductNode):
+                from schema.helpers.is_sublist import is_sublist
+                return is_sublist(self.constituents, other.constituents) and self != other
+            return False
+        raise NotImplemented()
+
+    def __le__(self, other):
+        if isinstance(other, SchemaNode):
+            if isinstance(other, AtomicNode):
+                return False
+            elif isinstance(other, ProductNode):
+                from schema.helpers.is_sublist import is_sublist
+                return is_sublist(self.constituents, other.constituents)
+            return False
+        raise NotImplemented()
+
+    def __gt__(self, other):
+        if isinstance(other, SchemaNode):
+            if isinstance(other, AtomicNode):
+                return other in self.constituents
+            elif isinstance(other, ProductNode):
+                from schema.helpers.is_sublist import is_sublist
+                return is_sublist(other.constituents, self.constituents) and self != other
+            return False
+        raise NotImplemented()
+
+    def __ge__(self, other):
+        if isinstance(other, SchemaNode):
+            if isinstance(other, AtomicNode):
+                return other in self.constituents
+            elif isinstance(other, ProductNode):
+                from schema.helpers.is_sublist import is_sublist
+                return is_sublist(other.constituents, self.constituents)
+            return False
+        raise NotImplemented()
+
+    def __repr__(self):
+        return ";".join([str(c) for c in self.constituents])
 
     def __str__(self):
         return self.__repr__()
+
+
+class SchemaClass(SchemaNode):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        if isinstance(other, AtomicNode):
+            return False
+        elif isinstance(other, ProductNode):
+            return False
+        elif isinstance(other, SchemaClass):
+            return self.name == other.name
+        else:
+            raise NotImplemented()
+
+    def __le__(self, other):
+        if isinstance(other, SchemaNode):
+            return False
+        raise NotImplemented()
+
+    def __lt__(self, other):
+        if isinstance(other, SchemaNode):
+            return False
+        raise NotImplemented()
+
+    def __ge__(self, other):
+        if isinstance(other, SchemaNode):
+            return False
+        raise NotImplemented()
+
+    def __gt__(self, other):
+        if isinstance(other, SchemaNode):
+            return False
+        raise NotImplemented()
+
+    def __repr__(self):
+        return f"{self.name} <Class>"
+
+    def __str__(self):
+        return self.name

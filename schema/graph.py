@@ -9,11 +9,11 @@ from schema.edge_list import SchemaEdgeList
 from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
     NodeNotInSchemaGraphException, \
     MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, \
-    NoShortestPathBetweenNodesException, ClassAlreadyExistsException, NodeAlreadyInSchemaGraphException
+    NoShortestPathBetweenNodesException, NodeAlreadyInSchemaGraphException
 from schema.helpers.get_indices_of_sublist import get_indices_of_sublist
 from schema.helpers.is_sublist import is_sublist
-from schema.node import SchemaNode
-from tables.derivation import Traverse, Equate, Project, StartTraversal, EndTraversal, Cross, Expand
+from schema.node import SchemaNode, AtomicNode
+from tables.derivation import Traverse, Equate, Project, Expand
 from union_find.union_find import UnionFind
 
 
@@ -75,31 +75,17 @@ class SchemaGraph:
         self.check_nodes_in_graph([node1, node2])
         self.equivalence_class = UnionFind.union(self.equivalence_class, node1, node2)
 
-    def check_if_class(self, name: str):
-        return name[0].isupper()
+    def check_node_in_graph(self, n: SchemaNode) -> None:
+        ns = SchemaNode.get_constituents(n)
+        for n in ns:
+            if n not in self.schema_nodes:
+                raise NodeNotInSchemaGraphException(n)
 
-    def get_node_with_name(self, name: str) -> SchemaNode:
-        decomposition = name.split(".")
-        if len(decomposition) == 1:
-            n = SchemaNode(decomposition[0])
-        else:
-            cluster, name = decomposition
-            n = SchemaNode(name, cluster=cluster)
-        return n
-
-    def get_node_in_graph_with_name(self, name: str) -> SchemaNode:
-        n = self.get_node_with_name(name)
-        if n not in self.schema_nodes:
-            raise NodeNotInSchemaGraphException(n)
-        else:
-            return n
-
-    def get_node_not_in_graph_with_name(self, name: str) -> SchemaNode:
-        n = self.get_node_with_name(name)
-        if n in self.schema_nodes:
-            raise NodeAlreadyInSchemaGraphException(n)
-        else:
-            return n
+    def check_node_not_in_graph(self, n: AtomicNode) -> None:
+        ns = SchemaNode.get_constituents(n)
+        for n in ns:
+            if n in self.schema_nodes:
+                raise NodeAlreadyInSchemaGraphException(n)
 
     def are_nodes_equal(self, node1, node2):
         self.check_nodes_in_graph([node1, node2])
@@ -131,9 +117,7 @@ class SchemaGraph:
 
     def check_nodes_in_graph(self, nodes: list[SchemaNode]):
         for node in nodes:
-            for c in SchemaNode.get_constituents(node):
-                if c and c not in self.schema_nodes:
-                    raise NodeNotInSchemaGraphException(c)
+            self.check_node_in_graph(node)
 
     def add_edge(self, from_node: SchemaNode, to_node: SchemaNode, cardinality: Cardinality = Cardinality.MANY_TO_MANY):
 

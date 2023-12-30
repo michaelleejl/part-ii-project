@@ -1,6 +1,5 @@
-from collections import deque
 
-from schema import SchemaNode, SchemaEdge, Cardinality
+from schema import Cardinality, AtomicNode
 
 from enum import Enum
 
@@ -11,7 +10,7 @@ class ColumnType(Enum):
 
 
 class RawColumn:
-    def __init__(self, name: str, node: SchemaNode, strong_keys: list[any], hidden_keys: list[any],
+    def __init__(self, name: str, node: AtomicNode, strong_keys: list[any], hidden_keys: list[any],
                  is_strong_key_for_self: bool, cardinality: Cardinality | None, type: ColumnType,
                  table=None):
         self.name = name

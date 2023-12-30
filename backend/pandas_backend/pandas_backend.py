@@ -8,12 +8,11 @@ from backend.pandas_backend.helpers import copy_data, get_cols_of_node, determin
 from backend.pandas_backend.interpreter import get, interpret, end
 from backend.pandas_backend.relation import Relation, DataRelation
 from schema import SchemaEdge, reverse_cardinality
-from schema.node import SchemaNode
+from schema.node import SchemaNode, AtomicNode, SchemaClass
 from tables.aggregation import AggregationFunction
 from tables.column import Column
 from tables.derivation import DerivationStep, Get, End
 from tables.function import Function
-
 
 def interpret_function(function: Function):
     fun = function.function
@@ -152,10 +151,8 @@ class PandasBackend(Backend):
         elif rev in self.edge_data:
             return copy_data(self.edge_data[rev]).rename({i: i+n for i in range(m)} | {j+m: j for j in range(n)}, axis=1)
 
-    def extend_domain(self, node: SchemaNode, domain_node: SchemaNode):
-        domain = self.get_domain_from_atomic_node(domain_node, str(domain_node))
-        cs = SchemaNode.get_constituents(node)
-        assert len(cs) == 1
+    def extend_domain(self, node: AtomicNode, domain_node: SchemaClass):
+        domain = self.get_domain_from_atomic_node(domain_node, domain_node.name)
         domain = copy_data(domain)
         domain.columns = self.node_data[node].columns
         self.node_data[node] = pd.concat([self.node_data[node], domain]).drop_duplicates().reset_index(drop=True)
