@@ -2,6 +2,7 @@ from abc import ABC
 
 from schema.helpers.find_index import find_index
 from tables.exp import Exp
+from tables.helpers.wrap_bexp import wrap_bexp
 
 
 class Bexp(Exp, ABC):
@@ -9,19 +10,19 @@ class Bexp(Exp, ABC):
         self.code = code
 
     def __eq__(self, other):
-        return EqualityBexp(self, other)
+        return EqualityBexp(self, wrap_bexp(other))
 
     def __and__(self, other):
-        return AndBexp(self, other)
+        return AndBexp(self, wrap_bexp(other))
 
     def __rand__(self, other):
-        return AndBexp(self, other)
+        return AndBexp(wrap_bexp(other), self)
 
     def __or__(self, other):
-        return OrBexp(self, other)
+        return OrBexp(self, wrap_bexp(other))
 
     def __ror__(self, other):
-        return OrBexp(self, other)
+        return OrBexp(wrap_bexp(other), self)
 
     def __invert__(self):
         return NotBexp(self)
@@ -38,12 +39,12 @@ class ColumnBexp(Bexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters):
+    def to_closure(self, parameters, aggregated_over):
         idx = find_index(self.column.raw_column, parameters)
         if idx == -1:
             return ColumnBexp(len(parameters)), parameters + [self.column.raw_column]
         else:
-            return ColumnBexp(idx), parameters
+            return ColumnBexp(idx), parameters, aggregated_over
 
 
 class ConstBexp(Bexp):
@@ -57,8 +58,8 @@ class ConstBexp(Bexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters):
-        return self, parameters
+    def to_closure(self, parameters, aggregated_over):
+        return self, parameters, aggregated_over
 
 
 class EqualityBexp(Bexp):
@@ -73,10 +74,10 @@ class EqualityBexp(Bexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters):
-        new_lexp, lparams = self.lexp.to_closure(parameters)
-        new_rexp, rparams = self.rexp.to_closure(lparams)
-        return EqualityBexp(new_lexp, new_rexp), rparams
+    def to_closure(self, parameters, aggregated_over):
+        new_lexp, lparams, aggregated_over = self.lexp.to_closure(parameters, aggregated_over)
+        new_rexp, rparams, aggregated_over = self.rexp.to_closure(lparams, aggregated_over)
+        return EqualityBexp(new_lexp, new_rexp), rparams, aggregated_over
 
 
 class NABexp(Bexp):
@@ -90,9 +91,9 @@ class NABexp(Bexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters):
-        new_exp, new_params = self.exp.to_closure(parameters)
-        return NABexp(new_exp), new_params
+    def to_closure(self, parameters, aggregated_over):
+        new_exp, new_params, aggregated_over = self.exp.to_closure(parameters, aggregated_over)
+        return NABexp(new_exp), new_params, aggregated_over
 
 
 class LessThanBexp(Bexp):
@@ -107,10 +108,10 @@ class LessThanBexp(Bexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters):
-        new_lexp, lparams = self.lexp.to_closure(parameters)
-        new_rexp, rparams = self.rexp.to_closure(lparams)
-        return LessThanBexp(new_lexp, new_rexp), rparams
+    def to_closure(self, parameters, aggregated_over):
+        new_lexp, lparams, aggregated_over = self.lexp.to_closure(parameters, aggregated_over)
+        new_rexp, rparams, aggregated_over = self.rexp.to_closure(lparams, aggregated_over)
+        return LessThanBexp(new_lexp, new_rexp), rparams, aggregated_over
 
 
 class AndBexp(Bexp):
@@ -125,10 +126,10 @@ class AndBexp(Bexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters):
-        new_lexp, lparams = self.lexp.to_closure(parameters)
-        new_rexp, rparams = self.rexp.to_closure(lparams)
-        return AndBexp(new_lexp, new_rexp), rparams
+    def to_closure(self, parameters, aggregated_over):
+        new_lexp, lparams, aggregated_over = self.lexp.to_closure(parameters, aggregated_over)
+        new_rexp, rparams, aggregated_over = self.rexp.to_closure(lparams, aggregated_over)
+        return AndBexp(new_lexp, new_rexp), rparams, aggregated_over
 
 
 class OrBexp(Bexp):
@@ -143,10 +144,10 @@ class OrBexp(Bexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters):
-        new_lexp, lparams = self.lexp.to_closure(parameters)
-        new_rexp, rparams = self.rexp.to_closure(lparams)
-        return OrBexp(new_lexp, new_rexp), rparams
+    def to_closure(self, parameters, aggregated_over):
+        new_lexp, lparams, aggregated_over = self.lexp.to_closure(parameters, aggregated_over)
+        new_rexp, rparams, aggregated_over = self.rexp.to_closure(lparams, aggregated_over)
+        return OrBexp(new_lexp, new_rexp), rparams, aggregated_over
 
 
 class NotBexp(Bexp):
@@ -154,7 +155,49 @@ class NotBexp(Bexp):
         super().__init__("NOT")
         self.exp = exp
 
-    def to_closure(self, parameters):
+    def to_closure(self, parameters, aggregated_over):
         subexp = self.exp
-        new_exp, new_params = subexp.to_closure(parameters)
-        return NotBexp(new_exp), new_params
+        new_exp, new_params, aggregated_over = subexp.to_closure(parameters, aggregated_over)
+        return NotBexp(new_exp), new_params, aggregated_over
+
+
+class AnyBexp(Bexp):
+
+    def __init__(self, keys, column):
+        super().__init__("ANY")
+        self.keys = keys
+        self.column = column
+
+    def __repr__(self):
+        return f"ANY <{self.keys}, {self.column}>"
+
+    def to_closure(self, parameters, aggregated_over):
+        key_idxs = [find_index(key, parameters) for key in self.keys]
+        idx = find_index(self.column.raw_column, parameters)
+        aggregated_over = aggregated_over + [self.column.raw_column]
+        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        if idx == -1:
+            return AnyBexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+        else:
+            return AnyBexp(key_params, idx), parameters, aggregated_over
+
+
+class AllBexp(Bexp):
+
+    def __init__(self, keys, column):
+        super().__init__("ALL")
+        self.keys = keys
+        self.column = column
+
+    def __repr__(self):
+        return f"ALL <{self.keys}, {self.column}>"
+
+    def to_closure(self, parameters, aggregated_over):
+        key_idxs = [find_index(key, parameters) for key in self.keys]
+        idx = find_index(self.column.raw_column, parameters)
+        aggregated_over = aggregated_over + [self.column.raw_column]
+        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        if idx == -1:
+            return AllBexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+        else:
+            return AllBexp(key_params, idx), parameters, aggregated_over

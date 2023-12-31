@@ -20,12 +20,12 @@ class ColumnSexp(Sexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters):
+    def to_closure(self, parameters, aggregated_over):
         idx = find_index(self.column.raw_column, parameters)
         if idx == -1:
-            return ColumnSexp(len(parameters)), parameters + [self.column.raw_column]
+            return ColumnSexp(len(parameters)), parameters + [self.column.raw_column], aggregated_over
         else:
-            return ColumnSexp(idx), parameters
+            return ColumnSexp(idx), parameters, aggregated_over
 
 
 class ConstSexp(Sexp):
@@ -39,5 +39,5 @@ class ConstSexp(Sexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters):
-        return self, parameters
+    def to_closure(self, parameters, aggregated_over):
+        return self, parameters, aggregated_over

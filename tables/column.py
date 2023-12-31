@@ -1,45 +1,17 @@
 import operator
 
 from schema import Cardinality, BaseType
-from tables.aexp import ConstAexp, ColumnAexp, Aexp, AddAexp, SubAexp, MulAexp, DivAexp
+from tables.aexp import ConstAexp, ColumnAexp, Aexp, AddAexp, SubAexp, MulAexp, DivAexp, SumAexp
 from tables.aggregation import AggregationFunction
 from tables.exceptions import ColumnTypeException
 from tables.function import Function, create_function, create_bijection
-from tables.bexp import EqualityBexp, NotBexp, LessThanBexp, NABexp, OrBexp, AndBexp, ColumnBexp, ConstBexp, Bexp
+from tables.bexp import EqualityBexp, NotBexp, LessThanBexp, NABexp, OrBexp, AndBexp, ColumnBexp, ConstBexp, Bexp, \
+    AnyBexp, AllBexp
+from tables.helpers.wrap_aexp import wrap_aexp
+from tables.helpers.wrap_bexp import wrap_bexp
+from tables.helpers.wrap_sexp import wrap_sexp
 from tables.raw_column import RawColumn
 from tables.sexp import ConstSexp, ColumnSexp, Sexp
-
-
-def wrap_bexp(exp):
-    if isinstance(exp, bool):
-        return ConstBexp(exp)
-    elif isinstance(exp, Column):
-        if exp.raw_column.node.node_type is not BaseType.BOOL:
-            raise ColumnTypeException("bool", str(exp.raw_column.node.node_type))
-        return ColumnBexp(exp)
-    elif isinstance(exp, Bexp):
-        return exp
-
-
-def wrap_aexp(exp):
-    if isinstance(exp, float) or isinstance(exp, int):
-        return ConstAexp(exp)
-    elif isinstance(exp, Column):
-        if exp.raw_column.node.node_type is not BaseType.FLOAT:
-            raise ColumnTypeException("float", str(exp.raw_column.node.node_type))
-        return ColumnAexp(exp)
-    elif isinstance(exp, Aexp):
-        return exp
-
-def wrap_sexp(exp):
-    if isinstance(exp, str):
-        return ConstSexp(exp)
-    elif isinstance(exp, Column):
-        if exp.raw_column.node.node_type is not BaseType.STRING:
-            raise ColumnTypeException("string", str(exp.raw_column.node.node_type))
-        return ColumnSexp(exp)
-    elif isinstance(exp, Sexp):
-        return exp
 
 def get_arguments_for_binary_aexp(x, y):
     lexp = wrap_aexp(x)
@@ -120,6 +92,27 @@ class Column:
             raise ColumnTypeException("bool", str(data_type))
         exp = wrap_bexp(self)
         return NotBexp(exp)
+
+    def any(self):
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.BOOL:
+            raise ColumnTypeException("bool", str(data_type))
+        keys = self.raw_column.get_strong_keys()
+        return AnyBexp(keys, self)
+
+    def all(self):
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.BOOL:
+            raise ColumnTypeException("bool", str(data_type))
+        keys = self.raw_column.get_strong_keys()
+        return AllBexp(keys, self)
+
+    def sum(self):
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        keys = self.raw_column.get_strong_keys()
+        return SumAexp(keys, self)
 
     def to_bexp(self):
         return wrap_bexp(self)

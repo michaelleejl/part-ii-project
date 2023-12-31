@@ -1,5 +1,8 @@
 import typing
 
+import numpy as np
+import pandas as pd
+
 from tables.aexp import *
 from tables.bexp import *
 from tables.exp import Exp
@@ -47,6 +50,13 @@ def aexp_interpreter(exp: Aexp):
             neg = typing.cast(NegAexp, exp)
             sexp = exp_interpreter(neg.exp)
             return lambda t: -sexp(t)
+        case "SUM":
+            som = typing.cast(SumAexp, exp)
+            keys = som.keys
+            col = som.column
+            def sum(t):
+                return pd.merge(t[[c for c in t.columns if c != col]], t.groupby(keys)[col].agg(list).apply(np.sum).reset_index(), on=keys)[col]
+            return sum
 
 
 def bexp_interpreter(exp: Bexp):
@@ -85,6 +95,16 @@ def bexp_interpreter(exp: Bexp):
             lexp = exp_interpreter(rr.lexp)
             rexp = exp_interpreter(rr.rexp)
             return lambda t: lexp(t) | rexp(t)
+        case "ANY":
+            ani = typing.cast(AnyBexp, exp)
+            keys = ani.keys
+            col = ani.column
+            return lambda t: t.groupby(keys)[col].agg(list).apply(np.any)
+        case "ALL":
+            oll = typing.cast(AllBexp, exp)
+            keys = oll.keys
+            col = oll.column
+            return lambda t: t.groupby(keys)[col].agg(list).apply(np.all)
 
 
 def sexp_interpreter(exp: Sexp):

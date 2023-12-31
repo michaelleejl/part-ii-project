@@ -74,8 +74,8 @@ class Schema:
         self.schema_graph.add_edge(node1, node2, cardinality)
         return edge
 
-    def map_edge_to_closure_function(self, edge, function: Function, num_args):
-        self.backend.map_edge_to_closure_function(edge, function, num_args)
+    def map_edge_to_closure_function(self, edge, function: Function, num_args, rev_target=None, target_idxs = None):
+        self.backend.map_edge_to_closure_function(edge, function, num_args, rev_target, target_idxs)
 
     def create_class(self, name: str) -> SchemaClass:
         return SchemaClass(name)

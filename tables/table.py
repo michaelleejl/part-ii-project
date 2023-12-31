@@ -395,11 +395,11 @@ class Table:
         t = Table.create_from_table(self)
         name = t.get_fresh_name(with_name)
         if isinstance(function, Exp):
-            exp, start_columns = Exp.convert_exp(function)
+            exp, start_columns, aggregated_over = Exp.convert_exp(function)
             nodes = [c.node for c in start_columns]
             start_node = SchemaNode.product(nodes)
             strong_keys = t.find_strong_keys_for_column(start_columns)
-            hidden_keys = [c.get_hidden_keys() for c in start_columns]
+            hidden_keys = [c.get_hidden_keys() for c in start_columns if c not in set(aggregated_over)]
             acc = set()
             for hk in hidden_keys:
                 if acc.issubset(hk) or hk.issubset(acc):
@@ -416,7 +416,12 @@ class Table:
             end_node = self.schema.add_node(AtomicNode(name, node_type))
             # TODO: Consider special ONE-TO-ONE Functions
             edge = self.schema.add_edge(start_node, end_node, Cardinality.MANY_TO_ONE)
-            self.schema.map_edge_to_closure_function(edge, exp, len(start_columns))
+            modified_start_node = None
+            modified_start_cols = None
+            if len(aggregated_over) > 0:
+                modified_start_cols = [i for i, c in enumerate(start_columns) if c not in aggregated_over]
+                modified_start_node = SchemaNode.product([start_columns[i].node for i in modified_start_cols])
+            self.schema.map_edge_to_closure_function(edge, exp, len(start_columns), modified_start_node, modified_start_cols)
             cardinality = Cardinality.MANY_TO_ONE
             for column in start_columns:
                 cardinality = compose_cardinality(column.cardinality, cardinality)
@@ -566,7 +571,7 @@ class Table:
         t = Table.create_from_table(self)
         if isinstance(by, str):
             by = t.__getitem__(by).to_bexp()
-        exp, arguments = Exp.convert_exp(by)
+        exp, arguments, _ = Exp.convert_exp(by)
         t.extend_intermediate_representation([Filter(exp, arguments)])
         t.execute()
         return t
@@ -724,7 +729,7 @@ class Table:
 
         self.replace_strong_key(column2, [column1], [], Cardinality.ONE_TO_ONE)
         rexp = Column(column1) == Column(column2)
-        exp, arguments = Exp.convert_exp(rexp)
+        exp, arguments, _ = Exp.convert_exp(rexp)
         t.extend_intermediate_representation([Filter(exp, arguments)])
         t.execute()
         return t
