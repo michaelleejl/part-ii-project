@@ -85,6 +85,8 @@ class Schema:
             classname = under
             clss1 = self.schema_graph.equivalence_class.get_classname(node1)
             clss2 = self.schema_graph.equivalence_class.get_classname(node2)
+            assert node1.node_type == node2.node_type
+            under.node_type = node1.node_type
             if classname not in self.schema_graph.schema_nodes and clss1 is None and clss2 is None:
                 domain = pd.DataFrame([], columns=[under])
                 self.backend.map_atomic_node_to_domain(classname, domain)

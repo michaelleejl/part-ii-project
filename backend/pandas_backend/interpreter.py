@@ -6,6 +6,7 @@ from functools import reduce
 import numpy as np
 import pandas as pd
 
+from backend.pandas_backend.exp_interpreter import bexp_interpreter
 from schema import SchemaNode, SchemaEdge
 from tables.column import Column
 from tables.derivation import DerivationStep, Get, End, StartTraversal, Traverse, Equate, Project, EndTraversal, Rename, \
@@ -212,7 +213,7 @@ def equ(derivation_step: Equate, _, table, cont, stack, keys) -> tuple[pd.DataFr
 def ent(derivation_step: EndTraversal, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
     cols = [c.name for c in derivation_step.start_columns]
     end_cols = [c.name for c in derivation_step.end_columns]
-    should_merge = [c not in set(keys) for c in end_cols]
+    should_merge = [c not in set(cols) for c in end_cols]
     to_drop = [i for i, b in enumerate(should_merge) if not b]
     renaming = {i: n for (i, n) in enumerate(end_cols) if should_merge[i]}
 
@@ -241,11 +242,13 @@ def srt(derivation_step: Sort, _, table, cont, stack, keys) -> tuple[pd.DataFram
 
 
 def flt(derivation_step: Filter, _, table, cont, stack, keys) -> tuple[pd.DataFrame, any, list, list]:
-    predicate = derivation_step.predicate
+    exp = derivation_step.exp
+    arguments = derivation_step.arguments
+    renaming = {c.name:i for (i, c) in enumerate(arguments)}
     def kont(x):
-        t = cont(x)
-        pred = predicate_interpreter(predicate)
-        return t[pred(t)]
+        t: pd.DataFrame = cont(x)
+        pred = bexp_interpreter(exp)
+        return t[pred(t.rename(renaming, axis=1))]
 
     return table, kont, stack, keys
 

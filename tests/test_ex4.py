@@ -7,20 +7,22 @@ from schema import Schema, SchemaNode
 
 class TestEx4(expecttest.TestCase):
 
-    def initialise(self) -> Schema:
+    def initialise(self):
         s = Schema()
 
-        person = pd.read_csv("./csv/roles/person.csv").set_index("person")
-        task = pd.read_csv("./csv/roles/task.csv").set_index("task")
+        person_df = pd.read_csv("./csv/roles/person.csv").set_index("person")
+        task_df = pd.read_csv("./csv/roles/task.csv").set_index("task")
 
-        s.insert_dataframe(person, "person")
-        s.insert_dataframe(task, "task")
+        person = s.insert_dataframe(person_df)
+        task = s.insert_dataframe(task_df)
 
-        p_role = SchemaNode("role", cluster="person")
-        t_role = SchemaNode("role", cluster="task")
+        p_role = person["role"]
+        t_role = task["role"]
 
-        s.blend(p_role, t_role, under="Role")
-        return s
+        Role = s.create_class("Role")
+
+        s.blend(p_role, t_role, Role)
+        return s, person, task, Role
 
         # SCHEMA:
         # person ---> role <--- task
@@ -28,10 +30,10 @@ class TestEx4(expecttest.TestCase):
 # GOAL: I want to know, for each person, what tasks they may perform
 
     def test_ex4_goal1_step1_get(self):
-        s = self.initialise()
-        t1 = s.get(["person.person"])
+        s, person, task, Role = self.initialise()
+        t1 = s.get([person["person"]])
         self.assertExpectedInline(str(t1), """\
-[person.person || ]
+[person || ]
 Empty DataFrame
 Columns: []
 Index: [Steve, Tom, Harry, Dick]
@@ -45,16 +47,16 @@ Index: [Steve, Tom, Harry, Dick]
         #  Dick
 
     def test_ex4_goal1_step2_infer(self):
-        s = self.initialise()
-        t1 = s.get(["person.person"])
-        t2 = t1.infer(["person.person"], "task.task")
+        s, person, task, Role = self.initialise()
+        t1 = s.get([person["person"]])
+        t2 = t1.infer(["person"], task["task"])
         self.assertExpectedInline(str(t2), """\
-[person.person || task.task]
-                                   task.task
-person.person                               
-Dick                              [manpower]
-Tom                               [research]
-Steve          [funding, investment, budget]
+[person || task]
+                                 task
+person                               
+Dick                       [manpower]
+Tom                        [research]
+Steve   [funding, investment, budget]
 2 keys hidden
 
 """)
@@ -64,19 +66,19 @@ Steve          [funding, investment, budget]
         #  Dick          || [manpower]
 
     def test_ex4_goal1_step3_show(self):
-        s = self.initialise()
-        t1 = s.get(["person.person"])
-        t2 = t1.infer(["person.person"], "task.task")
-        t3 = t2.show("task.task")
+        s, person, task, Role = self.initialise()
+        t1 = s.get([person["person"]])
+        t2 = t1.infer(["person"], task["task"])
+        t3 = t2.show("task_1")
         self.assertExpectedInline(str(t3), """\
-[person.person task.task || task.task]
-                           task.task
-person.person task.task             
-Dick          manpower      manpower
-Tom           research      research
-Steve         funding        funding
-              investment  investment
-              budget          budget
+[person task_1 || task]
+                         task
+person task_1                
+Dick   manpower      manpower
+Tom    research      research
+Steve  funding        funding
+       investment  investment
+       budget          budget
 1 keys hidden
 2 values hidden
 
@@ -88,45 +90,40 @@ Steve         funding        funding
         #  Dick          manpower  || manpower
 
     def test_ex4_goal1_step4_hideAfterShow(self):
-        s = self.initialise()
-        t1 = s.get(["person.person"])
-        t2 = t1.infer(["person.person"], "task.task")
-        print(t2)
-        t3 = t2.show("task.task")
-        print(t3)
-        t4 = t3.hide("task.task")
+        s, person, task, Role = self.initialise()
+        t1 = s.get([person["person"]])
+        t2 = t1.infer(["person"], task["task"])
+        t3 = t2.show("task_1")
+        t4 = t3.hide("task_1")
         print(t4)
         self.assertExpectedInline(str(t4), """\
-[person.person || task.task]
-                                   task.task
-person.person                               
-Dick                              [manpower]
-Tom                               [research]
-Steve          [funding, investment, budget]
+[person || task]
+                                 task
+person                               
+Dick                       [manpower]
+Tom                        [research]
+Steve   [funding, investment, budget]
 2 keys hidden
 
 """)
 
     def test_ex4_goal1_step4_showAfterHideAfterShow(self):
-        s = self.initialise()
-        t1 = s.get(["person.person"])
-        t2 = t1.infer(["person.person"], "task.task")
-        print(t2)
-        t3 = t2.show("task.task")
-        print(t3)
-        t4 = t3.hide("task.task")
-        print(t4)
-        t5 = t4.show("task.task")
+        s, person, task, Role = self.initialise()
+        t1 = s.get([person["person"]])
+        t2 = t1.infer(["person"], task["task"])
+        t3 = t2.show("task_1")
+        t4 = t3.hide("task_1")
+        t5 = t4.show("task_1")
         self.maxDiff = None
         self.assertExpectedInline(str(t5), """\
-[person.person task.task || task.task]
-                           task.task
-person.person task.task             
-Dick          manpower      manpower
-Tom           research      research
-Steve         funding        funding
-              investment  investment
-              budget          budget
+[person task_1 || task]
+                         task
+person task_1                
+Dick   manpower      manpower
+Tom    research      research
+Steve  funding        funding
+       investment  investment
+       budget          budget
 1 keys hidden
 2 values hidden
 

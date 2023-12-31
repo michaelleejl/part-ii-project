@@ -6,27 +6,30 @@ from schema import Schema, SchemaNode
 
 class TestEx7(expecttest.TestCase):
 
-    def initialise(self) -> Schema:
+    def initialise(self):
         s = Schema()
 
-        cardnum = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
-        tstart = pd.read_csv("./csv/bonuses/tstart.csv").set_index("val_id")
-        bonus = pd.read_csv("./csv/bonuses/bonus.csv").set_index(["val_id", "cardnum"])
+        cardnum_df = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
+        tstart_df = pd.read_csv("./csv/bonuses/tstart.csv").set_index("val_id")
+        bonus_df = pd.read_csv("./csv/bonuses/bonus.csv").set_index(["val_id", "cardnum"])
 
-        s.insert_dataframe(cardnum, "cardnum")
-        s.insert_dataframe(tstart, "tstart")
-        s.insert_dataframe(bonus, "bonus")
+        cardnum = s.insert_dataframe(cardnum_df)
+        tstart = s.insert_dataframe(tstart_df)
+        bonus = s.insert_dataframe(bonus_df)
 
-        c_cardnum = SchemaNode("cardnum", cluster="cardnum")
-        b_cardnum = SchemaNode("cardnum", cluster="bonus")
-        c_val_id = SchemaNode("val_id", cluster="cardnum")
-        t_val_id = SchemaNode("val_id", cluster="tstart")
-        b_val_id = SchemaNode("val_id", cluster="bonus")
+        c_cardnum = cardnum["cardnum"]
+        b_cardnum = bonus["cardnum"]
+        c_val_id = cardnum["val_id"]
+        t_val_id = tstart["val_id"]
+        b_val_id = bonus["val_id"]
 
-        s.blend(c_val_id, t_val_id, under="Val_id")
+        Val_id = s.create_class("Val_id")
+        Cardnum = s.create_class("Cardnum")
+
+        s.blend(c_val_id, t_val_id, Val_id)
         s.blend(c_val_id, b_val_id)
-        s.blend(c_cardnum, b_cardnum, under="Cardnum")
-        return s
+        s.blend(c_cardnum, b_cardnum, Cardnum)
+        return s, bonus, cardnum, tstart, Cardnum, Val_id
 
         # SCHEMA:
         # cardnum <--- val_id ---> t_start
@@ -35,18 +38,18 @@ class TestEx7(expecttest.TestCase):
     # First, get [val_id || cardnum]
     def test_ex7_goal1_step1_get(self):
         # Get every Val_id, Cardnum pair
-        s = self.initialise()
-        t1 = s.get(["cardnum.val_id"]).infer(["cardnum.val_id"], "cardnum.cardnum")
+        s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
+        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
         self.assertExpectedInline(str(t1), """\
-[cardnum.val_id || cardnum.cardnum]
-                cardnum.cardnum
-cardnum.val_id                 
-1                          5172
-2                          2354
-3                          1410
-4                          1111
-5                          2354
-8                          4412
+[val_id || cardnum]
+        cardnum
+val_id         
+1          5172
+2          2354
+3          1410
+4          1111
+5          2354
+8          4412
 
 """)
         # [cardnum.val_id || cardnum.cardnum ]
@@ -58,20 +61,20 @@ cardnum.val_id
         #  8              || 4412
 
     def test_ex7_goal1_step2_infer(self):
-        s = self.initialise()
-        t1 = s.get(["cardnum.val_id"]).infer(["cardnum.val_id"], "cardnum.cardnum")
-        t2 = t1.infer(["cardnum.val_id"], "bonus.bonus")
+        s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
+        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
+        t2 = t1.infer(["val_id"], bonus["bonus"])
         self.maxDiff = None
         self.assertExpectedInline(str(t2), """\
-[cardnum.val_id || cardnum.cardnum bonus.bonus]
-                cardnum.cardnum  bonus.bonus
-cardnum.val_id                              
-1                          5172  [4.0, 12.0]
-2                          2354   [5.0, 7.0]
-3                          1410        [1.0]
-5                          2354        [2.0]
-4                          1111           []
-8                          4412           []
+[val_id || cardnum bonus]
+        cardnum        bonus
+val_id                      
+1          5172  [4.0, 12.0]
+2          2354   [5.0, 7.0]
+3          1410        [1.0]
+5          2354        [2.0]
+4          1111           []
+8          4412           []
 
 """)
         # [cardnum.val_id || cardnum.cardnum bonus.bonus]
@@ -83,18 +86,18 @@ cardnum.val_id
         #  8              || 4412            []
 
     def test_ex7_goal1_step3_setKey(self):
-        s = self.initialise()
-        t1 = s.get(["cardnum.val_id"]).infer(["cardnum.val_id"], "cardnum.cardnum")
-        t2 = t1.infer(["cardnum.val_id"], "bonus.bonus")
-        t3 = t2.set_key(["cardnum.val_id", "cardnum.cardnum"])
+        s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
+        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
+        t2 = t1.infer(["val_id"], bonus["bonus"])
+        t3 = t2.set_key(["val_id", "cardnum"])
         self.assertExpectedInline(str(t3), """\
-[cardnum.val_id cardnum.cardnum || bonus.bonus]
-                                bonus.bonus
-cardnum.val_id cardnum.cardnum             
-1              5172             [4.0, 12.0]
-2              2354              [5.0, 7.0]
-3              1410                   [1.0]
-5              2354                   [2.0]
+[val_id cardnum || bonus]
+                      bonus
+val_id cardnum             
+1      5172     [4.0, 12.0]
+2      2354      [5.0, 7.0]
+3      1410           [1.0]
+5      2354           [2.0]
 2 keys hidden
 
 """)
@@ -109,21 +112,21 @@ cardnum.val_id cardnum.cardnum
         #  old k levels supported (only) by x"
 
     def test_ex7_goal1_step4_show(self):
-        s = self.initialise()
-        t1 = s.get(["cardnum.val_id"]).infer(["cardnum.val_id"], "cardnum.cardnum")
-        t2 = t1.infer(["cardnum.val_id"], "bonus.bonus")
-        t3 = t2.set_key(["cardnum.val_id", "cardnum.cardnum"])
-        t4 = t3.show("bonus.cardnum")
+        s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
+        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
+        t2 = t1.infer(["val_id"], bonus["bonus"])
+        t3 = t2.set_key(["val_id", "cardnum"])
+        t4 = t3.show("cardnum_1")
         self.assertExpectedInline(str(t4), """\
-[cardnum.val_id cardnum.cardnum bonus.cardnum || bonus.bonus]
-                                              bonus.bonus
-cardnum.val_id cardnum.cardnum bonus.cardnum             
-1              5172            5172.0                 4.0
-                               1410.0                12.0
-2              2354            1111.0                 5.0
-                               6440.0                 7.0
-3              1410            1111.0                 1.0
-5              2354            1410.0                 2.0
+[val_id cardnum cardnum_1 || bonus]
+                          bonus
+val_id cardnum cardnum_1       
+1      5172    5172.0       4.0
+               1410.0      12.0
+2      2354    1111.0       5.0
+               6440.0       7.0
+3      1410    1111.0       1.0
+5      2354    1410.0       2.0
 2 keys hidden
 
 """)
@@ -138,17 +141,17 @@ cardnum.val_id cardnum.cardnum bonus.cardnum
 
     def test_ex7_goal1_step5_equate(self):
         # # Inner product
-        s = self.initialise()
-        t1 = s.get(["cardnum.val_id"]).infer(["cardnum.val_id"], "cardnum.cardnum")
-        t2 = t1.infer(["cardnum.val_id"], "bonus.bonus")
-        t3 = t2.set_key(["cardnum.val_id", "cardnum.cardnum"])
-        t4 = t3.show("bonus.cardnum")
-        t5 = t4.equate("cardnum.cardnum", "bonus.cardnum")
+        s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
+        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
+        t2 = t1.infer(["val_id"], bonus["bonus"])
+        t3 = t2.set_key(["val_id", "cardnum"])
+        t4 = t3.show("cardnum_1")
+        t5 = t4.equate("cardnum", "cardnum_1")
         self.assertExpectedInline(str(t5), """\
-[cardnum.val_id cardnum.cardnum || bonus.bonus]
-                                bonus.bonus
-cardnum.val_id cardnum.cardnum             
-1              5172                     4.0
+[val_id cardnum || bonus]
+                bonus
+val_id cardnum       
+1      5172       4.0
 
 """)
         # # [cardnum.val_id cardnum.cardnum  || bonus.bonus]

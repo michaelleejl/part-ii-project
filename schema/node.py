@@ -219,6 +219,7 @@ class SchemaClass(SchemaNode):
 
     def __init__(self, name):
         self.name = name
+        self.node_type = None
 
     def __hash__(self):
         return hash(self.name)

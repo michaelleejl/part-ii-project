@@ -5,20 +5,22 @@ from schema import Schema, SchemaNode, NoShortestPathBetweenNodesException
 
 
 class TestEx5(expecttest.TestCase):
-    def initialise(self) -> Schema:
+    def initialise(self):
         s = Schema()
 
-        person = pd.read_csv("./csv/roles/person.csv").set_index("person")
-        task = pd.read_csv("./csv/roles/task.csv").set_index("task")
+        person_df = pd.read_csv("./csv/roles/person.csv").set_index("person")
+        task_df = pd.read_csv("./csv/roles/task.csv").set_index("task")
 
-        s.insert_dataframe(person, "person")
-        s.insert_dataframe(task, "task")
+        person = s.insert_dataframe(person_df)
+        task = s.insert_dataframe(task_df)
 
-        p_role = SchemaNode("role", cluster="person")
-        t_role = SchemaNode("role", cluster="task")
+        p_role = person["role"]
+        t_role = task["role"]
 
-        s.blend(p_role, t_role, under="Role")
-        return s
+        Role = s.create_class("Role")
+
+        s.blend(p_role, t_role, Role)
+        return s, person, task, Role
         # SCHEMA:
         # person ---> role <--- task
 
@@ -27,10 +29,10 @@ class TestEx5(expecttest.TestCase):
 # Does role depend on person or task - depends on what you call infer on!
 
     def test_ex5_step1_get(self):
-        s = self.initialise()
-        t1 = s.get(["person.person", "task.task"])
+        s, person, task, Role = self.initialise()
+        t1 = s.get([person["person"], task["task"]])
         self.assertExpectedInline(str(t1), """\
-[person.person task.task || ]
+[person task || ]
 Empty DataFrame
 Columns: []
 Index: [(Steve, logistics), (Steve, manpower), (Steve, research), (Steve, funding), (Steve, marketing), (Steve, investment), (Steve, budget), (Tom, logistics), (Tom, manpower), (Tom, research), (Tom, funding), (Tom, marketing), (Tom, investment), (Tom, budget), (Harry, logistics), (Harry, manpower), (Harry, research), (Harry, funding), (Harry, marketing), (Harry, investment), (Harry, budget), (Dick, logistics), (Dick, manpower), (Dick, research), (Dick, funding), (Dick, marketing), (Dick, investment), (Dick, budget)]
@@ -45,41 +47,41 @@ Index: [(Steve, logistics), (Steve, manpower), (Steve, research), (Steve, fundin
         # Dick           budget
 
     def test_ex5_step2_infer(self):
-        s = self.initialise()
-        t1 = s.get(["person.person", "task.task"])
-        t2 = t1.infer(["task.task"], "Role")
+        s, person, task, Role = self.initialise()
+        t1 = s.get([person["person"], task["task"]])
+        t2 = t1.infer(["task"], Role)
         self.assertExpectedInline(str(t2), """\
-[person.person task.task || Role]
-                         Role
-person.person task.task      
-Steve         logistics   COO
-Tom           logistics   COO
-Harry         logistics   COO
-Dick          logistics   COO
-Steve         manpower    CEO
-Tom           manpower    CEO
-Harry         manpower    CEO
-Dick          manpower    CEO
-Steve         research    CTO
-Tom           research    CTO
-Harry         research    CTO
-Dick          research    CTO
-Steve         funding     CFO
-Tom           funding     CFO
-Harry         funding     CFO
-Dick          funding     CFO
-Steve         marketing   COO
-Tom           marketing   COO
-Harry         marketing   COO
-Dick          marketing   COO
-Steve         investment  CFO
-Tom           investment  CFO
-Harry         investment  CFO
-Dick          investment  CFO
-Steve         budget      CFO
-Tom           budget      CFO
-Harry         budget      CFO
-Dick          budget      CFO
+[person task || Role]
+                  Role
+person task           
+Steve  logistics   COO
+Tom    logistics   COO
+Harry  logistics   COO
+Dick   logistics   COO
+Steve  manpower    CEO
+Tom    manpower    CEO
+Harry  manpower    CEO
+Dick   manpower    CEO
+Steve  research    CTO
+Tom    research    CTO
+Harry  research    CTO
+Dick   research    CTO
+Steve  funding     CFO
+Tom    funding     CFO
+Harry  funding     CFO
+Dick   funding     CFO
+Steve  marketing   COO
+Tom    marketing   COO
+Harry  marketing   COO
+Dick   marketing   COO
+Steve  investment  CFO
+Tom    investment  CFO
+Harry  investment  CFO
+Dick   investment  CFO
+Steve  budget      CFO
+Tom    budget      CFO
+Harry  budget      CFO
+Dick   budget      CFO
 
 """)
         # [person.person task.task   ||  Role]
@@ -96,41 +98,41 @@ Dick          budget      CFO
     def test_ex5_step3_infer(self):
         # Or perhaps I can ask the other question - if I know person does task,
         # and I know their role, what can I infer about the role demanded by the task?
-        s = self.initialise()
-        t1 = s.get(["person.person", "task.task"])
-        t3 = t1.infer(["person.person"], "Role")
+        s, person, task, Role = self.initialise()
+        t1 = s.get([person["person"], task["task"]])
+        t3 = t1.infer(["person"], Role)
         self.assertExpectedInline(str(t3), """\
-[person.person task.task || Role]
-                         Role
-person.person task.task      
-Steve         logistics   CFO
-              manpower    CFO
-              research    CFO
-              funding     CFO
-              marketing   CFO
-              investment  CFO
-              budget      CFO
-Tom           logistics   CTO
-              manpower    CTO
-              research    CTO
-              funding     CTO
-              marketing   CTO
-              investment  CTO
-              budget      CTO
-Harry         logistics   CAO
-              manpower    CAO
-              research    CAO
-              funding     CAO
-              marketing   CAO
-              investment  CAO
-              budget      CAO
-Dick          logistics   CEO
-              manpower    CEO
-              research    CEO
-              funding     CEO
-              marketing   CEO
-              investment  CEO
-              budget      CEO
+[person task || Role]
+                  Role
+person task           
+Steve  logistics   CFO
+       manpower    CFO
+       research    CFO
+       funding     CFO
+       marketing   CFO
+       investment  CFO
+       budget      CFO
+Tom    logistics   CTO
+       manpower    CTO
+       research    CTO
+       funding     CTO
+       marketing   CTO
+       investment  CTO
+       budget      CTO
+Harry  logistics   CAO
+       manpower    CAO
+       research    CAO
+       funding     CAO
+       marketing   CAO
+       investment  CAO
+       budget      CAO
+Dick   logistics   CEO
+       manpower    CEO
+       research    CEO
+       funding     CEO
+       marketing   CEO
+       investment  CEO
+       budget      CEO
 
 """)
         # [person.person task.task   ||  Role]
@@ -146,8 +148,10 @@ Dick          logistics   CEO
 
     def test_ex5_step3_stressTest(self):
         # STRESS TEST
-        s = self.initialise()
-        t1 = s.get(["person.person", "task.task"])
-        self.assertExpectedRaisesInline(NoShortestPathBetweenNodesException, lambda: t1.infer(["person.person", "task.task"], "Role"),"""No paths found between nodes person;task and Role.If the path involves a projection that isn't the last edge in the path,The projection will need to be specified as a waypoint.""")
+        s, person, task, Role = self.initialise()
+        person["person"].id_prefix = 0
+        task["task"].id_prefix = 0
+        t1 = s.get([person["person"], task["task"]])
+        self.assertExpectedRaisesInline(NoShortestPathBetweenNodesException, lambda: t1.infer(["person", "task"], Role),"""No paths found between nodes person;task and Role.If the path involves a projection that isn't the last edge in the path,The projection will need to be specified as a waypoint.""")
         # There is no path from person.person x task.task to Role, only Role x Role.
         # This should throw an error

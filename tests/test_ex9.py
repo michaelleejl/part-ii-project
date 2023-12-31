@@ -8,12 +8,13 @@ class TestEx9(expecttest.TestCase):
 
     def initialise(self):
         s = Schema()
-        l = pd.read_csv("./csv/abstract/l.csv").set_index("k")
-        v = pd.read_csv("./csv/abstract/v.csv").set_index("l")
-        s.insert_dataframe(l, "1")
-        s.insert_dataframe(v, "2")
-        s.blend(SchemaNode("l", cluster="1"), SchemaNode("l", cluster="2"), under="L")
-        return s
+        l_df = pd.read_csv("./csv/abstract/l.csv").set_index("k")
+        v_df = pd.read_csv("./csv/abstract/v.csv").set_index("l")
+        l = s.insert_dataframe(l_df)
+        v = s.insert_dataframe(v_df)
+        L = s.create_class("L")
+        s.blend(l["l"], v["l"], L)
+        return s, l, v, L
         # [k || l]
         #  A || p
         #  B || p
@@ -26,15 +27,15 @@ class TestEx9(expecttest.TestCase):
 
     def test_ex9_goal1_step1_get_infer_compose(self):
         # GOAL 1: [k || v]
-        s = self.initialise()
-        t1 = s.get(["L"]).infer(["L"], "2.v").compose(["1.k"], "L")
+        s, l, v, L = self.initialise()
+        t1 = s.get([L]).infer(["L"], v["v"]).compose([l["k"]], "L")
         self.assertExpectedInline(str(t1), """\
-[1.k || 2.v]
-     2.v
-1.k     
-A      1
-B      1
-C      2
+[k || v]
+   v
+k   
+A  1
+B  1
+C  2
 1 values hidden
 
 """)
@@ -47,21 +48,21 @@ C      2
     # GOAL 2 [k l || v]
 
     def test_ex9_goal2_step1_getAndInfer(self):
-        s = self.initialise()
-        t11 = s.get(["1.k", "L"]).infer(["L"], "2.v")
+        s, l, v, L = self.initialise()
+        t11 = s.get([l["k"], L]).infer(["L"], v["v"])
         self.assertExpectedInline(str(t11), """\
-[1.k L || 2.v]
-       2.v
-1.k L     
-A   p    1
-B   p    1
-C   p    1
-A   q    2
-B   q    2
-C   q    2
-A   r    3
-B   r    3
-C   r    3
+[k L || v]
+     v
+k L   
+A p  1
+B p  1
+C p  1
+A q  2
+B q  2
+C q  2
+A r  3
+B r  3
+C r  3
 
 """)
         # [k  l || v]
@@ -76,21 +77,21 @@ C   r    3
         #  C  r || 3
 
     def test_ex9_goal3_step1_getAndInfer(self):
-        s = self.initialise()
-        t21 = s.get(["1.k", "L"]).infer(["1.k"], "2.v")
+        s, l, v, L = self.initialise()
+        t21 = s.get([l["k"], L]).infer(["k"], v["v"])
         self.assertExpectedInline(str(t21), """\
-[1.k L || 2.v]
-       2.v
-1.k L     
-A   p    1
-    q    1
-    r    1
-B   p    1
-    q    1
-    r    1
-C   p    2
-    q    2
-    r    2
+[k L || v]
+     v
+k L   
+A p  1
+  q  1
+  r  1
+B p  1
+  q  1
+  r  1
+C p  2
+  q  2
+  r  2
 1 values hidden
 
 """)
@@ -106,15 +107,15 @@ C   p    2
         #  C  r || 2
 
     def test_ex9_goal4_step1_getAndInfer(self):
-        s = self.initialise()
-        t31 = s.get(["1.k"]).infer(["1.k"], "L")
+        s, l, v, L = self.initialise()
+        t31 = s.get([l["k"]]).infer(["k"], L)
         self.assertExpectedInline(str(t31), """\
-[1.k || L]
-     L
-1.k   
-A    p
-B    p
-C    q
+[k || L]
+   L
+k   
+A  p
+B  p
+C  q
 
 """)
         # [k || l]
@@ -123,11 +124,11 @@ C    q
         #  C || q
 
     def test_ex9_goal4_step2_setKey(self):
-        s = self.initialise()
-        t31 = s.get(["1.k"]).infer(["1.k"], "L")
-        t32 = t31.set_key(["1.k", "L"])
+        s, l, v, L = self.initialise()
+        t31 = s.get([l["k"]]).infer(["k"], L)
+        t32 = t31.set_key(["k", "L"])
         self.assertExpectedInline(str(t32), """\
-[1.k L || ]
+[k L || ]
 Empty DataFrame
 Columns: []
 Index: [(A, p), (B, p), (C, q)]
@@ -139,17 +140,17 @@ Index: [(A, p), (B, p), (C, q)]
         #  C q
 
     def test_ex9_goal4_step3_infer(self):
-        s = self.initialise()
-        t31 = s.get(["1.k"]).infer(["1.k"], "L")
-        t32 = t31.set_key(["1.k", "L"])
-        t33 = t32.infer(["L"], "2.v")
+        s, l, v, L = self.initialise()
+        t31 = s.get([l["k"]]).infer(["k"], L)
+        t32 = t31.set_key(["k", "L"])
+        t33 = t32.infer(["L"], v["v"])
         self.assertExpectedInline(str(t33), """\
-[1.k L || 2.v]
-       2.v
-1.k L     
-A   p    1
-B   p    1
-C   q    2
+[k L || v]
+     v
+k L   
+A p  1
+B p  1
+C q  2
 1 values hidden
 
 """)

@@ -149,12 +149,13 @@ class Project(DerivationStep):
 
 
 class Filter(DerivationStep):
-    def __init__(self, predicate: Bexp):
+    def __init__(self, exp: Bexp, arguments):
         super().__init__("FLT")
-        self.predicate = predicate
+        self.exp = exp
+        self.arguments = arguments
 
     def __repr__(self):
-        return f"{self.name} <{self.predicate}>"
+        return f"{self.name} <{self.exp}, {self.arguments}>"
 
     def __str__(self):
         return self.__repr__()

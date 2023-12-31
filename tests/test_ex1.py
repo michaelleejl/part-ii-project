@@ -219,6 +219,7 @@ cardnum
         t21 = s.get([cardnum["cardnum"]])
         t22 = t21.infer(["cardnum"], cardnum["val_id"])
         t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid")
+        self.maxDiff = None
         self.assertExpectedInline(str(t23), """\
 [cardnum || val_id numplusvalid]
          val_id  numplusvalid
@@ -231,7 +232,6 @@ cardnum
 
 """)
 
-    #TODO: Fix test
     def test_ex1_goal3_step3_setKey(self):
         s, cardnum, person = self.initialise()
         t21 = s.get([cardnum["cardnum"]])
@@ -240,15 +240,15 @@ cardnum
         t24 = t23.set_key(["numplusvalid"])
 
         self.assertExpectedInline(str(t24), """\
-[cardnum.plusone || cardnum.cardnum cardnum.val_id]
-                cardnum.cardnum cardnum.val_id
-cardnum.plusone                               
-5173                     [5172]            [1]
-2356                     [2354]            [2]
-2359                     [2354]            [5]
-1413                     [1410]            [3]
-1115                     [1111]            [4]
-4420                     [4412]            [8]
+[numplusvalid || cardnum val_id]
+             cardnum val_id
+numplusvalid               
+5173          [5172]    [1]
+2356          [2354]    [2]
+2359          [2354]    [5]
+1413          [1410]    [3]
+1115          [1111]    [4]
+4420          [4412]    [8]
 
 """)
 

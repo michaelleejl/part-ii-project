@@ -3,6 +3,7 @@ import typing
 from tables.aexp import *
 from tables.bexp import *
 from tables.exp import Exp
+from tables.sexp import Sexp, ColumnSexp, ConstSexp
 
 
 def exp_interpreter(exp: Exp):
@@ -10,6 +11,8 @@ def exp_interpreter(exp: Exp):
         return aexp_interpreter(exp)
     elif isinstance(exp, Bexp):
         return bexp_interpreter(exp)
+    elif isinstance(exp, Sexp):
+        return sexp_interpreter(exp)
 
 
 def aexp_interpreter(exp: Aexp):
@@ -82,3 +85,13 @@ def bexp_interpreter(exp: Bexp):
             lexp = exp_interpreter(rr.lexp)
             rexp = exp_interpreter(rr.rexp)
             return lambda t: lexp(t) | rexp(t)
+
+
+def sexp_interpreter(exp: Sexp):
+    match exp.code:
+        case "COL":
+            col = typing.cast(ColumnSexp, exp)
+            return lambda t: t[col.column]
+        case "CNT":
+            cnt = typing.cast(ConstSexp, exp)
+            return lambda t: cnt.constant

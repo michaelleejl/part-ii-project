@@ -7,6 +7,7 @@ from tables.exceptions import ColumnTypeException
 from tables.function import Function, create_function, create_bijection
 from tables.bexp import EqualityBexp, NotBexp, LessThanBexp, NABexp, OrBexp, AndBexp, ColumnBexp, ConstBexp, Bexp
 from tables.raw_column import RawColumn
+from tables.sexp import ConstSexp, ColumnSexp, Sexp
 
 
 def wrap_bexp(exp):
@@ -30,6 +31,15 @@ def wrap_aexp(exp):
     elif isinstance(exp, Aexp):
         return exp
 
+def wrap_sexp(exp):
+    if isinstance(exp, str):
+        return ConstSexp(exp)
+    elif isinstance(exp, Column):
+        if exp.raw_column.node.node_type is not BaseType.STRING:
+            raise ColumnTypeException("string", str(exp.raw_column.node.node_type))
+        return ColumnSexp(exp)
+    elif isinstance(exp, Sexp):
+        return exp
 
 def get_arguments_for_binary_aexp(x, y):
     lexp = wrap_aexp(x)
@@ -58,6 +68,9 @@ class Column:
         elif data_type == BaseType.FLOAT:
             lexp = wrap_aexp(self)
             rexp = wrap_aexp(other)
+        elif data_type == BaseType.STRING:
+            lexp = wrap_sexp(self)
+            rexp = wrap_sexp(other)
         if lexp is None or rexp is None:
             raise ColumnTypeException(str(data_type), "other")
         return EqualityBexp(lexp, rexp)
@@ -107,6 +120,9 @@ class Column:
             raise ColumnTypeException("bool", str(data_type))
         exp = wrap_bexp(self)
         return NotBexp(exp)
+
+    def to_bexp(self):
+        return wrap_bexp(self)
 
     def isnull(self) -> NABexp:
         data_type = self.raw_column.node.node_type
