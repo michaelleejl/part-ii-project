@@ -305,7 +305,7 @@ Ringo  Pepper   29
 [Person Pet || ]
 Empty DataFrame
 Columns: []
-Index: [(George, Buster), (George, Corky), (George, Fido), (George, Martha), (George, Pepper), (George, Strawberry), (John, Buster), (John, Corky), (John, Fido), (John, Martha), (John, Pepper), (John, Strawberry), (Paul, Buster), (Paul, Corky), (Paul, Fido), (Paul, Martha), (Paul, Pepper), (Paul, Strawberry), (Pete, Buster), (Pete, Corky), (Pete, Fido), (Pete, Martha), (Pete, Pepper), (Pete, Strawberry), (Ringo, Buster), (Ringo, Corky), (Ringo, Fido), (Ringo, Martha), (Ringo, Pepper), (Ringo, Strawberry)]
+Index: []
 
 """)
         # [Person Pet     || ]

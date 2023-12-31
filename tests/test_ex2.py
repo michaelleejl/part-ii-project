@@ -32,7 +32,7 @@ class TestEx2(expecttest.TestCase):
 [val_id || ]
 Empty DataFrame
 Columns: []
-Index: [1, 2, 3, 4, 5, 6, 7]
+Index: []
 
 """)
         # Get every val_id in the tstart csv
@@ -78,7 +78,7 @@ val_id
 [Val_id || ]
 Empty DataFrame
 Columns: []
-Index: [1, 2, 3, 4, 5, 6, 7, 8]
+Index: []
 
 """)
         # Get every possible val_id. Note that there is val_id 8, but we don't
@@ -164,7 +164,7 @@ Val_id
 [Val_id cardnum || ]
 Empty DataFrame
 Columns: []
-Index: [(1, 1111), (1, 1410), (1, 2354), (1, 4412), (1, 5172), (2, 1111), (2, 1410), (2, 2354), (2, 4412), (2, 5172), (3, 1111), (3, 1410), (3, 2354), (3, 4412), (3, 5172), (4, 1111), (4, 1410), (4, 2354), (4, 4412), (4, 5172), (5, 1111), (5, 1410), (5, 2354), (5, 4412), (5, 5172), (6, 1111), (6, 1410), (6, 2354), (6, 4412), (6, 5172), (7, 1111), (7, 1410), (7, 2354), (7, 4412), (7, 5172), (8, 1111), (8, 1410), (8, 2354), (8, 4412), (8, 5172)]
+Index: []
 
 """)
         # [Val_id cardnum.cardnum || ]

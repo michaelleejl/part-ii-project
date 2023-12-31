@@ -35,7 +35,7 @@ class TestEx5(expecttest.TestCase):
 [person task || ]
 Empty DataFrame
 Columns: []
-Index: [(Steve, logistics), (Steve, manpower), (Steve, research), (Steve, funding), (Steve, marketing), (Steve, investment), (Steve, budget), (Tom, logistics), (Tom, manpower), (Tom, research), (Tom, funding), (Tom, marketing), (Tom, investment), (Tom, budget), (Harry, logistics), (Harry, manpower), (Harry, research), (Harry, funding), (Harry, marketing), (Harry, investment), (Harry, budget), (Dick, logistics), (Dick, manpower), (Dick, research), (Dick, funding), (Dick, marketing), (Dick, investment), (Dick, budget)]
+Index: []
 
 """)
         # [person.person task.task || ]

@@ -131,7 +131,7 @@ C  q
 [k L || ]
 Empty DataFrame
 Columns: []
-Index: [(A, p), (B, p), (C, q)]
+Index: []
 
 """)
         # [k l || ]

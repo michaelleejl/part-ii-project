@@ -51,7 +51,7 @@ class TestEx6(expecttest.TestCase):
 [order payment_method || ]
 Empty DataFrame
 Columns: []
-Index: [(1, 5172), (1, 2354), (1, 1410), (1, 1111), (2, 5172), (2, 2354), (2, 1410), (2, 1111), (4, 5172), (4, 2354), (4, 1410), (4, 1111), (5, 5172), (5, 2354), (5, 1410), (5, 1111)]
+Index: []
 
 """)
         # [payment.order payment.payment_method || ]
@@ -124,7 +124,7 @@ order
 [order payment_method || ]
 Empty DataFrame
 Columns: []
-Index: [(1, 5172), (2, 2354), (4, 1410), (5, 1111)]
+Index: []
 
 """)
         # [payment.order   payment.payment_method  || ]

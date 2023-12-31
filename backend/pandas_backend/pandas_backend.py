@@ -160,14 +160,13 @@ class PandasBackend(Backend):
             first = typing.cast(Get, derivation_steps[0])
             tbl = get(first, self)
             start_from = 1
-            k = lambda x: x
         else:
-            tbl, k, start_from = self.derived_tables[derived_from]
+            tbl, start_from = self.derived_tables[derived_from]
 
         last = typing.cast(End, derivation_steps[-1])
         derivation_steps = derivation_steps[start_from:-1]
 
-        table, cont = interpret(derivation_steps, self, tbl, k)
-        self.derived_tables[table_id] = table, cont, length - 1
-        x, y, z = end(last, table, cont)
+        table = interpret(derivation_steps, self, tbl)
+        self.derived_tables[table_id] = table, length - 1
+        x, y, z = end(last, table)
         return x, y, z, self

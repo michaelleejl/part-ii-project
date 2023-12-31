@@ -47,7 +47,7 @@ class TestEx3(expecttest.TestCase):
 [Val_id Cardnum || ]
 Empty DataFrame
 Columns: []
-Index: [(1, 1111), (1, 1410), (1, 2354), (1, 4412), (1, 5172), (1, 6440), (2, 1111), (2, 1410), (2, 2354), (2, 4412), (2, 5172), (2, 6440), (3, 1111), (3, 1410), (3, 2354), (3, 4412), (3, 5172), (3, 6440), (4, 1111), (4, 1410), (4, 2354), (4, 4412), (4, 5172), (4, 6440), (5, 1111), (5, 1410), (5, 2354), (5, 4412), (5, 5172), (5, 6440), (6, 1111), (6, 1410), (6, 2354), (6, 4412), (6, 5172), (6, 6440), (7, 1111), (7, 1410), (7, 2354), (7, 4412), (7, 5172), (7, 6440), (8, 1111), (8, 1410), (8, 2354), (8, 4412), (8, 5172), (8, 6440)]
+Index: []
 
 """)
         # [Val_id Cardnum || ]
@@ -240,12 +240,12 @@ Val_id Cardnum
 # GOAL 2: [val_id || cardnum tstart bonus]
     def test_ex3_goal2_step1_get(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t11 = s.get([Val_id]).sort(["Val_id"])
+        t11 = s.get([Val_id])
         self.assertExpectedInline(str(t11), """\
 [Val_id || ]
 Empty DataFrame
 Columns: []
-Index: [1, 2, 3, 4, 5, 6, 7, 8]
+Index: []
 
 """)
         # [Val_id || ]

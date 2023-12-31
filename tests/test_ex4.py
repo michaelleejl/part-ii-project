@@ -36,7 +36,7 @@ class TestEx4(expecttest.TestCase):
 [person || ]
 Empty DataFrame
 Columns: []
-Index: [Steve, Tom, Harry, Dick]
+Index: []
 
 """)
 

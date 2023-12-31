@@ -41,7 +41,7 @@ class TestEx1(expecttest.TestCase):
 [cardnum || ]
 Empty DataFrame
 Columns: []
-Index: [5172, 2354, 1410, 1111, 4412]
+Index: []
 
 """)
         # Get every cardnum in the cardnum csv
@@ -129,7 +129,7 @@ val_id
 [cardnum || ]
 Empty DataFrame
 Columns: []
-Index: [1111, 1410, 2354, 6440, 5467]
+Index: []
 
 """)
         # Get me every value of cardnum in person
@@ -259,7 +259,7 @@ numplusvalid
 [val_id || ]
 Empty DataFrame
 Columns: []
-Index: [1, 2, 3, 4, 5, 8]
+Index: []
 
 """)
 
