@@ -37,6 +37,7 @@ class TestEx4(expecttest.TestCase):
 Empty DataFrame
 Columns: []
 Index: []
+4 keys hidden
 
 """)
 
@@ -57,7 +58,7 @@ person
 Dick                       [manpower]
 Tom                        [research]
 Steve   [funding, investment, budget]
-2 keys hidden
+1 keys hidden
 
 """)
         # [person.person || task.task]
@@ -79,8 +80,7 @@ Tom    research      research
 Steve  funding        funding
        investment  investment
        budget          budget
-1 keys hidden
-2 values hidden
+23 keys hidden
 
 """)
         # [person.person task.task || task.task]
@@ -103,7 +103,7 @@ person
 Dick                       [manpower]
 Tom                        [research]
 Steve   [funding, investment, budget]
-2 keys hidden
+1 keys hidden
 
 """)
 
@@ -124,8 +124,7 @@ Tom    research      research
 Steve  funding        funding
        investment  investment
        budget          budget
-1 keys hidden
-2 values hidden
+23 keys hidden
 
 """)
 

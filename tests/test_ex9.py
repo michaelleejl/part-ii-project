@@ -36,7 +36,6 @@ k
 A  1
 B  1
 C  2
-1 values hidden
 
 """)
         # Or s.get([l]).compose(k, [l]).infer([k], v)
@@ -92,7 +91,6 @@ B p  1
 C p  2
   q  2
   r  2
-1 values hidden
 
 """)
         # [k  l || v]
@@ -132,6 +130,7 @@ C  q
 Empty DataFrame
 Columns: []
 Index: []
+9 keys hidden
 
 """)
         # [k l || ]
@@ -151,7 +150,7 @@ k L
 A p  1
 B p  1
 C q  2
-1 values hidden
+6 keys hidden
 
 """)
         # [k l || v ]

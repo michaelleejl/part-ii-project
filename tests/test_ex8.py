@@ -97,6 +97,7 @@ John   Pepper   27
 Paul   Martha   25
 George Corky    23
 Ringo  Buster   29
+12 keys hidden
 
 """)
         # [persons.person persons.pet || persons.age]
@@ -167,6 +168,7 @@ Ringo  Pepper Buster   29
        Martha Buster   29
        Corky  Buster   29
        Buster Buster   29
+48 keys hidden
 
 """)
         # [persons.person persons.pet  persons.pet (1)  || persons.age]
@@ -192,6 +194,7 @@ John   Pepper   27
 Paul   Martha   25
 George Corky    23
 Ringo  Buster   29
+12 keys hidden
 
 """)
 
@@ -257,6 +260,7 @@ Ringo  Pepper Buster   29
        Martha Buster   29
        Corky  Buster   29
        Buster Buster   29
+48 keys hidden
 
 """)
         # [persons.person persons.pet  persons.pet (1)  || persons.age]
@@ -306,6 +310,7 @@ Ringo  Pepper   29
 Empty DataFrame
 Columns: []
 Index: []
+30 keys hidden
 
 """)
         # [Person Pet     || ]

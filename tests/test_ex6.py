@@ -52,6 +52,7 @@ class TestEx6(expecttest.TestCase):
 Empty DataFrame
 Columns: []
 Index: []
+16 keys hidden
 
 """)
         # [payment.order payment.payment_method || ]
@@ -85,7 +86,6 @@ order payment_method
       2354.0          Cambridge
       1410.0          Cambridge
       1111.0          Cambridge
-1 values hidden
 
 """)
         # [payment.order payment.payment_method || Address ]
@@ -125,6 +125,7 @@ order
 Empty DataFrame
 Columns: []
 Index: []
+16 keys hidden
 
 """)
         # [payment.order   payment.payment_method  || ]

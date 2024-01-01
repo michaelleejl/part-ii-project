@@ -42,6 +42,7 @@ class TestEx1(expecttest.TestCase):
 Empty DataFrame
 Columns: []
 Index: []
+5 keys hidden
 
 """)
         # Get every cardnum in the cardnum csv
@@ -64,7 +65,6 @@ cardnum
 1410.0     Tom
 2354.0   Steve
 2 keys hidden
-2 values hidden
 
 """)
         # Use this cardnum to infer who made the trip
@@ -89,7 +89,6 @@ cardnum
 2354.0      2354.0  Steve
 5172.0      5172.0    NaN
 4412.0      4412.0    NaN
-2 values hidden
 
 """)
 
@@ -107,7 +106,6 @@ val_id
 3.0       Tom
 4.0     Steve
 2 keys hidden
-2 values hidden
 
 """)
         # Hey, I know how to get the val_id(s) given the cardnum
@@ -130,6 +128,7 @@ val_id
 Empty DataFrame
 Columns: []
 Index: []
+5 keys hidden
 
 """)
         # Get me every value of cardnum in person
@@ -181,7 +180,6 @@ val_id
 4.0     Steve
 3.0       Tom
 2 keys hidden
-2 values hidden
 
 """)
         # I have a mapping from val_id to cardnum
@@ -260,6 +258,7 @@ numplusvalid
 Empty DataFrame
 Columns: []
 Index: []
+6 keys hidden
 
 """)
 
@@ -315,7 +314,6 @@ val_id
 5.0      2354.0          2354.0  Steve
 1.0      5172.0          5172.0    NaN
 8.0      4412.0          4412.0    NaN
-2 values hidden
 
 """)
 
@@ -335,7 +333,6 @@ val_id
 2.0     Steve
 5.0     Steve
 2 keys hidden
-2 values hidden
 
 """)
 
@@ -358,7 +355,6 @@ val_id
 5.0      2354.0          2354.0  Steve
 1.0      5172.0          5172.0    NaN
 8.0      4412.0          4412.0    NaN
-2 values hidden
 
 """)
 
@@ -381,7 +377,6 @@ val_id
 5.0      2354.0          2354.0  Steve         Steve
 1.0      5172.0          5172.0    NaN           Bob
 8.0      4412.0          4412.0    NaN           Bob
-4 values hidden
 
 """)
 
@@ -398,7 +393,6 @@ val_id
 3.0       Tom
 4.0     Steve
 2 keys hidden
-2 values hidden
 
 """)
 
@@ -413,6 +407,6 @@ val_id
 person                 
 Steve   [2.0, 5.0, 4.0]
 Tom               [3.0]
-3 keys hidden
+2 keys hidden
 
 """)

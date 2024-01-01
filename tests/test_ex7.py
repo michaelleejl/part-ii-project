@@ -98,7 +98,7 @@ val_id cardnum
 2      2354      [5.0, 7.0]
 3      1410           [1.0]
 5      2354           [2.0]
-2 keys hidden
+26 keys hidden
 
 """)
 
@@ -127,7 +127,7 @@ val_id cardnum cardnum_1
                6440.0       7.0
 3      1410    1111.0       1.0
 5      2354    1410.0       2.0
-2 keys hidden
+114 keys hidden
 
 """)
 
@@ -152,6 +152,7 @@ val_id cardnum cardnum_1
                 bonus
 val_id cardnum       
 1      5172       4.0
+29 keys hidden
 
 """)
         # # [cardnum.val_id cardnum.cardnum  || bonus.bonus]

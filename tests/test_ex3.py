@@ -48,6 +48,7 @@ class TestEx3(expecttest.TestCase):
 Empty DataFrame
 Columns: []
 Index: []
+48 keys hidden
 
 """)
         # [Val_id Cardnum || ]
@@ -179,6 +180,7 @@ Val_id Cardnum
        6440       7.0  2023-01-01 11:10:00
 3      1111       1.0  2023-01-01 15:32:00
 5      1410       2.0  2023-01-01 20:11:00
+42 keys hidden
 
 """)
         # [Val_id Cardnum || bonus.bonus  tstart.tstart]
@@ -207,6 +209,7 @@ Val_id Cardnum
        6440       7.0  2023-01-01 11:10:00     2354
 3      1111       1.0  2023-01-01 15:32:00     1410
 5      1410       2.0  2023-01-01 20:11:00     2354
+42 keys hidden
 
 """)
         # Values populate keys. Since we use the same values, we will end up with the same keys.
@@ -232,6 +235,7 @@ Val_id Cardnum
                 bonus               tstart  cardnum
 Val_id Cardnum                                     
 1      5172       4.0  2023-01-01 09:50:00     5172
+47 keys hidden
 
 """)
         # # [Val_id Cardnum || bonus.bonus  tstart.tstart            cardnum.cardnum]
@@ -246,6 +250,7 @@ Val_id Cardnum
 Empty DataFrame
 Columns: []
 Index: []
+8 keys hidden
 
 """)
         # [Val_id || ]
@@ -332,7 +337,7 @@ Val_id cardnum_1
        6440.0      2354.0  2023-01-01 11:10:00    7.0
 3      1111.0      1410.0  2023-01-01 15:32:00    1.0
 5      1410.0      2354.0  2023-01-01 20:11:00    2.0
-4 values hidden
+26 keys hidden
 
 """)
         # [Val_id bonus.cardnum || tstart.tstart         cardnum.cardnum   bonus.bonus]

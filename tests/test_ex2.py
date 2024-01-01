@@ -33,6 +33,7 @@ class TestEx2(expecttest.TestCase):
 Empty DataFrame
 Columns: []
 Index: []
+7 keys hidden
 
 """)
         # Get every val_id in the tstart csv
@@ -79,6 +80,7 @@ val_id
 Empty DataFrame
 Columns: []
 Index: []
+8 keys hidden
 
 """)
         # Get every possible val_id. Note that there is val_id 8, but we don't
@@ -165,6 +167,7 @@ Val_id
 Empty DataFrame
 Columns: []
 Index: []
+40 keys hidden
 
 """)
         # [Val_id cardnum.cardnum || ]

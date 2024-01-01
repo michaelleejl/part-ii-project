@@ -36,6 +36,15 @@ class PandasBackend(Backend):
         self.clones[node] = node
         self.node_data[node] = domain
 
+    def get_domain_size(self, node: SchemaNode):
+        cs = SchemaNode.get_constituents(node)
+        assert len(cs) == 1
+        assert node in self.clones
+        lookup = node
+        while self.clones[lookup] != lookup:
+            lookup = self.clones[node]
+        return len(self.node_data[lookup])
+
     def get_domain_from_atomic_node(self, node: SchemaNode, with_name):
         cs = SchemaNode.get_constituents(node)
         assert len(cs) == 1
@@ -150,5 +159,5 @@ class PandasBackend(Backend):
 
         table = interpret(derivation_steps, self, tbl)
         self.derived_tables[table_id] = table, length - 1
-        x, y, z = end(last, table)
+        x, y, z = end(last, self, table)
         return x, y, z, self

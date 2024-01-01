@@ -36,6 +36,7 @@ class TestEx5(expecttest.TestCase):
 Empty DataFrame
 Columns: []
 Index: []
+28 keys hidden
 
 """)
         # [person.person task.task || ]

@@ -1,4 +1,5 @@
 import itertools
+import operator
 import typing
 from collections import deque
 from functools import reduce
@@ -29,11 +30,12 @@ def get(derivation_step: Get, backend) -> pd.DataFrame:
     return df
 
 
-def end(derivation_step: End, table: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
+def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
     keys = derivation_step.keys
     values = derivation_step.values
     if len(values) == 0:
-        return pd.DataFrame(), 0, 0
+        keys_count = reduce(operator.mul, [backend.get_domain_size(c.node) for c in keys])
+        return pd.DataFrame(), keys_count, 0
     keys_str = [str(k) for k in keys]
     vals_str = [str(v) for v in values]
     app = table
@@ -70,9 +72,9 @@ def end(derivation_step: End, table: pd.DataFrame) -> tuple[pd.DataFrame, int, i
     df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index(keys_str_with_marker)
     renaming = keys_str
     df3.index.set_names(renaming, inplace=True)
-    dropped_vals_cnt = len(df2) - len(df3)
-    dropped_keys_cnt = len(df) - len(df2)
-    return df3, dropped_keys_cnt, dropped_vals_cnt
+    keys_count = reduce(operator.mul, [backend.get_domain_size(c.node) for c in keys])
+    dropped_keys_cnt = keys_count - len(df3)
+    return df3, dropped_keys_cnt, 0
 
 
 def stt(derivation_step: StartTraversal, backend, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
