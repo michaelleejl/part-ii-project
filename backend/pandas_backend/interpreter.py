@@ -17,7 +17,7 @@ def cartesian_product(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     return df1.merge(df2, how="cross").drop_duplicates()
 
 
-def get(derivation_step: Get, backend) -> pd.DataFrame:
+def get(derivation_step: Get, backend) -> tuple[pd.DataFrame, dict]:
     columns = derivation_step.columns
     nodes = [c.node for c in columns]
     names = [c.name for c in columns]
@@ -26,7 +26,7 @@ def get(derivation_step: Get, backend) -> pd.DataFrame:
     else:
         domains, counts = [list(x) for x in zip(*[backend.get_domain_from_atomic_node(node, name) for node, name in zip(nodes, names)])]
         df = reduce(cartesian_product, domains)
-    return df
+    return df, {-1: columns}
 
 
 def end(derivation_step: End, table: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
@@ -75,17 +75,17 @@ def end(derivation_step: End, table: pd.DataFrame) -> tuple[pd.DataFrame, int, i
     return df3, dropped_keys_cnt, dropped_vals_cnt
 
 
-def stt(derivation_step: StartTraversal, backend, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
+def stt(derivation_step: StartTraversal, backend, table, stack, keys, to_populate) -> tuple[pd.DataFrame, list, list, dict]:
     base = table.copy()
     keys = derivation_step.explicit_keys
     first_cols = [c.name for c in derivation_step.start_columns]
     df: pd.DataFrame = base[first_cols]
     for i, col in enumerate(first_cols):
         df[i] = df[col]
-    return df, [base], keys
+    return df, [base], keys, to_populate
 
 
-def trv(derivation_step: Traverse, backend, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
+def trv(derivation_step: Traverse, backend, table, stack, keys, to_populate) -> tuple[pd.DataFrame, list, list, dict]:
     start_node = derivation_step.start_node
     start_nodes = SchemaNode.get_constituents(start_node)
     end_node = derivation_step.end_node
@@ -109,10 +109,10 @@ def trv(derivation_step: Traverse, backend, table, stack, keys) -> tuple[pd.Data
     for i, idx in enumerate(idxs):
         df[new_cols[i].name] = df[idx]
 
-    return df, stack, keys + [c.name for c in new_cols]
+    return df, stack, keys + [c.name for c in new_cols], to_populate
 
 
-def prj(derivation_step: Project, _, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
+def prj(derivation_step: Project, _, table, stack, keys, to_populate) -> tuple[pd.DataFrame, list, list, dict]:
     start_node = derivation_step.start_node
     end_node = derivation_step.end_node
     start_nodes = SchemaNode.get_constituents(start_node)
@@ -142,10 +142,10 @@ def prj(derivation_step: Project, _, table, stack, keys) -> tuple[pd.DataFrame, 
             i += 1
     df = df.drop(list(range(i, len(start_nodes))), axis=1)
     df = df.rename(renaming, axis=1)
-    return df, stack, keys + retained
+    return df, stack, keys + retained, to_populate
 
 
-def exp(derivation_step: Expand, backend, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
+def exp(derivation_step: Expand, backend, table, stack, keys, to_populate) -> tuple[pd.DataFrame, list, list, dict]:
     start_node = derivation_step.start_node
     end_node = derivation_step.end_node
     start_nodes = SchemaNode.get_constituents(start_node)
@@ -173,14 +173,14 @@ def exp(derivation_step: Expand, backend, table, stack, keys) -> tuple[pd.DataFr
     for i, idx in enumerate(idxs):
         df[new_cols[i].name] = df[idx]
 
-    return df, stack, keys + [c.name for c in new_cols]
+    return df, stack, keys + [c.name for c in new_cols], to_populate
 
 
-def equ(derivation_step: Equate, _, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
-    return table, stack, keys
+def equ(derivation_step: Equate, _, table, stack, keys, to_populate) -> tuple[pd.DataFrame, list, list, dict]:
+    return table, stack, keys, to_populate
 
 
-def ent(derivation_step: EndTraversal, _, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
+def ent(derivation_step: EndTraversal, _, table, stack, keys, to_populate) -> tuple[pd.DataFrame, list, list, dict]:
     cols = [c.name for c in derivation_step.start_columns]
     end_cols = [c.name for c in derivation_step.end_columns]
     should_merge = [c not in set(cols) for c in end_cols]
@@ -191,66 +191,67 @@ def ent(derivation_step: EndTraversal, _, table, stack, keys) -> tuple[pd.DataFr
     df = df.loc[df.astype(str).drop_duplicates().index]
 
     # TODO: Pass through table
-    return df, [], keys
+    return df, [], keys, to_populate
 
 
-def rnm(derivation_step: Rename, _, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
+def rnm(derivation_step: Rename, _, table, stack, keys, to_populate) -> tuple[pd.DataFrame, list, list, dict]:
     mapping = derivation_step.mapping
-    return table.rename(mapping, axis=1), stack, keys
+    return table.rename(mapping, axis=1), stack, keys, to_populate
 
 
-def srt(derivation_step: Sort, _, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
+def srt(derivation_step: Sort, _, table, stack, keys, to_populate) -> tuple[pd.DataFrame, list, list, dict]:
     columns = derivation_step.columns
-    return table.sort_values(by=columns), stack, keys
+    return table.sort_values(by=columns), stack, keys, to_populate
 
 
-def flt(derivation_step: Filter, _, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
+def flt(derivation_step: Filter, _, table, stack, keys, to_populate) -> tuple[pd.DataFrame, list, list, dict]:
     exp = derivation_step.exp
     arguments = derivation_step.arguments
     renaming = {c.name: i for (i, c) in enumerate(arguments)}
     pred = bexp_interpreter(exp)
     df = table[pred(table.rename(renaming, axis=1))]
 
-    return df, stack, keys
+    return df, stack, keys, to_populate
 
 
-def step(next_step: DerivationStep, backend, table: pd.DataFrame, stack: list, keys) -> tuple[pd.DataFrame, list, list]:
+def step(next_step: DerivationStep, backend, table: pd.DataFrame, stack: list, keys, to_populate: dict) -> tuple[pd.DataFrame, list, list, dict]:
     match next_step.name:
         case "STT":
             next_step = typing.cast(StartTraversal, next_step)
-            return stt(next_step, backend, table, [], keys)
+            return stt(next_step, backend, table, [], keys, to_populate)
         case "TRV":
             next_step = typing.cast(Traverse, next_step)
-            return trv(next_step, backend, table, stack, keys)
+            return trv(next_step, backend, table, stack, keys, to_populate)
         case "EQU":
             next_step = typing.cast(Equate, next_step)
-            return equ(next_step, backend, table, stack, keys)
+            return equ(next_step, backend, table, stack, keys, to_populate)
         case "PRJ":
             next_step = typing.cast(Project, next_step)
-            return prj(next_step, backend, table, stack, keys)
+            return prj(next_step, backend, table, stack, keys, to_populate)
         case "EXP":
             next_step = typing.cast(Expand, next_step)
-            return exp(next_step, backend, table, stack, keys)
+            return exp(next_step, backend, table, stack, keys, to_populate)
         case "RNM":
             next_step = typing.cast(Rename, next_step)
-            return rnm(next_step, backend, table, stack, keys)
+            return rnm(next_step, backend, table, stack, keys, to_populate)
         case "ENT":
             next_step = typing.cast(EndTraversal, next_step)
-            return ent(next_step, backend, table, stack, keys)
+            return ent(next_step, backend, table, stack, keys, to_populate)
         case "FLT":
             next_step = typing.cast(Filter, next_step)
-            return flt(next_step, backend, table, stack, keys)
+            return flt(next_step, backend, table, stack, keys, to_populate)
         case "SRT":
             next_step = typing.cast(Sort, next_step)
-            return srt(next_step, backend, table, stack, keys)
+            return srt(next_step, backend, table, stack, keys, to_populate)
 
 
-def interpret(steps: list[DerivationStep], backend, table: pd.DataFrame) -> pd.DataFrame:
+def interpret(steps: list[DerivationStep], backend, table: pd.DataFrame, to_populate: dict) -> pd.DataFrame:
     if len(steps) == 0:
         return table
     tbl = table
     stack = []
     keys = []
+    to_pop = to_populate
     for s in steps:
-        tbl, stack, keys = step(s, backend, tbl, stack, keys)
+        tbl, stack, keys, to_pop = step(s, backend, tbl, stack, keys, to_pop)
     return tbl
