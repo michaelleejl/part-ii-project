@@ -18,9 +18,12 @@ from tables.column import Column
 from tables.exceptions import KeyMismatchException, ColumnsNeedToBeUniqueException, \
     ColumnsNeedToBeInTableAndVisibleException, ColumnsNeedToBeKeysException, ColumnsNeedToBeInTableException, \
     ColumnsNeedToBeHiddenException
-from tables.exp import Exp
+from tables.exp import Exp, ExtendExp
 from tables.function import Function
 from tables.bexp import Bexp
+from tables.helpers.wrap_aexp import wrap_aexp
+from tables.helpers.wrap_bexp import wrap_bexp
+from tables.helpers.wrap_sexp import wrap_sexp
 from tables.raw_column import RawColumn, ColumnType
 from tables.derivation import DerivationStep, Rename, End, Filter, StartTraversal, EndTraversal, Traverse, Sort, Get
 
@@ -211,6 +214,7 @@ class Table:
             return self.keys[self.displayed_columns[index]]
         if index < len(self.displayed_columns):
             return self.values[self.displayed_columns[index]]
+
     def get_columns_as_lists(self) -> tuple[list[RawColumn], list[RawColumn], list[RawColumn]]:
         keys = [self.keys[c] for c in self.displayed_columns[:self.marker]]
         vals = [self.values[c] for c in self.displayed_columns[self.marker:]]
@@ -394,53 +398,32 @@ class Table:
     def deduce(self, function: Exp, with_name: str):
         t = Table.create_from_table(self)
         name = t.get_fresh_name(with_name)
-        if isinstance(function, Exp):
-            exp, start_columns, aggregated_over = Exp.convert_exp(function)
-            nodes = [c.node for c in start_columns]
-            start_node = SchemaNode.product(nodes)
-            strong_keys = t.find_strong_keys_for_column(start_columns)
-            hidden_keys = [c.get_hidden_keys() for c in start_columns if c not in set(aggregated_over)]
-            acc = set()
-            for hk in hidden_keys:
-                if acc.issubset(hk) or hk.issubset(acc):
-                    acc |= set(hk)
-                else:
-                    raise KeyMismatchException(acc, hk)
-            hidden_keys = list(acc)
-            if isinstance(exp, Aexp):
-                node_type = BaseType.FLOAT
-            elif isinstance(exp, Bexp):
-                node_type = BaseType.name
+        exp, start_columns, aggregated_over = Exp.convert_exp(function)
+        nodes = [c.node for c in start_columns]
+        start_node = SchemaNode.product(nodes)
+        strong_keys = t.find_strong_keys_for_column(start_columns)
+        hidden_keys = [c.get_hidden_keys() for c in start_columns if c not in set(aggregated_over)]
+        acc = set()
+        for hk in hidden_keys:
+            if acc.issubset(hk) or hk.issubset(acc):
+                acc |= set(hk)
             else:
-                raise NotImplemented()
-            end_node = self.schema.add_node(AtomicNode(name, node_type))
-            # TODO: Consider special ONE-TO-ONE Functions
-            edge = self.schema.add_edge(start_node, end_node, Cardinality.MANY_TO_ONE)
-            modified_start_node = None
-            modified_start_cols = None
-            if len(aggregated_over) > 0:
-                modified_start_cols = [i for i, c in enumerate(start_columns) if c not in aggregated_over]
-                modified_start_node = SchemaNode.product([start_columns[i].node for i in modified_start_cols])
-            self.schema.map_edge_to_closure_function(edge, exp, len(start_columns), modified_start_node, modified_start_cols)
-            cardinality = Cardinality.MANY_TO_ONE
-            for column in start_columns:
-                cardinality = compose_cardinality(column.cardinality, cardinality)
-            column = RawColumn(name, end_node, strong_keys, hidden_keys, False, cardinality, ColumnType.VALUE, t)
-
-        # elif isinstance(function, AggregationFunction):
-        #     start_column = function.column
-        #     explicit_keys = start_column.get_strong_keys()
-        #     start_columns = [c for c in explicit_keys] + [start_column.raw_column]
-        #     nodes = [c.node for c in explicit_keys] + [start_column.raw_column.node]
-        #     start_node = SchemaNode.product(nodes)
-        #     new_start_node = SchemaNode.product([c.node for c in explicit_keys])
-        #     end_node = self.schema.add_node(name)
-        #     edge = self.schema.add_edge(start_node, end_node, Cardinality.MANY_TO_ONE)
-        #     self.schema.map_edge_to_closure_function(edge, function)
-        #     self.schema.add_edge(new_start_node, end_node, Cardinality.MANY_TO_ONE)
-        #     column = RawColumn(name, end_node, list(explicit_keys), ColumnType.VALUE, self)
-        else:
-            raise Exception()
+                raise KeyMismatchException(acc, hk)
+        hidden_keys = list(acc)
+        node_type = function.exp_type
+        end_node = self.schema.add_node(AtomicNode(name, node_type))
+        # TODO: Consider special ONE-TO-ONE Functions
+        edge = self.schema.add_edge(start_node, end_node, Cardinality.MANY_TO_ONE)
+        modified_start_node = None
+        modified_start_cols = None
+        if len(aggregated_over) > 0:
+            modified_start_cols = [i for i, c in enumerate(start_columns) if c not in aggregated_over]
+            modified_start_node = SchemaNode.product([start_columns[i].node for i in modified_start_cols])
+        self.schema.map_edge_to_closure_function(edge, exp, len(start_columns), modified_start_node, modified_start_cols)
+        cardinality = Cardinality.MANY_TO_ONE
+        for column in start_columns:
+            cardinality = compose_cardinality(column.cardinality, cardinality)
+        column = RawColumn(name, end_node, strong_keys, hidden_keys, False, cardinality, ColumnType.VALUE, t)
 
         t.set_displayed_columns(t.displayed_columns + [str(column)])
         t.set_vals(t.values | {str(column): column})
@@ -452,6 +435,26 @@ class Table:
         t.extend_intermediate_representation(traversal)
         t.execute()
         return t
+
+    def extend(self, column: str, with_function, with_name: str):
+        self.verify_columns([column], {self.ColumnRequirements.IS_VAL})
+        value: RawColumn = self.get_column_from_index(find_index(column, self.displayed_columns))
+        strong_keys = value.get_strong_keys()
+        hidden_keys = [hk for hk in value.get_hidden_keys() if hk.name != column]
+
+        match value.node.node_type:
+            case BaseType.FLOAT:
+                with_function = wrap_aexp(with_function)
+            case BaseType.BOOL:
+                with_function = wrap_bexp(with_function)
+            case BaseType.STRING:
+                with_function = wrap_sexp(with_function)
+
+        assert len(strong_keys + hidden_keys) > 0
+        assert value.node.node_type == with_function.exp_type
+
+        function = ExtendExp(strong_keys + hidden_keys, Column(value), with_function, with_function.exp_type)
+        return self.deduce(function, with_name)
 
     # TODO: Handle the case where from columns is zero
     def infer(self, from_columns: list[str], to_column: input_column_type, via: list[SchemaNode] = None,

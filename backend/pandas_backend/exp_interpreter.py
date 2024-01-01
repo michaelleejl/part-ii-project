@@ -5,8 +5,13 @@ import pandas as pd
 
 from tables.aexp import *
 from tables.bexp import *
-from tables.exp import Exp
-from tables.sexp import Sexp, ColumnSexp, ConstSexp
+from tables.exp import *
+from tables.sexp import *
+
+
+def aggregate(t, keys, col, op):
+    return pd.merge(t[[c for c in t.columns if c != col]], t.groupby(keys)[col].agg(list).apply(op).reset_index(),
+                    on=keys)[col]
 
 
 def exp_interpreter(exp: Exp):
@@ -16,6 +21,19 @@ def exp_interpreter(exp: Exp):
         return bexp_interpreter(exp)
     elif isinstance(exp, Sexp):
         return sexp_interpreter(exp)
+    elif isinstance(exp, Exp):
+        match exp.code:
+            case "POP":
+                pop = typing.cast(PopExp, exp)
+                keys = pop.keys
+                col = pop.column
+                return lambda t: aggregate(t, keys, col, lambda x: x[0])
+            case "EXT":
+                ext = typing.cast(ExtendExp, exp)
+                keys = ext.keys
+                col = ext.column
+                fun = exp_interpreter(ext.fexp)
+                return lambda t: t[col].where(t[col].notna(), fun(t))
 
 
 def aexp_interpreter(exp: Aexp):
@@ -54,9 +72,22 @@ def aexp_interpreter(exp: Aexp):
             som = typing.cast(SumAexp, exp)
             keys = som.keys
             col = som.column
-            def sum(t):
-                return pd.merge(t[[c for c in t.columns if c != col]], t.groupby(keys)[col].agg(list).apply(np.sum).reset_index(), on=keys)[col]
-            return sum
+            return lambda t: aggregate(t, keys, col, np.sum)
+        case "MAX":
+            oll = typing.cast(MaxAexp, exp)
+            keys = oll.keys
+            col = oll.column
+            return lambda t: aggregate(t, keys, col, np.max)
+        case "MIN":
+            oll = typing.cast(MaxAexp, exp)
+            keys = oll.keys
+            col = oll.column
+            return lambda t: aggregate(t, keys, col, np.min)
+        case "COU":
+            cou = typing.cast(CountAexp, exp)
+            keys = cou.keys
+            col = cou.column
+            return lambda t: aggregate(t, keys, col, len)
 
 
 def bexp_interpreter(exp: Bexp):
@@ -99,12 +130,12 @@ def bexp_interpreter(exp: Bexp):
             ani = typing.cast(AnyBexp, exp)
             keys = ani.keys
             col = ani.column
-            return lambda t: t.groupby(keys)[col].agg(list).apply(np.any)
+            return lambda t: aggregate(t, keys, col, np.any)
         case "ALL":
             oll = typing.cast(AllBexp, exp)
             keys = oll.keys
             col = oll.column
-            return lambda t: t.groupby(keys)[col].agg(list).apply(np.all)
+            return lambda t: aggregate(t, keys, col, np.all)
 
 
 def sexp_interpreter(exp: Sexp):

@@ -1,5 +1,6 @@
 from abc import ABC
 
+from schema import BaseType
 from schema.helpers.find_index import find_index
 from tables.exp import Exp
 from tables.helpers.wrap_bexp import wrap_bexp
@@ -7,7 +8,7 @@ from tables.helpers.wrap_bexp import wrap_bexp
 
 class Bexp(Exp, ABC):
     def __init__(self, code):
-        self.code = code
+        super().__init__(code, BaseType.BOOL)
 
     def __eq__(self, other):
         return EqualityBexp(self, wrap_bexp(other))

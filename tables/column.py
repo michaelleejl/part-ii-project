@@ -1,9 +1,9 @@
-import operator
-
 from schema import Cardinality, BaseType
-from tables.aexp import ConstAexp, ColumnAexp, Aexp, AddAexp, SubAexp, MulAexp, DivAexp, SumAexp
+from tables.aexp import ConstAexp, ColumnAexp, Aexp, AddAexp, SubAexp, MulAexp, DivAexp, SumAexp, MaxAexp, NegAexp, \
+    CountAexp, MinAexp
 from tables.aggregation import AggregationFunction
 from tables.exceptions import ColumnTypeException
+from tables.exp import PopExp
 from tables.function import Function, create_function, create_bijection
 from tables.bexp import EqualityBexp, NotBexp, LessThanBexp, NABexp, OrBexp, AndBexp, ColumnBexp, ConstBexp, Bexp, \
     AnyBexp, AllBexp
@@ -11,7 +11,7 @@ from tables.helpers.wrap_aexp import wrap_aexp
 from tables.helpers.wrap_bexp import wrap_bexp
 from tables.helpers.wrap_sexp import wrap_sexp
 from tables.raw_column import RawColumn
-from tables.sexp import ConstSexp, ColumnSexp, Sexp
+
 
 def get_arguments_for_binary_aexp(x, y):
     lexp = wrap_aexp(x)
@@ -20,15 +20,20 @@ def get_arguments_for_binary_aexp(x, y):
         raise ColumnTypeException("float", "other")
     return lexp, rexp
 
+
 def get_arguments_for_binary_bexp(x, y):
     lexp = wrap_bexp(x)
     rexp = wrap_bexp(y)
     if lexp is None or rexp is None:
         raise ColumnTypeException("bool", "other")
     return lexp, rexp
+
+
 class Column:
     def __init__(self, raw_column: RawColumn):
         self.raw_column = raw_column
+
+    # Boolean expressions
 
     def __eq__(self, other) -> EqualityBexp:
         data_type = self.raw_column.node.node_type
@@ -107,16 +112,6 @@ class Column:
         keys = self.raw_column.get_strong_keys()
         return AllBexp(keys, self)
 
-    def sum(self):
-        data_type = self.raw_column.node.node_type
-        if data_type != BaseType.FLOAT:
-            raise ColumnTypeException("float", str(data_type))
-        keys = self.raw_column.get_strong_keys()
-        return SumAexp(keys, self)
-
-    def to_bexp(self):
-        return wrap_bexp(self)
-
     def isnull(self) -> NABexp:
         data_type = self.raw_column.node.node_type
         if data_type == BaseType.FLOAT:
@@ -129,6 +124,9 @@ class Column:
 
     def isnotnull(self) -> NotBexp:
         return NotBexp(self.isnull())
+
+    def to_bexp(self):
+        return wrap_bexp(self)
 
     def __hash__(self):
         return self.raw_column.__hash__()
@@ -186,6 +184,35 @@ class Column:
             raise ColumnTypeException("float", str(data_type))
         lexp, rexp = get_arguments_for_binary_aexp(other, self)
         return DivAexp(lexp, rexp)
+
+    def sum(self):
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        keys = self.raw_column.get_strong_keys()
+        return SumAexp(keys, self)
+
+    def max(self):
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        keys = self.raw_column.get_strong_keys()
+        return MaxAexp(keys, self)
+
+    def min(self):
+        data_type = self.raw_column.node.node_type
+        if data_type != BaseType.FLOAT:
+            raise ColumnTypeException("float", str(data_type))
+        keys = self.raw_column.get_strong_keys()
+        return MinAexp(keys, self)
+
+    def count(self):
+        keys = self.raw_column.get_strong_keys()
+        return CountAexp(keys, self)
+
+    def pop(self):
+        keys = self.raw_column.get_strong_keys()
+        return PopExp(keys, self, self.raw_column.node.node_type)
 
     def get_explicit_keys(self):
         return self.raw_column.get_strong_keys()

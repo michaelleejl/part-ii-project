@@ -1,12 +1,13 @@
 from abc import ABC
 
+from schema import BaseType
 from schema.helpers.find_index import find_index
 from tables.exp import Exp
 
 
 class Sexp(Exp, ABC):
     def __init__(self, code):
-        self.code = code
+        super().__init__(code, BaseType.STRING)
 
 
 class ColumnSexp(Sexp):

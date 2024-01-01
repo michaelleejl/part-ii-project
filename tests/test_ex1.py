@@ -362,6 +362,29 @@ val_id
 
 """)
 
+    def test_ex1_goal4_step6_extendString(self):
+        s, cardnum, person = self.initialise()
+        t31 = s.get([cardnum['val_id']])
+        t32 = t31.infer(['val_id'], cardnum['cardnum'])
+        t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
+        t34 = t33.infer(['person.cardnum'], person['person'])
+        t35 = t34.hide('person.cardnum').hide('cardnum')
+        t36 = t35.show('person.cardnum').show('cardnum')
+        t37 = t36.extend("person", "Bob", "person_fillna")
+        self.assertExpectedInline(str(t37), """\
+[val_id || cardnum person.cardnum person person_fillna]
+        cardnum  person.cardnum person person_fillna
+val_id                                              
+4.0      1111.0          1111.0  Steve         Steve
+3.0      1410.0          1410.0    Tom           Tom
+2.0      2354.0          2354.0  Steve         Steve
+5.0      2354.0          2354.0  Steve         Steve
+1.0      5172.0          5172.0    NaN           Bob
+8.0      4412.0          4412.0    NaN           Bob
+4 values hidden
+
+""")
+
     def test_ex1_goal5_step1_getAndCompose(self):
         s, cardnum, person = self.initialise()
         t41 = (s.get([person['cardnum']]).infer(['cardnum'], person['person']))

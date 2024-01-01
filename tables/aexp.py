@@ -1,5 +1,6 @@
 import abc
 
+from schema import BaseType
 from schema.helpers.find_index import find_index
 from tables.exp import Exp
 from tables.helpers.wrap_aexp import wrap_aexp
@@ -7,7 +8,7 @@ from tables.helpers.wrap_aexp import wrap_aexp
 
 class Aexp(Exp, abc.ABC):
     def __init__(self, code):
-        self.code = code
+        super().__init__(code, BaseType.FLOAT)
 
     def __add__(self, other):
         return AddAexp(self, wrap_aexp(other))
@@ -182,3 +183,65 @@ class SumAexp(Aexp):
             return SumAexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
         else:
             return SumAexp(key_params, idx), parameters, aggregated_over
+
+
+class MaxAexp(Aexp):
+
+    def __init__(self, keys, column):
+        super().__init__("MAX")
+        self.keys = keys
+        self.column = column
+
+    def __repr__(self):
+        return f"MAX <{self.keys}, {self.column}>"
+
+    def to_closure(self, parameters, aggregated_over):
+        key_idxs = [find_index(key, parameters) for key in self.keys]
+        idx = find_index(self.column.raw_column, parameters)
+        aggregated_over = aggregated_over + [self.column.raw_column]
+        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        if idx == -1:
+            return MaxAexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+        else:
+            return MaxAexp(key_params, idx), parameters, aggregated_over
+
+
+class MinAexp(Aexp):
+
+    def __init__(self, keys, column):
+        super().__init__("MIN")
+        self.keys = keys
+        self.column = column
+
+    def __repr__(self):
+        return f"MIN <{self.keys}, {self.column}>"
+
+    def to_closure(self, parameters, aggregated_over):
+        key_idxs = [find_index(key, parameters) for key in self.keys]
+        idx = find_index(self.column.raw_column, parameters)
+        aggregated_over = aggregated_over + [self.column.raw_column]
+        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        if idx == -1:
+            return MinAexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+        else:
+            return MinAexp(key_params, idx), parameters, aggregated_over
+
+class CountAexp(Aexp):
+
+    def __init__(self, keys, column):
+        super().__init__("COU")
+        self.keys = keys
+        self.column = column
+
+    def __repr__(self):
+        return f"COU <{self.keys}, {self.column}>"
+
+    def to_closure(self, parameters, aggregated_over):
+        key_idxs = [find_index(key, parameters) for key in self.keys]
+        idx = find_index(self.column.raw_column, parameters)
+        aggregated_over = aggregated_over + [self.column.raw_column]
+        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        if idx == -1:
+            return CountAexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+        else:
+            return CountAexp(key_params, idx), parameters, aggregated_over
