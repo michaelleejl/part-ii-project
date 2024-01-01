@@ -405,7 +405,7 @@ class Table:
         hidden_keys = [c.get_hidden_keys() for c in start_columns if c not in set(aggregated_over)]
         acc = set()
         for hk in hidden_keys:
-            if acc.issubset(hk) or hk.issubset(acc):
+            if acc.issubset(hk) or set(hk).issubset(acc):
                 acc |= set(hk)
             else:
                 raise KeyMismatchException(acc, hk)

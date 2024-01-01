@@ -294,19 +294,19 @@ Val_id
         t12 = (t11.infer(["Val_id"], cardnum["cardnum"])
                .infer(["Val_id"], tstart["tstart"])
                .infer(["Val_id"], bonus["bonus"]))
-        t13 = t12.deduce(t12["bonus"].sum() / t12["bonus"].count(), "bonus_ave")
+        t13 = t12.deduce((t12["bonus"] / 100) * t12["cardnum"], "bonus_ave")
         self.assertExpectedInline(str(t13), """\
 [Val_id || cardnum tstart bonus bonus_ave]
-        cardnum               tstart        bonus  bonus_ave
-Val_id                                                      
-1        5172.0  2023-01-01 09:50:00  [4.0, 12.0]        8.0
-2        2354.0  2023-01-01 11:10:00   [5.0, 7.0]        6.0
-3        1410.0  2023-01-01 15:32:00        [1.0]        1.0
-5        2354.0  2023-01-01 20:11:00        [2.0]        2.0
-4        1111.0  2023-01-01 15:34:00           []        NaN
-6           NaN  2023-01-01 21:17:00           []        NaN
-7           NaN  2023-01-02 05:34:00           []        NaN
-8        4412.0                  NaN           []        NaN
+        cardnum               tstart        bonus                    bonus_ave
+Val_id                                                                        
+1        5172.0  2023-01-01 09:50:00  [4.0, 12.0]             [206.88, 620.64]
+2        2354.0  2023-01-01 11:10:00   [5.0, 7.0]  [117.7, 164.78000000000003]
+3        1410.0  2023-01-01 15:32:00        [1.0]                       [14.1]
+5        2354.0  2023-01-01 20:11:00        [2.0]                      [47.08]
+4        1111.0  2023-01-01 15:34:00           []                           []
+6           NaN  2023-01-01 21:17:00           []                           []
+7           NaN  2023-01-02 05:34:00           []                           []
+8        4412.0                  NaN           []                           []
 
 """)
 
