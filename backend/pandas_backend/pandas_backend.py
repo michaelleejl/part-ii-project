@@ -107,6 +107,10 @@ class PandasBackend(Backend):
 
         self.edge_funs[edge] = closure
 
+    def is_relation_function(self, edge: SchemaEdge):
+        rev = SchemaEdge(edge.to_node, edge.from_node)
+        return edge in self.edge_funs or rev in self.edge_funs
+
     def get_relation_from_edge(self, edge: SchemaEdge, table, keys) -> pd.DataFrame:
         rev = SchemaEdge(edge.to_node, edge.from_node)
         n = len(SchemaNode.get_constituents(edge.from_node))
@@ -151,6 +155,6 @@ class PandasBackend(Backend):
         derivation_steps = derivation_steps[start_from:-1]
 
         stack, cont = interpret(derivation_steps, self, (tbl, to_populate, start_cols), to_populate)
-        x, y, z = end(last, self, stack, cont)
-        self.derived_tables[table_id] = x.reset_index(), length - 1
+        r, x, y, z = end(last, self, stack, cont)
+        self.derived_tables[table_id] = r.reset_index() if len(r.columns) > 0 else pd.DataFrame({}), length - 1
         return x, y, z, self

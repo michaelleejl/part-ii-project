@@ -76,18 +76,17 @@ cardnum
         s, cardnum, person = self.initialise()
         t1 = s.get([cardnum["cardnum"]])
         t2 = t1.infer(["cardnum"], person["cardnum"])
-        t3 = t2.infer(["cardnum_1"], person["person"])
+        t3 = t2.infer(["cardnum_1"], person["person"]).sort("cardnum")
         self.maxDiff = None
         self.assertExpectedInline(str(t3), """\
 [cardnum || cardnum_1 person]
          cardnum_1 person
 cardnum                  
-1111.0      1111.0  Steve
-1410.0      1410.0    Tom
-2354.0      2354.0  Steve
-5172.0      5172.0    NaN
-4412.0      4412.0    NaN
-2 values hidden
+1111.0        1111  Steve
+1410.0        1410    Tom
+2354.0        2354  Steve
+4412.0        4412    NaN
+5172.0        5172    NaN
 
 """)
 
@@ -100,12 +99,11 @@ cardnum
 [val_id || person]
        person
 val_id       
-2.0     Steve
-5.0     Steve
-3.0       Tom
-4.0     Steve
+2       Steve
+3         Tom
+4       Steve
+5       Steve
 2 keys hidden
-2 values hidden
 
 """)
         # Hey, I know how to get the val_id(s) given the cardnum
@@ -141,7 +139,7 @@ Index: []
     def test_ex1_goal2_step2_infer(self):
         s, cardnum, person = self.initialise()
         t11 = s.get([person["cardnum"]])
-        t12 = t11.infer(["cardnum"], person["person"])
+        t12 = t11.infer(["cardnum"], person["person"]).sort(["cardnum"])
         self.assertExpectedInline(str(t12), """\
 [cardnum || person]
         person
@@ -149,8 +147,8 @@ cardnum
 1111     Steve
 1410       Tom
 2354     Steve
-6440     Harry
 5467      Dick
+6440     Harry
 
 """)
         # From the value of cardnum, tell me who the card belongs to
@@ -175,11 +173,9 @@ cardnum
        person
 val_id       
 2.0     Steve
-5.0     Steve
 4.0     Steve
+5.0     Steve
 3.0       Tom
-2 keys hidden
-2 values hidden
 
 """)
         # I have a mapping from val_id to cardnum
@@ -192,16 +188,16 @@ val_id
     def test_ex1_goal3_step1_getAndInferWithHiddenKey(self):
         s, cardnum, person = self.initialise()
         t21 = s.get([cardnum["cardnum"]])
-        t22 = t21.infer(["cardnum"], cardnum["val_id"])
+        t22 = t21.infer(["cardnum"], cardnum["val_id"]).sort(["val_id"])
         self.assertExpectedInline(str(t22), """\
 [cardnum || val_id]
          val_id
 cardnum        
-5172        [1]
-2354     [2, 5]
-1410        [3]
 1111        [4]
+1410        [3]
+2354     [2, 5]
 4412        [8]
+5172        [1]
 
 """)
         # Get every cardnum in the cardnum csv

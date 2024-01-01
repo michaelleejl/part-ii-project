@@ -19,14 +19,14 @@ def cartesian_product(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
 
 def get(derivation_step: Get, backend) -> tuple[pd.DataFrame, dict, list[Column]]:
     columns = derivation_step.columns
-    return pd.DataFrame({}), {-1: columns}, []
+    return pd.DataFrame({}), {col.name: col for col in columns}, []
 
 
-def end(derivation_step: End, backend, stack: list, cont: any) -> tuple[pd.DataFrame, int, int]:
+def end(derivation_step: End, backend, stack: list, cont: any) -> tuple[pd.DataFrame, pd.DataFrame, int, int]:
     keys = derivation_step.keys
     values = derivation_step.values
     if len(values) == 0:
-        return pd.DataFrame(), 0, 0
+        return pd.DataFrame(), pd.DataFrame(), 0, 0
     keys_str = [str(k) for k in keys]
     vals_str = [str(v) for v in values]
     key_series = [set() for k in keys]
@@ -37,25 +37,44 @@ def end(derivation_step: End, backend, stack: list, cont: any) -> tuple[pd.DataF
     domains = [pd.DataFrame({keys_str[i]: list(k)})
                if len(k) > 0 else backend.get_domain_from_atomic_node(keys[i].node, keys_str[i])[0]
                for i, k in enumerate(key_series)]
-    app = reduce(cartesian_product, domains)
-    for (to_merge, _, _) in stack[:1]:
-        start_cols = keys_str
-        if len(to_merge.columns) <= len(keys_str):
-            continue
-        app = pd.merge(app, to_merge, on=keys_str)
+    df = reduce(cartesian_product, domains)
+
+    app, _, _ = stack[0]
 
     for (to_merge, to_populate, start_cols) in stack[1:]:
         to_populate_cols = []
-        for x in to_populate.values():
-            to_populate_cols += x
-        domains = [backend.get_domain_from_atomic_node(col.node, col.name)[0] for col in set(to_populate_cols)]
-        to_merge = reduce(cartesian_product, domains + [to_merge])
-        if len(to_merge.columns) <= len(keys_str):
-            continue
-        app = pd.merge(app, to_merge, on=start_cols, how="outer")
+        to_populate_cols_set = set()
+        aliases = {}
+        for k, vs in to_populate.items():
+            for v in vs:
+                if v.name in set(to_merge.columns):
+                    continue
+                if k != -1:
+                    if v not in to_populate_cols_set and v.name not in set(keys_str):
+                        to_populate_cols_set.add(v)
+                        to_populate_cols += [v]
+                    else:
+                        if v.name not in aliases:
+                            aliases[v.name] = []
+                        aliases[v.name] += [k]
+                else:
+                    if v not in to_populate_cols_set:
+                        to_populate_cols_set.add(v)
+                        to_populate_cols += [v]
+
+        domains = [backend.get_domain_from_atomic_node(col.node, col.name)[0]
+                   for col in set(to_populate_cols)]
+        to_merge = reduce(cartesian_product, domains + [to_merge] if len(to_merge.columns) > 0 else domains)
+        for k, vs in aliases.items():
+            for v in vs:
+                to_merge[v] = to_merge[k]
+
+        if len(app.columns) == 0:
+            app = to_merge
+        else:
+            app = pd.merge(app, to_merge, on=start_cols, how="outer")
 
     app = app.loc[app.astype(str).drop_duplicates().index]
-    df = app[keys_str].reset_index(drop=True)
     columns_with_hidden_keys_str = []
     columns_with_hidden_keys = []
 
@@ -87,13 +106,13 @@ def end(derivation_step: End, backend, stack: list, cont: any) -> tuple[pd.DataF
     dropped_vals_cnt = len(df2) - len(df3)
     dropped_keys_cnt = len(df) - len(df2)
     df3 = cont(df3)
-    return df3, dropped_keys_cnt, dropped_vals_cnt
+    return app, df3, dropped_keys_cnt, dropped_vals_cnt
 
 
 def stt(derivation_step: StartTraversal, backend, table, stack, keys, cont, to_populate) -> tuple[pd.DataFrame, list, list, any, dict]:
     assert set(to_populate.keys()) == {-1}
 
-    to_populate_dict = {-1: [c for c in to_populate[-1] if [c] not in set(derivation_step.start_columns)]}
+    to_populate_dict = {-1: [c for c in to_populate[-1] + derivation_step.start_columns]}
 
     keys = derivation_step.explicit_keys
     # first_cols = [c.name for c in derivation_step.start_columns]
@@ -110,7 +129,35 @@ def trv(derivation_step: Traverse, backend, table, stack, keys, cont, to_populat
     end_nodes = SchemaNode.get_constituents(end_node)
 
     # TODO: Force evaluation here if function edge
+    relation_is_function = backend.is_relation_function(SchemaEdge(start_node, end_node))
+    if relation_is_function:
+        domains = [backend.get_domain_from_atomic_node(to_populate[i][0].node, i)[0] for i, _ in enumerate(start_nodes) if i in to_populate]
+        table = reduce(cartesian_product, domains + [table] if len(table.columns) > 0 else domains)
     relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table, keys)
+    if relation_is_function:
+        new_to_populate = {}
+        col_set = {}
+        for i in range(len(start_nodes)):
+            if i in to_populate.keys():
+                col_set[(to_populate[i])[0].name] = i
+        for k, vs in to_populate.items():
+            if 0 <= k < len(start_nodes):
+                continue
+            elif k == -1:
+                new_list = []
+                for v in vs:
+                    if v.name in col_set:
+                        relation[v.name] = table[col_set[v.name]]
+                    else:
+                        new_list += [v]
+                new_to_populate[-1] = new_list
+            else:
+                for v in vs:
+                    if v.name in col_set:
+                        relation[k] = table[col_set[v.name]]
+                    else:
+                        relation[k] = [v]
+        to_populate = new_to_populate
 
     hidden_keys = [c for c in derivation_step.hidden_keys]
     idxs = []
@@ -223,18 +270,16 @@ def equ(derivation_step: Equate, _, table, stack, keys, cont, to_populate) -> tu
 
 def ent(derivation_step: EndTraversal, backend, table, stack, keys, cont, to_populate) -> tuple[pd.DataFrame, list, list, any, dict]:
     end_cols = [c.name for c in derivation_step.end_columns]
-    should_keep = [c not in set(keys) for c in end_cols]
-    to_drop = [i for i, b in enumerate(should_keep) if not b and i not in to_populate.keys()]
-    renaming = {i: n for (i, n) in enumerate(end_cols) if should_keep[i] and i not in to_populate.keys()}
+    renaming = {i: n for (i, n) in enumerate(end_cols)}
 
     def flatten(xss):
         return [x for xs in xss for x in xs]
 
-    df = table.drop(to_drop, axis=1).rename(renaming, axis=1)
+    df = table.rename(renaming, axis=1)
     df = df.loc[df.astype(str).drop_duplicates().index]
-    to_join_on = [c.name for c in derivation_step.start_columns if c not in set(flatten(list(to_populate.values())))]
-    new_to_populate = {i: c for i, c in to_populate.items() if i >= 0}
-    new_to_populate[-1] = [c for c in to_populate[-1] if c not in set(derivation_step.start_columns)]
+    to_join_on = [c.name for c in derivation_step.start_columns]
+    new_to_populate = {end_cols[i]: c for i, c in to_populate.items() if i >= 0}
+    new_to_populate[-1] = [c for c in to_populate[-1]]
     return df, stack + [(df, new_to_populate, to_join_on)], keys, cont, new_to_populate
 
 
