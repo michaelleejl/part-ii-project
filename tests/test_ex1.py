@@ -55,16 +55,14 @@ Index: []
     def test_ex1_goal1_step2(self):
         s, cardnum, person = self.initialise()
         t1 = s.get([cardnum["cardnum"]])
-        t2 = t1.infer(["cardnum"], person["person"])
+        t2 = t1.infer(["cardnum"], person["person"]).sort("cardnum")
         self.assertExpectedInline(str(t2), """\
 [cardnum || person]
         person
 cardnum       
-1111.0   Steve
-1410.0     Tom
-2354.0   Steve
-2 keys hidden
-2 values hidden
+1111     Steve
+1410       Tom
+2354     Steve
 
 """)
         # Use this cardnum to infer who made the trip

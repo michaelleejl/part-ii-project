@@ -140,16 +140,17 @@ class PandasBackend(Backend):
         assert len(derivation_steps) >= 1
         if derived_from is None or derived_from not in self.derived_tables.keys():
             first = typing.cast(Get, derivation_steps[0])
-            tbl, to_populate = get(first, self)
+            tbl, to_populate, start_cols = get(first, self)
             start_from = 1
         else:
             tbl, start_from = self.derived_tables[derived_from]
             to_populate = {-1: []}
+            start_cols = []
 
         last = typing.cast(End, derivation_steps[-1])
         derivation_steps = derivation_steps[start_from:-1]
 
-        table = interpret(derivation_steps, self, tbl, to_populate)
-        self.derived_tables[table_id] = table, length - 1
-        x, y, z = end(last, table)
+        stack, cont = interpret(derivation_steps, self, (tbl, to_populate, start_cols), to_populate)
+        x, y, z = end(last, self, stack, cont)
+        self.derived_tables[table_id] = x.reset_index(), length - 1
         return x, y, z, self
