@@ -108,7 +108,6 @@ Val_id
 5       2023-01-01 20:11:00
 6       2023-01-01 21:17:00
 7       2023-01-02 05:34:00
-1 keys hidden
 
 """)
         # Values populate keys. Since we use the same values, we will end up with the same keys.
@@ -137,9 +136,9 @@ Val_id
 3       2023-01-01 15:32:00   1410.0
 4       2023-01-01 15:34:00   1111.0
 5       2023-01-01 20:11:00   2354.0
-8                       NaN   4412.0
 6       2023-01-01 21:17:00      NaN
 7       2023-01-02 05:34:00      NaN
+1 keys hidden
 
 """)
         # [Val_id || tstart.tstart            cardnum.cardnum]

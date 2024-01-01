@@ -156,5 +156,5 @@ class PandasBackend(Backend):
 
         stack, cont = interpret(derivation_steps, self, (tbl, to_populate, start_cols), to_populate)
         r, x, y, z = end(last, self, stack, cont)
-        self.derived_tables[table_id] = r.reset_index() if len(r.columns) > 0 else pd.DataFrame({}), length - 1
+        self.derived_tables[table_id] = r if len(r.columns) > 0 else pd.DataFrame({}), length - 1
         return x, y, z, self

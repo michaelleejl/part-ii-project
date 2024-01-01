@@ -82,11 +82,11 @@ cardnum
 [cardnum || cardnum_1 person]
          cardnum_1 person
 cardnum                  
-1111.0        1111  Steve
-1410.0        1410    Tom
-2354.0        2354  Steve
-4412.0        4412    NaN
-5172.0        5172    NaN
+1111          1111  Steve
+1410          1410    Tom
+2354          2354  Steve
+4412          4412    NaN
+5172          5172    NaN
 
 """)
 
@@ -176,6 +176,7 @@ val_id
 4.0     Steve
 5.0     Steve
 3.0       Tom
+2 values hidden
 
 """)
         # I have a mapping from val_id to cardnum
@@ -188,7 +189,7 @@ val_id
     def test_ex1_goal3_step1_getAndInferWithHiddenKey(self):
         s, cardnum, person = self.initialise()
         t21 = s.get([cardnum["cardnum"]])
-        t22 = t21.infer(["cardnum"], cardnum["val_id"]).sort(["val_id"])
+        t22 = t21.infer(["cardnum"], cardnum["val_id"]).sort(["cardnum"])
         self.assertExpectedInline(str(t22), """\
 [cardnum || val_id]
          val_id
@@ -212,17 +213,17 @@ cardnum
         s, cardnum, person = self.initialise()
         t21 = s.get([cardnum["cardnum"]])
         t22 = t21.infer(["cardnum"], cardnum["val_id"])
-        t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid")
+        t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid").sort("cardnum")
         self.maxDiff = None
         self.assertExpectedInline(str(t23), """\
 [cardnum || val_id numplusvalid]
          val_id  numplusvalid
 cardnum                      
-5172        [1]        [5173]
-2354     [2, 5]  [2356, 2359]
-1410        [3]        [1413]
 1111        [4]        [1115]
+1410        [3]        [1413]
+2354     [2, 5]  [2356, 2359]
 4412        [8]        [4420]
+5172        [1]        [5173]
 
 """)
 
@@ -237,12 +238,12 @@ cardnum
 [numplusvalid || cardnum val_id]
              cardnum val_id
 numplusvalid               
-5173          [5172]    [1]
-2356          [2354]    [2]
-2359          [2354]    [5]
-1413          [1410]    [3]
-1115          [1111]    [4]
 4420          [4412]    [8]
+1413          [1410]    [3]
+2356          [2354]    [2]
+5173          [5172]    [1]
+1115          [1111]    [4]
+2359          [2354]    [5]
 
 """)
 
@@ -285,9 +286,9 @@ val_id
 val_id                         
 1          5172            5172
 2          2354            2354
-5          2354            2354
 3          1410            1410
 4          1111            1111
+5          2354            2354
 8          4412            4412
 
 """)
@@ -303,13 +304,12 @@ val_id
 [val_id || cardnum person.cardnum person]
         cardnum  person.cardnum person
 val_id                                
-4.0      1111.0          1111.0  Steve
-3.0      1410.0          1410.0    Tom
-2.0      2354.0          2354.0  Steve
-5.0      2354.0          2354.0  Steve
-1.0      5172.0          5172.0    NaN
-8.0      4412.0          4412.0    NaN
-2 values hidden
+1          5172            5172    NaN
+2          2354            2354  Steve
+3          1410            1410    Tom
+4          1111            1111  Steve
+5          2354            2354  Steve
+8          4412            4412    NaN
 
 """)
 
@@ -324,12 +324,11 @@ val_id
 [val_id || person]
        person
 val_id       
-4.0     Steve
-3.0       Tom
-2.0     Steve
-5.0     Steve
+2       Steve
+3         Tom
+4       Steve
+5       Steve
 2 keys hidden
-2 values hidden
 
 """)
 
@@ -346,13 +345,12 @@ val_id
 [val_id || cardnum person.cardnum person]
         cardnum  person.cardnum person
 val_id                                
-4.0      1111.0          1111.0  Steve
-3.0      1410.0          1410.0    Tom
-2.0      2354.0          2354.0  Steve
-5.0      2354.0          2354.0  Steve
-1.0      5172.0          5172.0    NaN
-8.0      4412.0          4412.0    NaN
-2 values hidden
+1          5172            5172    NaN
+2          2354            2354  Steve
+3          1410            1410    Tom
+4          1111            1111  Steve
+5          2354            2354  Steve
+8          4412            4412    NaN
 
 """)
 
@@ -369,13 +367,12 @@ val_id
 [val_id || cardnum person.cardnum person person_fillna]
         cardnum  person.cardnum person person_fillna
 val_id                                              
-4.0      1111.0          1111.0  Steve         Steve
-3.0      1410.0          1410.0    Tom           Tom
-2.0      2354.0          2354.0  Steve         Steve
-5.0      2354.0          2354.0  Steve         Steve
-1.0      5172.0          5172.0    NaN           Bob
-8.0      4412.0          4412.0    NaN           Bob
-4 values hidden
+1          5172            5172    NaN           NaN
+2          2354            2354  Steve         Steve
+3          1410            1410    Tom           Tom
+4          1111            1111  Steve         Steve
+5          2354            2354  Steve         Steve
+8          4412            4412    NaN           NaN
 
 """)
 
@@ -387,12 +384,10 @@ val_id
 [val_id || person]
        person
 val_id       
-2.0     Steve
-5.0     Steve
-3.0       Tom
-4.0     Steve
-2 keys hidden
-2 values hidden
+2       Steve
+3         Tom
+4       Steve
+5       Steve
 
 """)
 
@@ -400,13 +395,13 @@ val_id
         s, cardnum, person = self.initialise()
         t41 = (s.get([person['cardnum']]).infer(['cardnum'], person['person']))
         t42 = t41.compose([cardnum['val_id']], 'cardnum')
-        t43 = t42.set_key(["person"])
+        t43 = t42.set_key(["person"]).sort("person")
         self.assertExpectedInline(str(t43), """\
 [person || val_id]
                  val_id
 person                 
-Steve   [2.0, 5.0, 4.0]
+Steve   [4.0, 2.0, 5.0]
 Tom               [3.0]
-3 keys hidden
+2 keys hidden
 
 """)

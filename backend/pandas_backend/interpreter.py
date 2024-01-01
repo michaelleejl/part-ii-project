@@ -43,7 +43,7 @@ def end(derivation_step: End, backend, stack: list, cont: any) -> tuple[pd.DataF
 
     for (to_merge, to_populate, start_cols) in stack[1:]:
         to_populate_cols = []
-        to_populate_cols_set = set()
+        to_populate_cols_set = set(to_populate[-1])
         aliases = {}
         for k, vs in to_populate.items():
             for v in vs:
@@ -58,9 +58,7 @@ def end(derivation_step: End, backend, stack: list, cont: any) -> tuple[pd.DataF
                             aliases[v.name] = []
                         aliases[v.name] += [k]
                 else:
-                    if v not in to_populate_cols_set:
-                        to_populate_cols_set.add(v)
-                        to_populate_cols += [v]
+                    to_populate_cols += [v]
 
         domains = [backend.get_domain_from_atomic_node(col.node, col.name)[0]
                    for col in set(to_populate_cols)]
@@ -72,7 +70,7 @@ def end(derivation_step: End, backend, stack: list, cont: any) -> tuple[pd.DataF
         if len(app.columns) == 0:
             app = to_merge
         else:
-            app = pd.merge(app, to_merge, on=start_cols, how="outer")
+            app = pd.merge(app, to_merge, on=start_cols, how="left")
 
     app = app.loc[app.astype(str).drop_duplicates().index]
     columns_with_hidden_keys_str = []
@@ -87,7 +85,7 @@ def end(derivation_step: End, backend, stack: list, cont: any) -> tuple[pd.DataF
             columns_with_hidden_keys += [val]
         else:
             to_add = app[keys_str + [str(val)]]
-        df = pd.merge(df, to_add, on=keys_str, how="outer")
+        df = pd.merge(df, to_add, on=keys_str, how="left")
         df = df.loc[df.astype(str).drop_duplicates().index]
 
     df[columns_with_hidden_keys_str] = df[columns_with_hidden_keys_str].map(
@@ -247,8 +245,8 @@ def exp(derivation_step: Expand, backend, table, stack, keys, cont, to_populate)
         idxs += [i]
 
     df = table
-    exists = {indices}
-    df = df.rename({i: j} for i, j in enumerate(indices))
+    exists = set(indices)
+    df = df.rename({i: j for i, j in enumerate(indices)})
 
     new_to_populate = ({indices[i]: to_populate[i] for i in range(len(indices)) if i in to_populate.keys()} |
                        {-1: to_populate[-1]})
