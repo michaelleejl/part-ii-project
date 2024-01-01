@@ -12,7 +12,6 @@ from helpers.min_cardinality import min_cardinality
 from schema import SchemaEdge, Cardinality, reverse_cardinality, BaseType
 from schema.helpers.find_index import find_index
 from schema.node import SchemaNode, AtomicNode, SchemaClass
-from tables.aexp import Aexp
 from tables.aggregation import AggregationFunction
 from tables.column import Column
 from tables.exceptions import KeyMismatchException, ColumnsNeedToBeUniqueException, \

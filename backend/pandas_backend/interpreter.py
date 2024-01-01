@@ -22,9 +22,9 @@ def get(derivation_step: Get, backend) -> pd.DataFrame:
     nodes = [c.node for c in columns]
     names = [c.name for c in columns]
     if len(nodes) == 1:
-        df = backend.get_domain_from_atomic_node(nodes[0], names[0])
+        df, count = backend.get_domain_from_atomic_node(nodes[0], names[0])
     else:
-        domains = [backend.get_domain_from_atomic_node(node, name) for node, name in zip(nodes, names)]
+        domains, counts = [list(x) for x in zip(*[backend.get_domain_from_atomic_node(node, name) for node, name in zip(nodes, names)])]
         df = reduce(cartesian_product, domains)
     return df
 
@@ -166,7 +166,7 @@ def exp(derivation_step: Expand, backend, table, stack, keys) -> tuple[pd.DataFr
 
     for j in range(len(end_nodes)):
         if j not in exists:
-            domain = backend.get_domain_from_atomic_node(end_nodes[j], j)
+            domain, count = backend.get_domain_from_atomic_node(end_nodes[j], j)
             df = pd.merge(df, domain, how="cross")
 
     new_cols = derivation_step.columns
@@ -207,7 +207,7 @@ def srt(derivation_step: Sort, _, table, stack, keys) -> tuple[pd.DataFrame, lis
 def flt(derivation_step: Filter, _, table, stack, keys) -> tuple[pd.DataFrame, list, list]:
     exp = derivation_step.exp
     arguments = derivation_step.arguments
-    renaming = {c.name:i for (i, c) in enumerate(arguments)}
+    renaming = {c.name: i for (i, c) in enumerate(arguments)}
     pred = bexp_interpreter(exp)
     df = table[pred(table.rename(renaming, axis=1))]
 
