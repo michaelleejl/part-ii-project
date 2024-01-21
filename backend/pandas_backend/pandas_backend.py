@@ -12,7 +12,7 @@ from schema import SchemaEdge, reverse_cardinality
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from tables.aggregation import AggregationFunction
 from tables.column import Column
-from tables.derivation import DerivationStep, Get, End
+from tables.internal_representation import RepresentationStep, Get, End
 from tables.exp import Exp
 from tables.function import Function
 
@@ -81,7 +81,7 @@ class PandasBackend(Backend):
 
         fun = interpret_function(function)
 
-        def closure(table, keys):
+        def closure(table):
             df = copy_data(table)
             series = pd.Series(fun(df))
             df[num_args] = series
@@ -116,16 +116,16 @@ class PandasBackend(Backend):
 
         self.edge_funs[edge] = closure
 
-    def get_relation_from_edge(self, edge: SchemaEdge, table, keys) -> pd.DataFrame:
+    def get_relation_from_edge(self, edge: SchemaEdge, table) -> pd.DataFrame:
         rev = SchemaEdge(edge.to_node, edge.from_node)
         n = len(SchemaNode.get_constituents(edge.from_node))
         m = len(SchemaNode.get_constituents(edge.to_node))
         if edge in self.edge_funs:
-            return self.edge_funs[edge](table, keys)
+            return self.edge_funs[edge](table)
         elif edge in self.edge_data:
             return copy_data(self.edge_data[edge])
         elif rev in self.edge_funs:
-            return self.edge_funs[rev](table, keys).rename({i: i+n for i in range(m)} | {j: j for j in range(n)}, axis=1)
+            return self.edge_funs[rev](table).rename({i: i+n for i in range(m)} | {j: j for j in range(n)}, axis=1)
         elif rev in self.edge_data:
             return copy_data(self.edge_data[rev]).rename({i: i+n for i in range(m)} | {j+m: j for j in range(n)}, axis=1)
 
@@ -144,20 +144,18 @@ class PandasBackend(Backend):
             val_cols = get_cols_of_node(mapping.data, start_node)
             return determine_cardinality(mapping.data, key_cols, val_cols)
 
-    def execute_query(self, table_id, derived_from, derivation_steps: list[DerivationStep]):
-        length = len(derivation_steps)
-        assert len(derivation_steps) >= 1
-        if derived_from is None or derived_from not in self.derived_tables.keys():
-            first = typing.cast(Get, derivation_steps[0])
-            tbl = get(first, self)
-            start_from = 1
-        else:
-            tbl, start_from = self.derived_tables[derived_from]
-
+    def execute_query(self, table_id, derived_from, derivation_steps: list[RepresentationStep]):
+        # assert len(derivation_steps) >= 1
+        # if derived_from is None or derived_from not in self.derived_tables.keys():
+        #     first = typing.cast(Get, derivation_steps[0])
+        #     tbl = get(first, self)
+        #     start_from = 1
+        # else:
+        #     tbl, start_from = self.derived_tables[derived_from]
+        #
         last = typing.cast(End, derivation_steps[-1])
-        derivation_steps = derivation_steps[start_from:-1]
+        # derivation_steps = derivation_steps[start_from:-1]
 
-        table = interpret(derivation_steps, self, tbl)
-        self.derived_tables[table_id] = table, length - 1
+        table = interpret(derivation_steps[:-1], self)
         x, y, z = end(last, self, table)
         return x, y, z, self

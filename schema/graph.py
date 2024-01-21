@@ -13,7 +13,7 @@ from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
 from schema.helpers.get_indices_of_sublist import get_indices_of_sublist
 from schema.helpers.is_sublist import is_sublist
 from schema.node import SchemaNode, AtomicNode
-from tables.derivation import Traverse, Equate, Project, Expand
+from tables.internal_representation import Traverse, Equate, Project, Expand
 from union_find.union_find import UnionFind
 
 

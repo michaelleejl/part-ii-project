@@ -8,9 +8,10 @@ from schema.exceptions import ClusterAlreadyExistsException, NodesDoNotExistInGr
     ClassAlreadyExistsException, CannotRenameClassException
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode, AtomicNode, SchemaClass
-from tables.derivation import StartTraversal, EndTraversal
+from tables.derivation_node import ColumnNode
+from tables.internal_representation import StartTraversal, EndTraversal
 from tables.function import Function
-from tables.raw_column import RawColumn
+from tables.domain import Domain
 from tables.table import Table
 
 
@@ -135,11 +136,11 @@ class Schema:
     def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
         return self.schema_graph.find_shortest_path(node1, node2, via, backwards)
 
-    def find_shortest_path_between_columns(self, from_columns: list[RawColumn], to_columns: list[RawColumn], explicit_keys, via: list[SchemaNode] = None, backwards=False):
+    def find_shortest_path_between_columns(self, from_columns: list[Domain], to_columns: list[Domain], via: list[SchemaNode] = None, backwards=False):
         node1 = SchemaNode.product([c.node for c in from_columns])
         node2 = SchemaNode.product([c.node for c in to_columns])
         cardinality, commands, hidden_keys = self.find_shortest_path(node1, node2, via, backwards)
-        first = StartTraversal(from_columns, explicit_keys)
+        first = StartTraversal(from_columns)
         last = EndTraversal(from_columns, to_columns)
         if len(commands) > 0:
             return cardinality, [first] + commands + [last], hidden_keys

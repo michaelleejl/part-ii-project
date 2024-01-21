@@ -199,6 +199,8 @@ Val_id Cardnum
         t3 = t2.infer(["Val_id"], tstart["tstart"])
         t4 = t3.filter(t3["bonus"].isnotnull())
         t5 = t4.infer(["Val_id"], cardnum["cardnum"]).filter(t4["bonus"].isnotnull())
+        t6 = t5.deduce(t5["bonus"] / 100 * t5["cardnum"], "return")
+        print(t6)
         self.assertExpectedInline(str(t5), """\
 [Val_id Cardnum || bonus tstart cardnum]
                 bonus               tstart  cardnum
@@ -299,19 +301,22 @@ Val_id
         t12 = (t11.infer(["Val_id"], cardnum["cardnum"])
                .infer(["Val_id"], tstart["tstart"])
                .infer(["Val_id"], bonus["bonus"]))
-        t13 = t12.deduce((t12["bonus"] / 100) * t12["cardnum"], "bonus_ave")
+        t13 = t12.deduce((t12["bonus"].sum() / t12["bonus"].count() / 100) * t12["cardnum"], "returns")
+        print(t13.intermediate_representation)
+        self.maxDiff = None
+        print(t13["returns"].get_hidden_keys())
         self.assertExpectedInline(str(t13), """\
-[Val_id || cardnum tstart bonus bonus_ave]
-        cardnum               tstart        bonus                    bonus_ave
-Val_id                                                                        
-1        5172.0  2023-01-01 09:50:00  [4.0, 12.0]             [206.88, 620.64]
-2        2354.0  2023-01-01 11:10:00   [5.0, 7.0]  [117.7, 164.78000000000003]
-3        1410.0  2023-01-01 15:32:00        [1.0]                       [14.1]
-5        2354.0  2023-01-01 20:11:00        [2.0]                      [47.08]
-4        1111.0  2023-01-01 15:34:00           []                           []
-6           NaN  2023-01-01 21:17:00           []                           []
-7           NaN  2023-01-02 05:34:00           []                           []
-8        4412.0                  NaN           []                           []
+[Val_id || cardnum tstart bonus returns]
+        cardnum               tstart        bonus  returns
+Val_id                                                    
+1        5172.0  2023-01-01 09:50:00  [4.0, 12.0]   413.76
+2        2354.0  2023-01-01 11:10:00   [5.0, 7.0]   141.24
+3        1410.0  2023-01-01 15:32:00        [1.0]    14.10
+5        2354.0  2023-01-01 20:11:00        [2.0]    47.08
+4        1111.0  2023-01-01 15:34:00           []      NaN
+6           NaN  2023-01-01 21:17:00           []      NaN
+7           NaN  2023-01-02 05:34:00           []      NaN
+8        4412.0                  NaN           []      NaN
 
 """)
 

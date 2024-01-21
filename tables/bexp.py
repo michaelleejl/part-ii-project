@@ -41,9 +41,9 @@ class ColumnBexp(Bexp):
         return self.__repr__()
 
     def to_closure(self, parameters, aggregated_over):
-        idx = find_index(self.column.raw_column, parameters)
+        idx = find_index(self.column, parameters)
         if idx == -1:
-            return ColumnBexp(len(parameters)), parameters + [self.column.raw_column]
+            return ColumnBexp(len(parameters)), parameters + [self.column]
         else:
             return ColumnBexp(idx), parameters, aggregated_over
 

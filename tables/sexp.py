@@ -22,9 +22,9 @@ class ColumnSexp(Sexp):
         return self.__repr__()
 
     def to_closure(self, parameters, aggregated_over):
-        idx = find_index(self.column.raw_column, parameters)
+        idx = find_index(self.column, parameters)
         if idx == -1:
-            return ColumnSexp(len(parameters)), parameters + [self.column.raw_column], aggregated_over
+            return ColumnSexp(len(parameters)), parameters + [self.column], aggregated_over
         else:
             return ColumnSexp(idx), parameters, aggregated_over
 

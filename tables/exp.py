@@ -42,11 +42,11 @@ class PopExp(Exp):
 
     def to_closure(self, parameters, aggregated_over):
         key_idxs = [find_index(key, parameters) for key in self.keys]
-        idx = find_index(self.column.raw_column, parameters)
-        aggregated_over = aggregated_over + [self.column.raw_column]
+        idx = find_index(self.column, parameters)
+        aggregated_over = aggregated_over + [self.column] + self.column.get_hidden_keys()
         key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
         if idx == -1:
-            return PopExp(key_params, len(parameters), self.exp_type), parameters + [self.column.raw_column], aggregated_over
+            return PopExp(key_params, len(parameters), self.exp_type), parameters + [self.column], aggregated_over
         else:
             return PopExp(key_params, idx, self.exp_type), parameters, aggregated_over
 
@@ -60,14 +60,14 @@ class ExtendExp(Exp):
         self.fexp = fexp
 
     def __repr__(self):
-        return f"POP <{self.keys}, {self.column}, {self.fexp}>"
+        return f"EXT <{self.keys}, {self.column}, {self.fexp}>"
 
     def to_closure(self, parameters, aggregated_over):
         key_idxs = [find_index(key, parameters) for key in self.keys]
-        idx = find_index(self.column.raw_column, parameters)
-        aggregated_over = aggregated_over + [self.column.raw_column]
+        idx = find_index(self.column, parameters)
+        aggregated_over = aggregated_over
         key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
         if idx == -1:
-            return ExtendExp(key_params, len(parameters), self.fexp, self.exp_type), parameters + [self.column.raw_column], aggregated_over
+            return ExtendExp(key_params, len(parameters), self.fexp, self.exp_type), parameters + [self.column], aggregated_over
         else:
             return ExtendExp(key_params, idx, self.fexp, self.exp_type), parameters, aggregated_over

@@ -2,8 +2,8 @@ import expecttest
 import pandas as pd
 
 from schema import Schema, SchemaNode
-from tables.derivation import StartTraversal, Traverse, Expand, Project, Equate
-from tables.raw_column import RawColumn, ColumnType
+from tables.internal_representation import StartTraversal, Traverse, Expand, Project, Equate
+from tables.domain import Domain, ColumnType
 from tables.table import Table
 
 
@@ -34,8 +34,8 @@ class TestInterpreter(expecttest.TestCase):
     def test_interpreter_startTraversal(self):
         from backend.pandas_backend.interpreter import stt
         s = self.initialise()
-        character_column = RawColumn("character", SchemaNode("name", cluster="characters"), [], ColumnType.KEY)
-        homeworld_column = RawColumn("homeworld", SchemaNode("homeworld", cluster="characters"), [character_column], ColumnType.VALUE)
+        character_column = Domain("character", SchemaNode("name", cluster="characters"), [], ColumnType.KEY)
+        homeworld_column = Domain("homeworld", SchemaNode("homeworld", cluster="characters"), [character_column], ColumnType.VALUE)
         start_columns = [homeworld_column]
         explicit_keys = [character_column, homeworld_column]
         df = pd.DataFrame({"character": ["Luke Skywalker", "Chewbacca", "Han Solo"],
@@ -60,9 +60,9 @@ class TestInterpreter(expecttest.TestCase):
         start_node = SchemaNode("world", cluster="sectors")
         end_node = SchemaNode("sector", cluster="sectors")
         step = Traverse(start_node, end_node)
-        character_column = RawColumn("character", SchemaNode("name", cluster="characters"), [], ColumnType.KEY)
-        homeworld_column = RawColumn("homeworld", SchemaNode("homeworld", cluster="characters"), [character_column],
-                                     ColumnType.VALUE)
+        character_column = Domain("character", SchemaNode("name", cluster="characters"), [], ColumnType.KEY)
+        homeworld_column = Domain("homeworld", SchemaNode("homeworld", cluster="characters"), [character_column],
+                                  ColumnType.VALUE)
         df = pd.DataFrame({"homeworld": ["Tatooine", "Kashyyk", "Corellia"], 0: ["Tatooine", "Kashyyk", "Corellia"]})
         result = trv(step, s.backend, df, lambda x: x, [df], [character_column.name, homeworld_column.name])
         self.assertExpectedInline(str(result[0]), """\
@@ -84,8 +84,8 @@ class TestInterpreter(expecttest.TestCase):
         s = self.initialise()
         start_node = SchemaNode("sector", cluster="sectors")
         end_node = SchemaNode("world", cluster="sectors")
-        step = Traverse(start_node, end_node, [end_node], [RawColumn("world_hidden", end_node, [], ColumnType.KEY)])
-        sectors_column = RawColumn("sectors", SchemaNode("sector", cluster="sectors"), [], ColumnType.KEY)
+        step = Traverse(start_node, end_node, [end_node], [Domain("world_hidden", end_node, [], ColumnType.KEY)])
+        sectors_column = Domain("sectors", SchemaNode("sector", cluster="sectors"), [], ColumnType.KEY)
         df = pd.DataFrame(
             {"sectors": ["Core", "Mid", "Outer"], 0: ["Core", "Mid", "Outer"]})
         result = trv(step, s.backend, df, lambda x: x, [df], [sectors_column])
@@ -106,8 +106,8 @@ class TestInterpreter(expecttest.TestCase):
     def test_proj_ofEdge_withNoHiddenKey(self):
         from backend.pandas_backend.interpreter import prj
         s = self.initialise()
-        trilogy_column = RawColumn("trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY)
-        episode_column = RawColumn("trilogy", SchemaNode("episode", cluster="trilogies"), [], ColumnType.KEY)
+        trilogy_column = Domain("trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY)
+        episode_column = Domain("trilogy", SchemaNode("episode", cluster="trilogies"), [], ColumnType.KEY)
         df = pd.DataFrame({"trilogy": ["Prequel", "Prequel", "Prequel",
                                        "Original", "Original", "Original",
                                        "Sequel", "Sequel", "Sequel"],
@@ -148,8 +148,8 @@ class TestInterpreter(expecttest.TestCase):
     def test_proj_ofEdge_withHiddenKey(self):
         from backend.pandas_backend.interpreter import prj
         s = self.initialise()
-        trilogy_column = RawColumn("trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY)
-        episode_column = RawColumn("trilogy", SchemaNode("episode", cluster="trilogies"), [], ColumnType.KEY)
+        trilogy_column = Domain("trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY)
+        episode_column = Domain("trilogy", SchemaNode("episode", cluster="trilogies"), [], ColumnType.KEY)
         df = pd.DataFrame({
                            0: ["Prequel", "Prequel", "Prequel",
                                "Original", "Original", "Original",
@@ -188,7 +188,7 @@ class TestInterpreter(expecttest.TestCase):
     def test_exp_ofEdge_withNoHiddenKey(self):
         from backend.pandas_backend.interpreter import exp
         s = self.initialise()
-        trilogy_column = RawColumn("trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY)
+        trilogy_column = Domain("trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY)
         df = pd.DataFrame({"trilogy": ["Prequel", "Original", "Sequel"], 0: ["Prequel", "Original", "Sequel"]})
         start_node = SchemaNode("trilogy", cluster="trilogies")
         end_node = SchemaNode.product([start_node, SchemaNode("episode", cluster="trilogies")])
@@ -233,8 +233,8 @@ class TestInterpreter(expecttest.TestCase):
     def test_exp_ofEdge_withHiddenKey(self):
         from backend.pandas_backend.interpreter import exp
         s = self.initialise()
-        trilogy_column = RawColumn("trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY)
-        episode_column = RawColumn("episode", SchemaNode("episode", cluster="trilogies"), [], ColumnType.KEY)
+        trilogy_column = Domain("trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY)
+        episode_column = Domain("episode", SchemaNode("episode", cluster="trilogies"), [], ColumnType.KEY)
         df = pd.DataFrame({"trilogy": ["Prequel", "Original", "Sequel"], 0: ["Prequel", "Original", "Sequel"]})
         start_node = SchemaNode("trilogy", cluster="trilogies")
         end_node = SchemaNode.product([start_node, SchemaNode("episode", cluster="trilogies")])

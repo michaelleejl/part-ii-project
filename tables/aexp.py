@@ -51,9 +51,9 @@ class ColumnAexp(Aexp):
         return self.__repr__()
 
     def to_closure(self, parameters, aggregated_over):
-        idx = find_index(self.column.raw_column, parameters)
+        idx = find_index(self.column, parameters)
         if idx == -1:
-            return ColumnAexp(len(parameters)), parameters + [self.column.raw_column], aggregated_over
+            return ColumnAexp(len(parameters)), parameters + [self.column], aggregated_over
         else:
             return ColumnAexp(idx), parameters, aggregated_over
 

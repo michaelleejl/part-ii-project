@@ -37,6 +37,8 @@ class TestEx1(expecttest.TestCase):
         s, cardnum, person = self.initialise()
         c_cardnum = cardnum["cardnum"]
         t1 = s.get([c_cardnum])
+        print(t1.intermediate_representation)
+        print(t1.derivation.to_intermediate_representation())
         self.assertExpectedInline(str(t1), """\
 [cardnum || ]
 Empty DataFrame
@@ -56,7 +58,10 @@ Index: []
     def test_ex1_goal1_step2(self):
         s, cardnum, person = self.initialise()
         t1 = s.get([cardnum["cardnum"]])
+        print(t1.derivation.to_intermediate_representation())
         t2 = t1.infer(["cardnum"], person["person"])
+        print(t2.intermediate_representation)
+        print(t2.derivation )
         self.assertExpectedInline(str(t2), """\
 [cardnum || person]
         person
@@ -97,6 +102,8 @@ cardnum
         t1 = s.get([cardnum["cardnum"]])
         t2 = t1.infer(["cardnum"], person["person"])
         t3 = t2.compose([cardnum["val_id"]], "cardnum")
+        print(t3.intermediate_representation)
+        print(t3.derivation.to_intermediate_representation())
         self.assertExpectedInline(str(t3), """\
 [val_id || person]
        person
@@ -175,9 +182,9 @@ cardnum
 [val_id || person]
        person
 val_id       
+4.0     Steve
 2.0     Steve
 5.0     Steve
-4.0     Steve
 3.0       Tom
 2 keys hidden
 
@@ -217,6 +224,7 @@ cardnum
         t21 = s.get([cardnum["cardnum"]])
         t22 = t21.infer(["cardnum"], cardnum["val_id"])
         t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid")
+        print(t23.derivation)
         self.maxDiff = None
         self.assertExpectedInline(str(t23), """\
 [cardnum || val_id numplusvalid]
@@ -278,6 +286,14 @@ val_id
 8          4412
 
 """)
+        # [ToCity  volume || total_inflow]
+        #                    total_inflow
+        # ToCity     volume
+        # Cambridge  0.0     6.0
+        # Cambridge  0.0     6.0
+        # Cambridge  1.8     6.0
+        # Cambridge  4.2     6.0
+        # Edinburgh  2.4     4.2
 
     def test_ex1_goal4_step3_inferChain(self):
         s, cardnum, person = self.initialise()
@@ -324,6 +340,7 @@ val_id
         t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
         t34 = t33.infer(['person.cardnum'], person['person'])
         t35 = t34.hide('person.cardnum').hide('cardnum')
+        print(t35.derivation)
         self.assertExpectedInline(str(t35), """\
 [val_id || person]
        person
@@ -342,10 +359,9 @@ val_id
         t32 = t31.infer(['val_id'], cardnum['cardnum'])
         t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
         t34 = t33.infer(['person.cardnum'], person['person'])
-        t35 = t34.hide('person.cardnum').hide('cardnum')
-        t36 = t35.show('person.cardnum').show('cardnum')
+        print(t34.derivation.to_intermediate_representation())
         self.maxDiff = None
-        self.assertExpectedInline(str(t36), """\
+        self.assertExpectedInline(str(t34), """\
 [val_id || cardnum person.cardnum person]
         cardnum  person.cardnum person
 val_id                                
@@ -364,10 +380,8 @@ val_id
         t32 = t31.infer(['val_id'], cardnum['cardnum'])
         t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
         t34 = t33.infer(['person.cardnum'], person['person'])
-        t35 = t34.hide('person.cardnum').hide('cardnum')
-        t36 = t35.show('person.cardnum').show('cardnum')
-        t37 = t36.extend("person", "Bob", "person_fillna")
-        self.assertExpectedInline(str(t37), """\
+        t35 = t34.extend("person", "Bob", "person_fillna")
+        self.assertExpectedInline(str(t35), """\
 [val_id || cardnum person.cardnum person person_fillna]
         cardnum  person.cardnum person person_fillna
 val_id                                              

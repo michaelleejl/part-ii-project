@@ -1,16 +1,13 @@
 from schema import Cardinality, BaseType
-from tables.aexp import ConstAexp, ColumnAexp, Aexp, AddAexp, SubAexp, MulAexp, DivAexp, SumAexp, MaxAexp, NegAexp, \
-    CountAexp, MinAexp
+from tables.aexp import ColumnAexp, AddAexp, SubAexp, MulAexp, DivAexp, SumAexp, MaxAexp, CountAexp, MinAexp
 from tables.aggregation import AggregationFunction
+from tables.bexp import EqualityBexp, NotBexp, LessThanBexp, NABexp, OrBexp, AndBexp, ColumnBexp, AnyBexp, AllBexp
 from tables.exceptions import ColumnTypeException
 from tables.exp import PopExp
 from tables.function import Function, create_function, create_bijection
-from tables.bexp import EqualityBexp, NotBexp, LessThanBexp, NABexp, OrBexp, AndBexp, ColumnBexp, ConstBexp, Bexp, \
-    AnyBexp, AllBexp
 from tables.helpers.wrap_aexp import wrap_aexp
 from tables.helpers.wrap_bexp import wrap_bexp
 from tables.helpers.wrap_sexp import wrap_sexp
-from tables.raw_column import RawColumn
 
 
 def get_arguments_for_binary_aexp(x, y):
@@ -30,13 +27,24 @@ def get_arguments_for_binary_bexp(x, y):
 
 
 class Column:
-    def __init__(self, raw_column: RawColumn):
-        self.raw_column = raw_column
+    def __init__(self, node):
+        self.name = node.get_name()
+        self.node = node
 
     # Boolean expressions
 
+    def get_domain(self):
+        assert len(self.node.domains) == 1
+        return self.node.domains[0]
+
+    def get_schema_node(self):
+        return self.get_domain().node
+
+    def get_type(self):
+        return self.get_schema_node().node_type
+
     def __eq__(self, other) -> EqualityBexp:
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         lexp = None
         rexp = None
         if data_type == BaseType.BOOL:
@@ -53,10 +61,10 @@ class Column:
         return EqualityBexp(lexp, rexp)
 
     def __ne__(self, other) -> NotBexp:
-        return NotBexp(self.raw_column.name == other)
+        return NotBexp(self.get_domain().name == other)
 
     def __lt__(self, other) -> LessThanBexp:
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         lexp, rexp = get_arguments_for_binary_aexp(self, other)
@@ -72,7 +80,7 @@ class Column:
         return NotBexp(self < other)
 
     def __and__(self, other):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.BOOL:
             raise ColumnTypeException("bool", str(data_type))
         lexp, rexp = get_arguments_for_binary_bexp(self, other)
@@ -82,7 +90,7 @@ class Column:
         self.__and__(other)
 
     def __or__(self, other):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.BOOL:
             raise ColumnTypeException("bool", str(data_type))
         lexp, rexp = get_arguments_for_binary_bexp(self, other)
@@ -92,32 +100,32 @@ class Column:
         self.__or__(other)
 
     def __invert__(self):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.BOOL:
             raise ColumnTypeException("bool", str(data_type))
         exp = wrap_bexp(self)
         return NotBexp(exp)
 
     def any(self):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.BOOL:
             raise ColumnTypeException("bool", str(data_type))
-        keys = self.raw_column.get_strong_keys()
+        keys = self.node.get_strong_keys()
         return AnyBexp(keys, self)
 
     def all(self):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.BOOL:
             raise ColumnTypeException("bool", str(data_type))
-        keys = self.raw_column.get_strong_keys()
+        keys = self.node.get_strong_keys()
         return AllBexp(keys, self)
 
     def isnull(self) -> NABexp:
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type == BaseType.FLOAT:
-            exp = ColumnAexp(self)
+            exp = ColumnAexp(self.node.domains[0])
         elif data_type == BaseType.BOOL:
-            exp = ColumnBexp(self)
+            exp = ColumnBexp(self.node.domains[0])
         else:
             raise NotImplemented()
         return NABexp(exp)
@@ -129,7 +137,7 @@ class Column:
         return wrap_bexp(self)
 
     def __hash__(self):
-        return self.raw_column.__hash__()
+        return self.node.__hash__()
 
     def create_function(self, other, op):
         if isinstance(other, Column):
@@ -138,7 +146,7 @@ class Column:
             return Function(op, [self, other], Cardinality.ONE_TO_ONE)
 
     def __add__(self, other):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         lexp, rexp = get_arguments_for_binary_aexp(self, other)
@@ -148,21 +156,21 @@ class Column:
         return self.__add__(other)
 
     def __sub__(self, other):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         lexp, rexp = get_arguments_for_binary_aexp(self, other)
         return SubAexp(lexp, rexp)
 
     def __rsub__(self, other):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         lexp, rexp = get_arguments_for_binary_aexp(other, self)
         return SubAexp(lexp, rexp)
 
     def __mul__(self, other):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         lexp, rexp = get_arguments_for_binary_aexp(self, other)
@@ -172,53 +180,53 @@ class Column:
         return self.__mul__(other)
 
     def __truediv__(self, other):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         lexp, rexp = get_arguments_for_binary_aexp(self, other)
         return DivAexp(lexp, rexp)
 
     def __rtruediv__(self, other):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         lexp, rexp = get_arguments_for_binary_aexp(other, self)
         return DivAexp(lexp, rexp)
 
     def sum(self):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
-        keys = self.raw_column.get_strong_keys()
+        keys = self.node.get_strong_keys()
         return SumAexp(keys, self)
 
     def max(self):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
-        keys = self.raw_column.get_strong_keys()
+        keys = self.node.get_strong_keys()
         return MaxAexp(keys, self)
 
     def min(self):
-        data_type = self.raw_column.node.node_type
+        data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
-        keys = self.raw_column.get_strong_keys()
+        keys = self.node.get_strong_keys()
         return MinAexp(keys, self)
 
     def count(self):
-        keys = self.raw_column.get_strong_keys()
+        keys = self.node.get_strong_keys()
         return CountAexp(keys, self)
 
     def pop(self):
-        keys = self.raw_column.get_strong_keys()
-        return PopExp(keys, self, self.raw_column.node.node_type)
+        keys = self.node.get_strong_keys()
+        return PopExp(keys, self, self.get_type())
 
     def get_explicit_keys(self):
-        return self.raw_column.get_strong_keys()
+        return self.node.get_strong_keys()
 
     def get_hidden_keys(self):
-        return self.raw_column.get_hidden_keys()
+        return self.node.get_hidden_keys()
 
     def aggregate(self, function):
         return AggregationFunction(function, self)
