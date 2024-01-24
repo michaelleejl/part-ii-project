@@ -177,9 +177,10 @@ cardnum
         s, cardnum, person = self.initialise()
         t11 = s.get([person["cardnum"]])
         t12 = t11.infer(["cardnum"], person["person"])
-        t13 = t12.compose([cardnum["val_id"]], "cardnum")
-        t14 = t13.sort(["person"])
-        self.assertExpectedInline(str(t14), """\
+        print("T12 DERIVATION")
+        print(t12.derivation)
+        t13 = t12.compose([cardnum["val_id"]], "cardnum").sort(["person"])
+        self.assertExpectedInline(str(t13), """\
 [val_id || person]
        person
 val_id       
@@ -244,18 +245,20 @@ cardnum
         t21 = s.get([cardnum["cardnum"]])
         t22 = t21.infer(["cardnum"], cardnum["val_id"])
         t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid")
-        t24 = t23.set_key(["numplusvalid"])
-
+        t24 = t23.invert(["cardnum"], ["numplusvalid"])
+        print(t24.derivation)
+        print(t24["cardnum"].get_hidden_keys())
+        self.maxDiff = None
         self.assertExpectedInline(str(t24), """\
-[numplusvalid || cardnum val_id]
-             cardnum val_id
+[numplusvalid || val_id cardnum]
+             val_id cardnum
 numplusvalid               
-5173          [5172]    [1]
-2356          [2354]    [2]
-2359          [2354]    [5]
-1413          [1410]    [3]
-1115          [1111]    [4]
-4420          [4412]    [8]
+5173            [1]  [5172]
+2356            [2]  [2354]
+1413            [3]  [1410]
+1115            [4]  [1111]
+2359            [5]  [2354]
+4420            [8]  [4412]
 
 """)
 
@@ -415,7 +418,9 @@ val_id
         s, cardnum, person = self.initialise()
         t41 = (s.get([person['cardnum']]).infer(['cardnum'], person['person']))
         t42 = t41.compose([cardnum['val_id']], 'cardnum')
-        t43 = t42.set_key(["person"])
+        print("T42 DERIVATION")
+        print(t42.derivation)
+        t43 = t42.invert(['val_id'], ["person"])
         self.assertExpectedInline(str(t43), """\
 [person || val_id]
                  val_id

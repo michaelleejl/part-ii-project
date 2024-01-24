@@ -189,16 +189,17 @@ def ent(derivation_step: EndTraversal, _, stack, sp) -> interp:
 
     x = stack[-1]
     y = stack[-2]
+    x = x.drop(to_drop, axis=1).rename(renaming, axis=1)
     common = [col for col in list(x.columns) if col in set(y.columns)]
     if len(common) == 0:
         if len(y.columns) == 0:
-            res = x.drop(to_drop, axis=1).rename(renaming, axis=1)
+            res = x
         elif len(x.columns) == 0:
             res = pd.DataFrame()
         else:
-            res = pd.merge(x.drop(to_drop, axis=1).rename(renaming, axis=1), y, how="cross")
+            res = pd.merge(x, y, how="cross")
     else:
-        res = pd.merge(x.drop(to_drop, axis=1).rename(renaming, axis=1), y, on = common, how="outer")
+        res = pd.merge(x, y, on = common, how="outer")
 
     res = res.loc[res.astype(str).drop_duplicates().index]
 

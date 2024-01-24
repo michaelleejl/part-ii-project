@@ -177,12 +177,7 @@ class Table:
             name = self.get_fresh_name(node.name, namespace)
         else:
             name = self.get_fresh_name(name, namespace)
-        original_name = node.name
-        if name != original_name:
-            new_node = self.schema.clone(node, name)
-        else:
-            new_node = node
-        return Domain(new_node.name, new_node)
+        return Domain(name, node)
 
     def verify_columns(self, columns: list[ColumnNode], requirements: set[ColumnRequirements]):
         keys = set(self.derivation.get_keys())
@@ -329,11 +324,10 @@ class Table:
                 if len(child.children) == 0:
                     continue
                 else:
-                    new_child = DerivationNode(cols_to_add, [], hidden_columns)
+                    key_node = new_root.insert_key(cols_to_add)
                     intermediate = IntermediateNode([key.get_domain()], repr, hidden_columns, None, [], cardinality)
                     intermediate.add_nodes_as_children(child.children)
-                    new_child.add_node_as_child(intermediate)
-                    new_children += [new_child]
+                    key_node.add_node_as_child(intermediate)
             else:
                 domains = child.domains
 
@@ -514,11 +508,18 @@ class Table:
 
     def invert(self, keys: list[existing_column], vals: list[existing_column]):
         t = Table.create_from_table(self)
-        key_cols = t.get_existing_columns(keys)
-        val_cols = t.get_existing_columns(vals)
 
-        key_doms = [c.get_domain() for c in key_cols]
-        val_doms = [c.get_domain() for c in val_cols]
+        keys = t.get_existing_columns(keys)
+        vals = t.get_existing_columns(vals)
+
+        all_keys = t.derivation.get_keys()
+        key_cols = list(sorted(all_keys, key=lambda c: find_index(c.name, self.displayed_columns)))
+
+        all_vals = t.derivation.get_values()
+        val_cols = list(sorted(all_vals, key=lambda c: find_index(c.name, self.displayed_columns)))
+
+        key_doms = [c.get_domain() for c in keys]
+        val_doms = [c.get_domain() for c in vals]
 
         key_node = t.derivation.find_node_with_domains(key_doms)
         val_node = t.derivation.find_node_with_domains(val_doms)
@@ -529,7 +530,6 @@ class Table:
 
         indices_to_replace = [find_index(k, key_cols) for k in keys]
         idx = indices_to_replace[0]
-
 
         all_keys = t.derivation.domains
 
@@ -572,15 +572,21 @@ class Table:
             if len(child.domains) > 1:
                 key_node.add_node_as_child(child.to_intermediate_node())
             else:
-                key_node.add_node_as_child(child.to_value_column())
+                child.to_value_column()
+                key_node.add_node_as_child()
+
+        key_node.parent = None
         path = key_node.path_to_value(val_node)
 
         t.derivation = new_root
 
         inverted = DerivationNode.invert_path(path, t)
-        inverted_repr = [n.intermediate_representation for n in inverted]
+        for i in range(len(inverted)-1, 0, -1):
+            inverted[i].intermediate_representation = inverted[i-1].intermediate_representation
+        inverted_repr = [n.intermediate_representation for n in inverted[1:]]
         # todo: update cardinality
-        new_root.add_node_as_child(inverted[0])
+        new_key = new_root.insert_key(val_doms)
+        new_key.add_node_as_child(inverted[1])
 
         # Group 2 {k' | k is subset of k'}
         group2 = groups[2]

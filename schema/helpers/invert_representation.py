@@ -30,7 +30,7 @@ def invert_command(command: RepresentationStep):
         case "SRT":
             return command
         case _:
-            assert False
+            return command
 
 
 def invert_representation(representation: list[RepresentationStep]):
@@ -39,6 +39,8 @@ def invert_representation(representation: list[RepresentationStep]):
     result = []
     for command in representation:
         if isinstance(command, StartTraversal):
+            result += stack
+            stack = []
             STT = command
         elif isinstance(command, EndTraversal):
             assert STT is not None
