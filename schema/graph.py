@@ -293,7 +293,7 @@ class SchemaGraph:
                 indices = get_indices_of_sublist(end_keys, start_keys)
                 return Project(start, end, indices, hidden_keys)
             else:
-                return Traverse(start, end, end_keys)
+                return Traverse(edge)
         else:
             if is_sublist(start_keys, end_keys):
                 indices = get_indices_of_sublist(start_keys, end_keys)
@@ -301,7 +301,10 @@ class SchemaGraph:
             if is_sublist(end_keys, start_keys):
                 indices = get_indices_of_sublist(end_keys, start_keys)
                 return Project(start, end, indices, [])
-            return Traverse(start, end, [])
+            return Traverse(edge)
+
+    def find_edge(self, node1: SchemaNode, node2: SchemaNode):
+        return self.adjacencyList[node1]
 
     def __repr__(self):
         divider = "==========================\n"

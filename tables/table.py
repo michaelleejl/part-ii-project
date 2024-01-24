@@ -3,25 +3,26 @@ import uuid
 from enum import Enum
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from helpers.compose_cardinality import compose_cardinality
-from schema import Cardinality, BaseType
+from schema import Cardinality, BaseType, is_sublist
 from schema.helpers.find_index import find_index
 from schema.node import SchemaNode, AtomicNode, SchemaClass
-from tables.bexp import Bexp
 from tables.column import Column
 from tables.derivation_node import DerivationNode, ColumnNode, IntermediateNode
-from tables.exceptions import KeyMismatchException, ColumnsNeedToBeUniqueException, \
+from tables.domain import Domain
+from tables.exceptions import ColumnsNeedToBeUniqueException, \
     ColumnsNeedToBeInTableAndVisibleException, ColumnsNeedToBeKeysException, ColumnsNeedToBeInTableException, \
     ColumnsNeedToBeHiddenException
 from tables.exp import Exp, ExtendExp
+from tables.helpers.carry_keys_through_path import carry_keys_through_representation
+from tables.helpers.transform_step import transform_step
 from tables.helpers.wrap_aexp import wrap_aexp
 from tables.helpers.wrap_bexp import wrap_bexp
 from tables.helpers.wrap_sexp import wrap_sexp
-from tables.internal_representation import RepresentationStep, End, Filter, Sort, Get, Drop
-from tables.domain import Domain
-
+from tables.internal_representation import RepresentationStep, End, Filter, Sort, Get, EndTraversal
 
 existing_column = str | Column | ColumnNode
 new_column = AtomicNode | SchemaClass
@@ -67,7 +68,6 @@ class Table:
         self.intermediate_representation = intermediate_representation
         self.derivation = derivation
         self.schema = schema
-        self.namespace = set()
         self.df = pd.DataFrame()
         self.dropped_keys_count = 0
         self.dropped_vals_count = 0
@@ -77,16 +77,18 @@ class Table:
         table_id = uuid.uuid4().hex
         table = Table(table_id, None, [], schema)
         keys = []
+        namespace = set()
         for key_node, name in columns:
-            key = table.create_column(name, key_node)
+            key = table.create_column(name, key_node, namespace)
             keys += [key]
+            namespace.add(name)
 
         table.displayed_columns = [str(k) for k in keys]
         table.left = {str(k): k for k in keys}
         table.dropped_keys_count = 0
         table.dropped_vals_count = 0
         table.marker = len(keys)
-        table.derivation = DerivationNode.create_root(keys, [Get(keys)])
+        table.derivation = DerivationNode.create_root(keys)
         table.extend_intermediate_representation()
 
         table.execute()
@@ -149,34 +151,32 @@ class Table:
                           table.table_id)
         new_table.displayed_columns = copy.copy(table.displayed_columns)
         new_table.marker = table.marker
-        new_table.namespace = copy.deepcopy(table.namespace)
         new_table.dropped_keys_count = table.dropped_keys_count
         new_table.dropped_vals_count = table.dropped_vals_count
         return new_table
 
-    def create_column(self, name, node: AtomicNode) -> Domain:
-        name = self.get_fresh_name(name)
+    def create_column(self, name, node: AtomicNode, namespace) -> Domain:
+        name = self.get_fresh_name(name, namespace)
         return Domain(name, node)
 
     def unpack_inputs(self):
         pass
 
-    def get_fresh_name(self, name: str):
+    def get_fresh_name(self, name: str, namespace: set[str]):
         candidate = name
-        if candidate in self.namespace:
+        if candidate in namespace:
             i = 1
             candidate = f"{name}_{i}"
-            while candidate in self.namespace:
+            while candidate in namespace:
                 i += 1
                 candidate = f"{name}_{i}"
-        self.namespace.add(candidate)
         return candidate
 
-    def new_col_from_node(self, node: AtomicNode, name: str = None):
+    def new_col_from_node(self, namespace: set[str], node: AtomicNode, name: str = None):
         if name is None:
-            name = self.get_fresh_name(node.name)
+            name = self.get_fresh_name(node.name, namespace)
         else:
-            name = self.get_fresh_name(name)
+            name = self.get_fresh_name(name, namespace)
         original_name = node.name
         if name != original_name:
             new_node = self.schema.clone(node, name)
@@ -218,7 +218,6 @@ class Table:
         return left, hids, right
 
     def set_displayed_columns(self, new_columns):
-        self.namespace = set(new_columns)
         self.displayed_columns = new_columns
 
     def find_strong_keys_for_column(self, inferred_from: list[ColumnNode]):
@@ -239,23 +238,19 @@ class Table:
             hidden_keys = hidden_keys.union(hidden_keys_of_column)
         return list(sorted(hidden_keys, key=lambda x: find_index(x, self.derivation.get_hidden())))
 
-    def get_representation(self, start: list[Domain], end: list[Domain], via, backwards):
+    def get_namespace(self):
+        return set([d.name for d in self.derivation.get_keys_and_values() + self.derivation.get_hidden()])
+
+    def get_representation(self, start: list[Domain], end: list[Domain], via, backwards, aggregated_over, namespace):
         shortest_p = self.schema.find_shortest_path_between_columns(start, end, via, backwards)
         cardinality, repr, hidden_keys = shortest_p
-        new_repr = []
+        new_repr: list[RepresentationStep] = []
         hidden_columns = []
+        get_next_step = transform_step(namespace, self, start, end, aggregated_over)
         for step in repr:
-            from tables.internal_representation import Traverse, Expand
-            if isinstance(step, Traverse) or isinstance(step, Expand):
-                step_hidden_keys = step.hidden_keys
-                columns = [self.new_col_from_node(hk) for hk in step_hidden_keys]
-                if isinstance(step, Traverse):
-                    new_repr += [Traverse(step.start_node, step.end_node, step.hidden_keys, columns)]
-                else:
-                    new_repr += [Expand(step.start_node, step.end_node, step.indices, step.hidden_keys, columns)]
-                hidden_columns += columns
-            else:
-                new_repr += [step]
+            next_step, cols = get_next_step(step)
+            new_repr += [next_step]
+            hidden_columns += cols
         return cardinality, new_repr, hidden_columns
 
     def find_index_to_insert(self, column, table):
@@ -291,14 +286,18 @@ class Table:
         # Initialise the new table
         # Delete the key we want to compose on from its namespace
         t = Table.create_from_table(self)
-        t.namespace -= {to_key}
 
+        namespace = t.get_namespace()
+        namespace.remove(to_key)
         # STEP 2
         # 2a. Update the columns to display
-        def key_from_node(node: AtomicNode):
-            return t.new_col_from_node(node)
 
-        cols_to_add = [key_from_node(key) for key in from_keys_nodes]
+        cols_to_add = []
+        for k in from_keys_nodes:
+            col = t.new_col_from_node(namespace, k)
+            namespace.add(col.name)
+            cols_to_add += [col]
+
         t.set_displayed_columns(
                 self.displayed_columns[:key_idx] + [str(c) for c in cols_to_add] + self.displayed_columns[
                                                                                    key_idx + 1:])
@@ -312,36 +311,26 @@ class Table:
         via_nodes = None
         if via is not None:
             via_nodes = [t.schema.get_node_with_name(n) for n in via]
-        shortest_p = t.get_representation(cols_to_add, [key.get_domain()], via_nodes, False)
+        shortest_p = t.get_representation(cols_to_add, [key.get_domain()], via_nodes, False, [], namespace)
         cardinality, repr, hidden_columns = shortest_p
-        _, new_repr, _ = t.get_representation(cols_to_add, [key.get_domain()], via_nodes, False)
-        # _, new_repr, hidden_columns = t.get_representation([key], cols_to_add, t.displayed_columns, via_nodes, True)
 
         # STEP 4
         # compute the new intermediate representation
         old_keys = t.derivation.domains
         old_idx = find_index(key.get_domain(), old_keys)
         new_keys = old_keys[:old_idx] + cols_to_add + old_keys[old_idx+1:]
-        new_root = DerivationNode.create_root(new_keys, [Get(new_keys)])
+        new_root = DerivationNode.create_root(new_keys)
         new_root.hidden_keys.append_all(hidden_columns)
         children = t.derivation.children
         new_children = []
-        to_retain = []
-        to_delete = []
         for child in children:
-            #TODO check if value
-            if child.is_val_column():
-                intermediate = IntermediateNode(old_keys, repr, hidden_columns, cardinality=cardinality)
-                child.hidden_keys.append_all(hidden_columns)
-                intermediate.add_node_as_child(child)
-                new_children += [intermediate]
-            elif child.is_key_column() and child == key:
+            assert not child.is_val_column()
+            if child == key:
                 if len(child.children) == 0:
                     continue
                 else:
-                    ## new key
                     new_child = DerivationNode(cols_to_add, [], hidden_columns)
-                    intermediate = IntermediateNode([key.get_domain()], repr, hidden_columns, cardinality)
+                    intermediate = IntermediateNode([key.get_domain()], repr, hidden_columns, None, [], cardinality)
                     intermediate.add_nodes_as_children(child.children)
                     new_child.add_node_as_child(intermediate)
                     new_children += [new_child]
@@ -424,10 +413,11 @@ class Table:
 
         t = Table.create_from_table(self)
 
+        namespace = t.get_namespace()
         # STEP 1
         # Get name for inferred column
         # Append column to end of displayed columns
-        name = t.get_fresh_name(to_column_name)
+        name = t.get_fresh_name(to_column_name, namespace)
         t.set_displayed_columns(t.displayed_columns + [name])
 
         # STEP 2
@@ -435,7 +425,7 @@ class Table:
         strong_keys = t.find_strong_keys_for_column(assumption_columns)
         if aggregated_over is None:
             aggregated_over = []
-        old_hidden_keys = t.find_hidden_keys_for_column([col for col in assumption_columns if col not in set(aggregated_over)])
+        old_hidden_keys = t.find_hidden_keys_for_column([col for col in assumption_columns if col.get_domain() not in set(aggregated_over)])
         cardinalities = [column.cardinality for column in assumption_columns]
 
         if len(assumption_columns) == 0:
@@ -450,7 +440,7 @@ class Table:
             if via is not None:
                 via_nodes = via
             conclusion_column = Domain(name, to_column_node)
-            shortest_p = t.get_representation([c.get_domain() for c in assumption_columns], [conclusion_column], via_nodes, False)
+            shortest_p = t.get_representation([c.get_domain() for c in assumption_columns], [conclusion_column], via_nodes, False, aggregated_over, namespace)
             cardinality, repr, hidden_keys = shortest_p
 
         # 2b. Turn the hidden keys into columns, and rename them if necessary.
@@ -479,9 +469,24 @@ class Table:
 
     def hide(self, column: existing_column):
         column = self.get_existing_column(column)
-        self.verify_columns([column], {Table.ColumnRequirements.IS_KEY_OR_VAL})
+        self.verify_columns([column], {Table.ColumnRequirements.IS_KEY})
         t = Table.create_from_table(self)
         idx = find_index(column.name, self.displayed_columns)
+        if idx < t.marker:
+            t.marker -= 1
+        t.set_displayed_columns(t.displayed_columns[:idx] + t.displayed_columns[idx + 1:])
+        t.derivation.hide(column)
+        t.extend_intermediate_representation()
+        t.execute()
+        return t
+
+    def forget(self, column: existing_column):
+        column = self.get_existing_column(column)
+        self.verify_columns([column], {Table.ColumnRequirements.IS_VAL})
+        t = Table.create_from_table(self)
+        idx = find_index(column.name, self.displayed_columns)
+        if idx < t.marker:
+            t.marker -= 1
         t.set_displayed_columns(t.displayed_columns[:idx] + t.displayed_columns[idx + 1:])
         t.derivation.hide(column)
         t.extend_intermediate_representation()
@@ -489,23 +494,167 @@ class Table:
         return t
 
     def show(self, column: existing_column):
-        column = self.get_existing_column(column)
-        name = column.get_name()
-        self.verify_columns([column], {Table.ColumnRequirements.IS_HIDDEN})
+        if isinstance(column, str):
+            name = column
+        else:
+            name = column.name
         t = Table.create_from_table(self)
-        idx = self.find_index_to_insert(column, t)
-        t.set_displayed_columns(t.displayed_columns[:idx] + [name] + t.displayed_columns[idx:])
-        #TODO: Show logic
+        col = t.derivation.find_hidden(name)
+        t.set_displayed_columns(t.displayed_columns[:t.marker] + [column] + t.displayed_columns[t.marker:])
+        t.marker += 1
+        t.derivation.show(col)
         t.extend_intermediate_representation()
         t.execute()
         return t
 
-    def filter(self, by: str | Bexp):
+    def invert(self, keys: list[existing_column], vals: list[existing_column]):
         t = Table.create_from_table(self)
-        if isinstance(by, str):
-            by = t[by].to_bexp()
-        exp, arguments, _ = Exp.convert_exp(by)
-        t.extend_intermediate_representation([Filter(exp, arguments)])
+        key_cols = t.get_existing_columns(keys)
+        val_cols = t.get_existing_columns(vals)
+
+        key_doms = [c.get_domain() for c in key_cols]
+        val_doms = [c.get_domain() for c in val_cols]
+
+        key_node = t.derivation.find_node_with_domains(key_doms)
+        val_node = t.derivation.find_node_with_domains(val_doms)
+        path = key_node.path_to_value(val_node)
+
+        assert path is not None
+        assert len(path) > 1
+
+        indices_to_replace = [find_index(k, key_cols) for k in keys]
+        idx = indices_to_replace[0]
+
+
+        all_keys = t.derivation.domains
+
+        filtered_keys = [k for i, k in enumerate(all_keys) if i not in set(indices_to_replace)]
+        new_keys = filtered_keys[:idx] + val_doms + filtered_keys[idx:]
+
+        visible_key_indices_to_replace = [find_index(k.name, t.displayed_columns) for k in keys]
+        visible_val_indices_to_replace = [find_index(v.name, t.displayed_columns) for v in vals]
+        visible_indices_to_replace = visible_key_indices_to_replace + visible_val_indices_to_replace
+        visible_idx = visible_indices_to_replace[0]
+        filtered_displayed_columns = [c for i, c in enumerate(t.displayed_columns) if i not in set(visible_indices_to_replace)]
+        t.displayed_columns = (filtered_displayed_columns[:visible_idx] + [v.name for v in val_doms] +
+                               filtered_displayed_columns[visible_idx:] + [k.name for k in key_doms])
+        count = np.sum(np.array(visible_key_indices_to_replace) < t.marker)
+        t.marker += len(val_doms) - count
+        # Let k be the key we're inverting
+        old_root = t.derivation
+        new_root = DerivationNode.create_root(new_keys)
+
+        children = old_root.children.item_list
+        groups = self.classify_groups(children, key_doms)
+
+        # Six groups
+        # Holy fuck
+
+        # Group 0 {unit key}
+        group0 = groups[0]
+        assert len(group0) <= 1
+        # Group 4 {k' | k and k' disjoint}
+        group4 = groups[4]
+
+        new_root.add_nodes_as_children(group0)
+        new_root.add_nodes_as_children(group4)
+
+        # Group 1 {k' | k' is subset of k}
+        group1 = groups[1]
+        for child in group1:
+            if child in set(key_node.children.item_list):
+                key_node.remove_child_node(child)
+            if len(child.domains) > 1:
+                key_node.add_node_as_child(child.to_intermediate_node())
+            else:
+                key_node.add_node_as_child(child.to_value_column())
+        path = key_node.path_to_value(val_node)
+
+        t.derivation = new_root
+
+        inverted = DerivationNode.invert_path(path, t)
+        inverted_repr = [n.intermediate_representation for n in inverted]
+        # todo: update cardinality
+        new_root.add_node_as_child(inverted[0])
+
+        # Group 2 {k' | k is subset of k'}
+        group2 = groups[2]
+
+        # Group 3 {k' | k and k' overlap}
+        group3 = groups[3]
+
+        to_merge = {}
+
+        for child in group2:
+            difference = [d for d in child.domains if d not in set(key_node.children.item_list)]
+            assert difference not in to_merge
+            child.parent = None
+            to_merge[difference] = child
+            possible = child.find_node_with_domains(val_doms + difference)
+            if possible is None:
+                key_node = t.derivation.insert_key(val_doms + difference)
+                intermediate = child.to_intermediate_node()
+                new_ir = carry_keys_through_representation(inverted_repr, difference)
+                intermediate.internal_representation = new_ir
+                key_node.add_node_as_child(intermediate)
+            else:
+                path = child.path_to_value(val_doms + difference)
+                inverted_path = DerivationNode.invert_path(path, t)
+                end = inverted_path[-1].to_intermediate_node()
+                inverted_path[-2].remove_child(inverted_path[-1].domains)
+                inverted_path[-2].add_node_as_child(end)
+                t.derivation.add_node_as_child(inverted_path[0])
+                to_merge[difference] = end
+
+        for child in group3:
+            difference = [d for d in child.domains if d not in set(key_node.children.item_list)]
+            if difference in to_merge:
+                to_merge[difference].add_node_as_child(child)
+            else:
+                key_node = t.derivation.insert_key(val_doms + difference)
+                new_ir = carry_keys_through_representation(inverted_repr, difference)
+                intermediate = IntermediateNode(key_doms + difference, new_ir, inverted[-1].get_hidden())
+                key_node.add_node_as_child(intermediate)
+                intermediate.add_node_as_child(child)
+                to_merge[difference] = intermediate
+
+        t.extend_intermediate_representation()
+        t.execute()
+        return t
+
+    def classify_groups(self, children, to_invert):
+        groups = {n:[] for n in range(5)}
+        for i, child in enumerate(children):
+            domains = child.domains
+            if len(domains) == 0:
+                groups[0] += [child]
+                continue
+            elif domains == to_invert:
+                continue
+            elif is_sublist(domains, to_invert):
+                groups[1] += [child]
+                continue
+            elif is_sublist(to_invert, domains):
+                groups[2] += [child]
+                continue
+            elif len(set(to_invert).intersection(set(domains))) > 0:
+                groups[3] += [child]
+                continue
+            elif len(set(to_invert).intersection(set(domains))) == 0:
+                groups[4] += [child]
+                continue
+            else:
+                assert False
+        return groups
+
+
+
+
+    def filter(self, by: existing_column):
+        column = self.get_existing_column(by)
+        self.verify_columns([column], {Table.ColumnRequirements.IS_KEY_OR_VAL})
+        t = Table.create_from_table(self)
+        t.extend_intermediate_representation([Filter(column.get_domain())])
         t.execute()
         return t
 

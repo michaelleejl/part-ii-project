@@ -197,20 +197,19 @@ Val_id Cardnum
         t1 = s.get([Val_id, Cardnum])
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"])
-        t4 = t3.filter(t3["bonus"].isnotnull())
-        t5 = t4.infer(["Val_id"], cardnum["cardnum"]).filter(t4["bonus"].isnotnull())
-        t6 = t5.deduce(t5["bonus"] / 100 * t5["cardnum"], "return")
-        print(t6)
+        t4 = t3.infer(["Val_id"], cardnum["cardnum"])
+        t5 = t4.deduce(t4["bonus"] / 100 * t4["cardnum"], "return").filter("return")
+        self.maxDiff = None
         self.assertExpectedInline(str(t5), """\
-[Val_id Cardnum || bonus tstart cardnum]
-                bonus               tstart  cardnum
-Val_id Cardnum                                     
-1      5172       4.0  2023-01-01 09:50:00     5172
-       1410      12.0  2023-01-01 09:50:00     5172
-2      1111       5.0  2023-01-01 11:10:00     2354
-       6440       7.0  2023-01-01 11:10:00     2354
-3      1111       1.0  2023-01-01 15:32:00     1410
-5      1410       2.0  2023-01-01 20:11:00     2354
+[Val_id Cardnum || bonus tstart cardnum return]
+                bonus               tstart  cardnum  return
+Val_id Cardnum                                             
+1      5172       4.0  2023-01-01 09:50:00   5172.0  206.88
+       1410      12.0  2023-01-01 09:50:00   5172.0  620.64
+2      1111       5.0  2023-01-01 11:10:00   2354.0  117.70
+       6440       7.0  2023-01-01 11:10:00   2354.0  164.78
+3      1111       1.0  2023-01-01 15:32:00   1410.0   14.10
+5      1410       2.0  2023-01-01 20:11:00   2354.0   47.08
 42 keys hidden
 
 """)
@@ -229,9 +228,8 @@ Val_id Cardnum
         t1 = s.get([Val_id, Cardnum])
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"])
-        t4 = t3.filter(t3["bonus"].isnotnull())
-        t5 = t4.infer(["Val_id"], cardnum["cardnum"]).filter(t4["bonus"].isnotnull())
-        t6 = t5.filter(t5["Cardnum"] == t5["cardnum"])
+        t4 = t3.infer(["Val_id"], cardnum["cardnum"])
+        t5 = t4.deduce(t4["Cardnum"] == t4["cardnum"])
         self.assertExpectedInline(str(t6), """\
 [Val_id Cardnum || bonus tstart cardnum]
                 bonus               tstart  cardnum
@@ -305,6 +303,7 @@ Val_id
         print(t13.intermediate_representation)
         self.maxDiff = None
         print(t13["returns"].get_hidden_keys())
+        print(t13.derivation)
         self.assertExpectedInline(str(t13), """\
 [Val_id || cardnum tstart bonus returns]
         cardnum               tstart        bonus  returns

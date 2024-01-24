@@ -34,21 +34,19 @@ class EndTraversal(RepresentationStep):
 
 
 class Traverse(RepresentationStep):
-    def __init__(self, start_node, end_node, hidden_keys=None, columns = None):
+    def __init__(self, edge, columns = None):
         super().__init__("TRV")
-        self.start_node = start_node
-        self.end_node = end_node
-        if hidden_keys is None:
-            self.hidden_keys = []
-        else:
-            self.hidden_keys = hidden_keys
+        self.edge = edge
+        self.hidden_keys = edge.get_hidden_keys()
+        self.start_node = edge.from_node
+        self.end_node = edge.to_node
         if columns is None:
             self.columns = []
         else:
             self.columns = columns
 
     def __repr__(self):
-        return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.columns}>"
+        return f"{self.name} <{self.edge}, {self.columns}>"
 
     def __str__(self):
         return self.__repr__()
@@ -224,13 +222,12 @@ class Drop(RepresentationStep):
         return self.__repr__()
 
 class Filter(RepresentationStep):
-    def __init__(self, exp: Bexp, arguments):
+    def __init__(self, column):
         super().__init__("FLT")
-        self.exp = exp
-        self.arguments = arguments
+        self.column = column
 
     def __repr__(self):
-        return f"{self.name} <{self.exp}, {self.arguments}>"
+        return f"{self.name} <{self.column}>"
 
     def __str__(self):
         return self.__repr__()

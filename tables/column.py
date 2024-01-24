@@ -198,25 +198,25 @@ class Column:
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         keys = self.node.get_strong_keys()
-        return SumAexp(keys, self)
+        return SumAexp(keys, self.node.domains[0])
 
     def max(self):
         data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         keys = self.node.get_strong_keys()
-        return MaxAexp(keys, self)
+        return MaxAexp(keys, self.node.domains[0])
 
     def min(self):
         data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         keys = self.node.get_strong_keys()
-        return MinAexp(keys, self)
+        return MinAexp(keys, self.node.domains[0])
 
     def count(self):
         keys = self.node.get_strong_keys()
-        return CountAexp(keys, self)
+        return CountAexp(keys, self.node.domains[0])
 
     def pop(self):
         keys = self.node.get_strong_keys()

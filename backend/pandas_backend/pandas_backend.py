@@ -61,8 +61,8 @@ class PandasBackend(Backend):
 
     def map_edge_to_data_relation(self, edge, relation: pd.DataFrame):
         rev = SchemaEdge(edge.to_node, edge.from_node)
-        assert edge not in self.edge_data
-        assert rev not in self.edge_data
+        # assert edge not in self.edge_data
+        # assert rev not in self.edge_data
         f_node_c = SchemaNode.get_constituents(edge.from_node)
         t_node_c = SchemaNode.get_constituents(edge.to_node)
         assert len(f_node_c + t_node_c) == len(relation.columns)

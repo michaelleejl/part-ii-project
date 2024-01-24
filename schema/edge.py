@@ -39,6 +39,20 @@ class SchemaEdge:
         elif starting_from == self.to_node:
             return reverse_cardinality(self.cardinality)
 
+    def is_relational(self):
+        return self.cardinality == Cardinality.ONE_TO_MANY or self.cardinality == Cardinality.MANY_TO_MANY
+
+    def get_hidden_keys(self):
+        end = self.to_node
+        if self.is_relational():
+            return SchemaNode.get_constituents(end)
+        else:
+            return []
+
+    @classmethod
+    def invert(cls, edge):
+        return SchemaEdge(edge.to_node, edge.from_node, reverse_cardinality(edge.cardinality))
+
     def __hash__(self):
         return hash(self.__key())
 

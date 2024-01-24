@@ -339,7 +339,7 @@ val_id
         t32 = t31.infer(['val_id'], cardnum['cardnum'])
         t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
         t34 = t33.infer(['person.cardnum'], person['person'])
-        t35 = t34.hide('person.cardnum').hide('cardnum')
+        t35 = t34.forget('person.cardnum').forget('cardnum')
         print(t35.derivation)
         self.assertExpectedInline(str(t35), """\
 [val_id || person]

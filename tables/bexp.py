@@ -174,11 +174,11 @@ class AnyBexp(Bexp):
 
     def to_closure(self, parameters, aggregated_over):
         key_idxs = [find_index(key, parameters) for key in self.keys]
-        idx = find_index(self.column.raw_column, parameters)
-        aggregated_over = aggregated_over + [self.column.raw_column]
+        idx = find_index(self.column, parameters)
+        aggregated_over = aggregated_over + [self.column]
         key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
         if idx == -1:
-            return AnyBexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+            return AnyBexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
         else:
             return AnyBexp(key_params, idx), parameters, aggregated_over
 
@@ -196,9 +196,9 @@ class AllBexp(Bexp):
     def to_closure(self, parameters, aggregated_over):
         key_idxs = [find_index(key, parameters) for key in self.keys]
         idx = find_index(self.column.raw_column, parameters)
-        aggregated_over = aggregated_over + [self.column.raw_column]
+        aggregated_over = aggregated_over + [self.column]
         key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
         if idx == -1:
-            return AllBexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+            return AllBexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
         else:
             return AllBexp(key_params, idx), parameters, aggregated_over

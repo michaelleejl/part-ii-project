@@ -124,14 +124,10 @@ def prj(derivation_step: Project, _, stack, sp) -> interp:
     end_node = derivation_step.end_node
     start_nodes = SchemaNode.get_constituents(start_node)
     end_nodes = SchemaNode.get_constituents(end_node)
-    hidden_keys = derivation_step.hidden_keys
     indices = derivation_step.indices
-    columns = derivation_step.columns
     i = 0
     j = 0
-    k = 0
     df = table.copy()
-    retained = []
     renaming = {j:i for i, j in enumerate(indices)}
     while j < len(end_nodes):
         if indices[j] == i:
@@ -139,11 +135,6 @@ def prj(derivation_step: Project, _, stack, sp) -> interp:
             i += 1
             j += 1
         else:
-            if k < len(hidden_keys) and start_nodes[i] == hidden_keys[k]:
-                column = columns[k]
-                if column.name not in set(df.columns):
-                    df[column.name] = df[i]
-                k += 1
             df = df.drop(i, axis=1)
             i += 1
     df = df.drop(list(range(i, len(start_nodes))), axis=1)
@@ -218,11 +209,8 @@ def srt(derivation_step: Sort, _, stack, sp) -> interp:
 
 def flt(derivation_step: Filter, _, stack, sp) -> interp:
     table = stack[-1]
-    exp = derivation_step.exp
-    arguments = derivation_step.arguments
-    renaming = {c.name:i for (i, c) in enumerate(arguments)}
-    pred = bexp_interpreter(exp)
-    df = table[pred(table.rename(renaming, axis=1))]
+    col = derivation_step.column
+    df = table[(table[col.name].notnull())]
 
     return stack[:-1] + [df], sp
 

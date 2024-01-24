@@ -136,6 +136,9 @@ class Schema:
     def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
         return self.schema_graph.find_shortest_path(node1, node2, via, backwards)
 
+    def find_edge(self, node1: SchemaNode, node2: SchemaNode):
+        return self.schema_graph
+
     def find_shortest_path_between_columns(self, from_columns: list[Domain], to_columns: list[Domain], via: list[SchemaNode] = None, backwards=False):
         node1 = SchemaNode.product([c.node for c in from_columns])
         node2 = SchemaNode.product([c.node for c in to_columns])

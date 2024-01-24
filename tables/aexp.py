@@ -176,11 +176,11 @@ class SumAexp(Aexp):
 
     def to_closure(self, parameters, aggregated_over):
         key_idxs = [find_index(key, parameters) for key in self.keys]
-        idx = find_index(self.column.raw_column, parameters)
-        aggregated_over = aggregated_over + [self.column.raw_column]
+        idx = find_index(self.column, parameters)
+        aggregated_over = aggregated_over + [self.column]
         key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
         if idx == -1:
-            return SumAexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+            return SumAexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
         else:
             return SumAexp(key_params, idx), parameters, aggregated_over
 
@@ -197,11 +197,11 @@ class MaxAexp(Aexp):
 
     def to_closure(self, parameters, aggregated_over):
         key_idxs = [find_index(key, parameters) for key in self.keys]
-        idx = find_index(self.column.raw_column, parameters)
-        aggregated_over = aggregated_over + [self.column.raw_column]
+        idx = find_index(self.column, parameters)
+        aggregated_over = aggregated_over + [self.column]
         key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
         if idx == -1:
-            return MaxAexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+            return MaxAexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
         else:
             return MaxAexp(key_params, idx), parameters, aggregated_over
 
@@ -218,11 +218,11 @@ class MinAexp(Aexp):
 
     def to_closure(self, parameters, aggregated_over):
         key_idxs = [find_index(key, parameters) for key in self.keys]
-        idx = find_index(self.column.raw_column, parameters)
-        aggregated_over = aggregated_over + [self.column.raw_column]
+        idx = find_index(self.column, parameters)
+        aggregated_over = aggregated_over + [self.column]
         key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
         if idx == -1:
-            return MinAexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+            return MinAexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
         else:
             return MinAexp(key_params, idx), parameters, aggregated_over
 
@@ -238,10 +238,10 @@ class CountAexp(Aexp):
 
     def to_closure(self, parameters, aggregated_over):
         key_idxs = [find_index(key, parameters) for key in self.keys]
-        idx = find_index(self.column.raw_column, parameters)
-        aggregated_over = aggregated_over + [self.column.raw_column]
+        idx = find_index(self.column, parameters)
+        aggregated_over = aggregated_over + [self.column]
         key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
         if idx == -1:
-            return CountAexp(key_params, len(parameters)), parameters + [self.column.raw_column], aggregated_over
+            return CountAexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
         else:
             return CountAexp(key_params, idx), parameters, aggregated_over
