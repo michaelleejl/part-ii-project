@@ -120,9 +120,14 @@ class DerivationNode:
         else:
             return self.is_node_in_subtree(node)
 
+    def propagate_hidden_keys_upwards(self, hidden_keys):
+        self.hidden_keys.union(OrderedSet(hidden_keys))
+        if self.parent is not None:
+            self.parent.propagate_hidden_keys_upwards(hidden_keys)
+
     def add_node_as_child(self, node):
         assert not self.is_node_in_tree(node)
-        self.hidden_keys.union(OrderedSet(node.hidden_keys))
+        self.propagate_hidden_keys_upwards(OrderedSet(node.hidden_keys))
         node.parent = self
         self.children.append(node)
         return node
@@ -187,8 +192,12 @@ class DerivationNode:
                 child, = np.array(self.children)[np.array(is_exact_match)]
                 return child
             else:
-                unit_node = DerivationNode([], [], [])
+                stt = StartTraversal(self.domains)
+                prj = Project(start_node, None, [])
+                ent = EndTraversal([], [])
+                unit_node = DerivationNode([], [stt, prj, ent], [])
                 self.add_node_as_child(unit_node)
+                return unit_node
         elif np.sum(np.array(is_exact_match)) == 1:
             child, = (np.array(self.children))[np.array(is_exact_match)]
             return child
@@ -552,6 +561,14 @@ class DerivationNode:
         intermediate.add_nodes_as_children(self.children)
         return intermediate
 
+    def copy(self):
+        copy = DerivationNode(self.domains, self.intermediate_representation,
+                 self.hidden_keys.item_list)
+        for child in self.children:
+            child_copy = child.copy()
+            copy.add_node_as_child(child_copy)
+        return copy
+
 
 
 class ColumnType(abc.ABC):
@@ -660,6 +677,14 @@ class ColumnNode(DerivationNode):
         node.cardinality = self.cardinality
         return node
 
+    def copy(self):
+        copy = ColumnNode(self.domains[0], self.column_type, self.intermediate_representation,
+                 self.hidden_keys.item_list, cardinality=self.cardinality)
+        for child in self.children:
+            child_copy = child.copy()
+            copy.add_node_as_child(child_copy)
+        return copy
+
 class IntermediateNode(DerivationNode):
     def __init__(self, domains: list[Domain], intermediate_representation: list[RepresentationStep],
                  hidden_keys: list[Domain] = None, parent=None,
@@ -684,3 +709,11 @@ class IntermediateNode(DerivationNode):
         node.children = self.children
         node.cardinality = self.cardinality
         return node
+
+    def copy(self):
+        copy = IntermediateNode(self.domains, self.intermediate_representation,
+                 self.hidden_keys.item_list, cardinality=self.cardinality)
+        for child in self.children:
+            child_copy = child.copy()
+            copy.add_node_as_child(child_copy)
+        return copy

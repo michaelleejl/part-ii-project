@@ -22,7 +22,7 @@ def cartesian_product(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     return df1.merge(df2, how="cross").drop_duplicates()
 
 
-def get(derivation_step: Get, backend, sp) -> interp:
+def get(derivation_step: Get, backend, stack, sp) -> interp:
     columns = derivation_step.columns
     nodes = [c.node for c in columns]
     names = [c.name for c in columns]
@@ -31,7 +31,7 @@ def get(derivation_step: Get, backend, sp) -> interp:
     else:
         domains = [backend.get_domain_from_atomic_node(node, name) for node, name in zip(nodes, names)]
         df = reduce(cartesian_product, domains)
-    return [df], sp
+    return stack + [df], sp
 
 
 def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
@@ -120,11 +120,13 @@ def trv(derivation_step: Traverse, backend, stack, sp) -> interp:
 
 def prj(derivation_step: Project, _, stack, sp) -> interp:
     table = stack[-1]
+    indices = derivation_step.indices
+    if len(indices) == 0:
+        return stack[:-1] + [pd.DataFrame()], sp
     start_node = derivation_step.start_node
     end_node = derivation_step.end_node
     start_nodes = SchemaNode.get_constituents(start_node)
     end_nodes = SchemaNode.get_constituents(end_node)
-    indices = derivation_step.indices
     i = 0
     j = 0
     df = table.copy()
@@ -188,7 +190,16 @@ def ent(derivation_step: EndTraversal, _, stack, sp) -> interp:
     x = stack[-1]
     y = stack[-2]
     common = [col for col in list(x.columns) if col in set(y.columns)]
-    res = pd.merge(x.drop(to_drop, axis=1).rename(renaming, axis=1), y, on = common, how="outer")
+    if len(common) == 0:
+        if len(y.columns) == 0:
+            res = x.drop(to_drop, axis=1).rename(renaming, axis=1)
+        elif len(x.columns) == 0:
+            res = pd.DataFrame()
+        else:
+            res = pd.merge(x.drop(to_drop, axis=1).rename(renaming, axis=1), y, how="cross")
+    else:
+        res = pd.merge(x.drop(to_drop, axis=1).rename(renaming, axis=1), y, on = common, how="outer")
+
     res = res.loc[res.astype(str).drop_duplicates().index]
 
     # TODO: Pass through table
@@ -239,7 +250,15 @@ def mer(step, _, stack, sp) -> interp:
     x = stack[-1]
     y = stack[-2]
     common = [col for col in x.columns if col in set(y.columns)]
-    res = pd.merge(x, y, on=common, how="outer")
+    if len(common) == 0:
+        if len(x.columns) == 0:
+            res = y
+        elif len(y.columns) == 0:
+            res = x
+        else:
+            res = pd.merge(x, y, how="cross")
+    else:
+        res = pd.merge(x, y, on=common, how="outer")
     res = res.loc[res.astype(str).drop_duplicates().index]
     return stack[:-2] + [res], sp
 
@@ -255,7 +274,7 @@ def step(next_step: RepresentationStep, backend, stack: list, sp) -> interp:
     match next_step.name:
         case "GET":
             next_step = typing.cast(Get, next_step)
-            return get(next_step, backend, sp)
+            return get(next_step, backend, stack, sp)
         case "PSH":
             next_step = typing.cast(Push, next_step)
             return psh(next_step, backend, stack, sp)

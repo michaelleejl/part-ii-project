@@ -10,8 +10,12 @@ from tables.sexp import *
 
 
 def aggregate(t, keys, col, op):
-    return pd.merge(t[[c for c in t.columns if c != col]], t.groupby(keys)[col].agg(list).apply(op).reset_index(),
-                    on=keys)[col]
+    if len(keys) > 0:
+        return pd.merge(t[[c for c in t.columns if c != col]], t.groupby(keys)[col].agg(list).apply(op).reset_index(),
+                        on=keys)[col]
+    else:
+        # TODO
+        return col
 
 
 def exp_interpreter(exp: Exp):

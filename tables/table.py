@@ -22,7 +22,7 @@ from tables.helpers.transform_step import transform_step
 from tables.helpers.wrap_aexp import wrap_aexp
 from tables.helpers.wrap_bexp import wrap_bexp
 from tables.helpers.wrap_sexp import wrap_sexp
-from tables.internal_representation import RepresentationStep, End, Filter, Sort, Get, EndTraversal
+from tables.internal_representation import RepresentationStep, End, Filter, Sort, Get, EndTraversal, StartTraversal, Pop
 
 existing_column = str | Column | ColumnNode
 new_column = AtomicNode | SchemaClass
@@ -145,7 +145,7 @@ class Table:
     def create_from_table(cls, table):
         table_id = uuid.uuid4().hex
         new_table = Table(table_id,
-                          table.derivation,
+                          table.derivation.copy(),
                           table.intermediate_representation,
                           table.schema,
                           table.table_id)
@@ -335,11 +335,13 @@ class Table:
                     new_child.add_node_as_child(intermediate)
                     new_children += [new_child]
             else:
-                idx = find_index(key.get_domain(), child.columns)
+                domains = child.domains
+
+                idx = find_index(key.get_domain(), domains)
                 if idx >= 0:
-                    intermediate = IntermediateNode(child.columns, repr, child.hidden_keys)
+                    intermediate = IntermediateNode(domains, repr, child.hidden_keys)
                     intermediate.add_nodes_as_children(child.children)
-                    new_child = DerivationNode(child.columns[:idx] + cols_to_add + child.columns[idx+1:], [], child.hidden_keys + hidden_columns)
+                    new_child = DerivationNode(domains[:idx] + cols_to_add + domains[idx+1:], [], child.hidden_keys.item_list + hidden_columns)
                     new_child.add_node_as_child(intermediate)
                     new_children += [new_child]
                 else:
@@ -420,6 +422,8 @@ class Table:
         name = t.get_fresh_name(to_column_name, namespace)
         t.set_displayed_columns(t.displayed_columns + [name])
 
+        namespace |= {name}
+
         # STEP 2
         # Get the shortest path in the schema graph
         strong_keys = t.find_strong_keys_for_column(assumption_columns)
@@ -427,19 +431,20 @@ class Table:
             aggregated_over = []
         old_hidden_keys = t.find_hidden_keys_for_column([col for col in assumption_columns if col.get_domain() not in set(aggregated_over)])
         cardinalities = [column.cardinality for column in assumption_columns]
+        conclusion_column = Domain(name, to_column_node)
 
         if len(assumption_columns) == 0:
             pass
-            # TODO
-            # end_node = self.schema.get_node_with_name(to_column)
-            # derivation = []
-            # repr = [StartTraversal(end_node, Project(end_node), []), EndTraversal(end_node, end_node)]
-            # hidden_keys = [end_node]
+            strong_keys = []
+            hidden_key = Domain(t.get_fresh_name(name, namespace), to_column_node)
+            repr = [Pop(), Get([hidden_key]), StartTraversal([hidden_key]), EndTraversal([hidden_key], [conclusion_column])]
+            hidden_keys = [hidden_key]
+            cardinality = Cardinality.MANY_TO_MANY
         else:
             via_nodes = None
             if via is not None:
                 via_nodes = via
-            conclusion_column = Domain(name, to_column_node)
+
             shortest_p = t.get_representation([c.get_domain() for c in assumption_columns], [conclusion_column], via_nodes, False, aggregated_over, namespace)
             cardinality, repr, hidden_keys = shortest_p
 
@@ -447,7 +452,7 @@ class Table:
         hidden_assumptions = [
             hk
             if str(hk) != name
-            else Domain(name, hk)
+            else hk
             for hk in hidden_keys]
 
         # STEP 3.
@@ -488,7 +493,7 @@ class Table:
         if idx < t.marker:
             t.marker -= 1
         t.set_displayed_columns(t.displayed_columns[:idx] + t.displayed_columns[idx + 1:])
-        t.derivation.hide(column)
+        t.derivation.forget(column)
         t.extend_intermediate_representation()
         t.execute()
         return t

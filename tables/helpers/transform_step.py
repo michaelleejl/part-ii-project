@@ -21,7 +21,7 @@ def transform_step(namespace, table, start, end, aggregated_over) -> Callable[[R
             else:
                 return Expand(step.start_node, step.end_node, step.indices, step.hidden_keys, columns), columns
         elif isinstance(step, EndTraversal):
-            EndTraversal([c for c in start if c not in set(aggregated_over)], end), []
+            return EndTraversal([c for c in start if c not in set(aggregated_over)], end), []
         else:
             return step, []
 
