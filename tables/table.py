@@ -11,11 +11,11 @@ from schema import Cardinality, BaseType, is_sublist
 from schema.helpers.find_index import find_index
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from tables.column import Column
-from tables.derivation_node import DerivationNode, ColumnNode, IntermediateNode
+from tables.derivation.derivation_node import DerivationNode, ColumnNode, IntermediateNode, RootNode
 from tables.domain import Domain
 from tables.exceptions import ColumnsNeedToBeUniqueException, \
     ColumnsNeedToBeInTableAndVisibleException, ColumnsNeedToBeKeysException, ColumnsNeedToBeInTableException, \
-    ColumnsNeedToBeHiddenException, ColumnsNeedToBeValuesException
+    ColumnsNeedToBeValuesException
 from tables.exp import Exp, ExtendExp, MaskExp
 from tables.helpers.carry_keys_through_path import carry_keys_through_representation
 from tables.helpers.transform_step import transform_step
@@ -59,7 +59,7 @@ class Table:
         IS_KEY_OR_VAL_OR_HIDDEN = 7
         IS_UNIQUE = 8
 
-    def __init__(self, table_id, derivation: DerivationNode | None,
+    def __init__(self, table_id, derivation: RootNode | None,
                  intermediate_representation: list[RepresentationStep], schema, derived_from=None):
         self.table_id = table_id
         self.derived_from = derived_from
@@ -146,7 +146,7 @@ class Table:
     def create_from_table(cls, table):
         table_id = uuid.uuid4().hex
         new_table = Table(table_id,
-                          table.derivation.copy(),
+                          table.derivation,
                           table.intermediate_representation,
                           table.schema,
                           table.table_id)
@@ -312,37 +312,7 @@ class Table:
 
         # STEP 4
         # compute the new intermediate representation
-        old_keys = t.derivation.domains
-        old_idx = find_index(key.get_domain(), old_keys)
-        new_keys = old_keys[:old_idx] + cols_to_add + old_keys[old_idx+1:]
-        new_root = DerivationNode.create_root(new_keys)
-        children = t.derivation.children
-        new_children = []
-        for child in children:
-            assert not child.is_val_column()
-            if child == key:
-                if len(child.children) == 0:
-                    continue
-                else:
-                    key_node = new_root.insert_key(cols_to_add)
-                    intermediate = IntermediateNode([key.get_domain()], repr, hidden_columns, None, [], cardinality)
-                    intermediate.add_nodes_as_children(child.children)
-                    key_node.add_node_as_child(intermediate)
-            else:
-                domains = child.domains
-
-                idx = find_index(key.get_domain(), domains)
-                if idx >= 0:
-                    intermediate = IntermediateNode(domains, repr, child.hidden_keys)
-                    intermediate.add_nodes_as_children(child.children)
-                    new_child = DerivationNode(domains[:idx] + cols_to_add + domains[idx+1:], [], child.hidden_keys.item_list)
-                    new_child.add_node_as_child(intermediate)
-                    new_children += [new_child]
-                else:
-                    new_children += [child]
-
-        new_root.add_nodes_as_children(new_children)
-        t.derivation = new_root
+        t.derivation = self.derivation.compose(cols_to_add, key.get_domain(), hidden_columns, repr, cardinality)
         t.extend_intermediate_representation()
         t.execute()
 
@@ -472,7 +442,7 @@ class Table:
         # TODO: Prepend
         # STEP 4
         # Update intermediate representation
-        t.derivation.infer(new_col, strong_keys, old_hidden_keys, hidden_assumptions, assumption_columns, cardinality, repr)
+        t.derivation = self.derivation.infer(new_col, strong_keys, old_hidden_keys, hidden_assumptions, assumption_columns, cardinality, repr)
         t.extend_intermediate_representation()
         t.execute()
 
@@ -573,8 +543,8 @@ class Table:
         # Group 4 {k' | k and k' disjoint}
         group4 = groups[4]
 
-        new_root.add_nodes_as_children(group0)
-        new_root.add_nodes_as_children(group4)
+        new_root.add_children(group0)
+        new_root.add_children(group4)
 
         # Group 1 {k' | k' is subset of k}
         group1 = groups[1]
@@ -582,10 +552,10 @@ class Table:
             if child in set(key_node.children.item_list):
                 key_node.remove_child_node(child)
             if len(child.domains) > 1:
-                key_node.add_node_as_child(child.to_intermediate_node())
+                key_node.add_child(child.to_intermediate_node())
             else:
                 child.to_value_column()
-                key_node.add_node_as_child()
+                key_node.add_child()
 
         key_node.parent = None
         path = key_node.path_to_value(val_node)
@@ -599,7 +569,7 @@ class Table:
         inverted_repr = [n.intermediate_representation for n in inverted[1:]]
         # todo: update cardinality
         new_key = new_root.insert_key(val_doms)
-        new_key.add_node_as_child(inverted[1])
+        new_key.add_child(inverted[1])
 
         # Group 2 {k' | k is subset of k'}
         group2 = groups[2]
@@ -620,26 +590,26 @@ class Table:
                 intermediate = child.to_intermediate_node()
                 new_ir = carry_keys_through_representation(inverted_repr, difference)
                 intermediate.internal_representation = new_ir
-                key_node.add_node_as_child(intermediate)
+                key_node.add_child(intermediate)
             else:
                 path = child.path_to_value(val_doms + difference)
                 inverted_path = DerivationNode.invert_path(path, t)
                 end = inverted_path[-1].to_intermediate_node()
                 inverted_path[-2].remove_child(inverted_path[-1].domains)
-                inverted_path[-2].add_node_as_child(end)
-                t.derivation.add_node_as_child(inverted_path[0])
+                inverted_path[-2].add_child(end)
+                t.derivation.add_child(inverted_path[0])
                 to_merge[difference] = end
 
         for child in group3:
             difference = [d for d in child.domains if d not in set(key_node.children.item_list)]
             if difference in to_merge:
-                to_merge[difference].add_node_as_child(child)
+                to_merge[difference].add_child(child)
             else:
                 key_node = t.derivation.insert_key(val_doms + difference)
                 new_ir = carry_keys_through_representation(inverted_repr, difference)
                 intermediate = IntermediateNode(key_doms + difference, new_ir, inverted[-1].get_hidden())
-                key_node.add_node_as_child(intermediate)
-                intermediate.add_node_as_child(child)
+                key_node.add_child(intermediate)
+                intermediate.add_child(child)
                 to_merge[difference] = intermediate
 
         t.extend_intermediate_representation()

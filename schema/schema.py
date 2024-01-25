@@ -4,11 +4,10 @@ from backend.pandas_backend.determine_base_type_of_columns import determine_base
 from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.pandas_backend import PandasBackend
 from schema.edge import SchemaEdge
-from schema.exceptions import ClusterAlreadyExistsException, NodesDoNotExistInGraphException, \
+from schema.exceptions import NodesDoNotExistInGraphException, \
     ClassAlreadyExistsException, CannotRenameClassException
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode, AtomicNode, SchemaClass
-from tables.derivation_node import ColumnNode
 from tables.internal_representation import StartTraversal, EndTraversal
 from tables.function import Function
 from tables.domain import Domain
