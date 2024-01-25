@@ -25,3 +25,6 @@ class Domain:
             return self.__hash__() == other.__hash__()
         else:
             raise NotImplemented()
+
+    def copy(self):
+        return Domain(self.name, self.node)

@@ -226,6 +226,7 @@ cardnum
         t21 = s.get([cardnum["cardnum"]])
         t22 = t21.infer(["cardnum"], cardnum["val_id"])
         t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid")
+        print("T23 DERIVATION")
         print(t23.derivation)
         self.maxDiff = None
         self.assertExpectedInline(str(t23), """\

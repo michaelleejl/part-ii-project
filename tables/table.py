@@ -133,6 +133,7 @@ class Table:
         else:
             self.intermediate_representation = with_new_representation
         left, hids, right = self.get_columns_as_lists()
+        print(self.derivation)
         self.intermediate_representation += [End(left, hids, right)]
 
     def execute(self):
@@ -315,7 +316,6 @@ class Table:
         old_idx = find_index(key.get_domain(), old_keys)
         new_keys = old_keys[:old_idx] + cols_to_add + old_keys[old_idx+1:]
         new_root = DerivationNode.create_root(new_keys)
-        new_root.hidden_keys.append_all(hidden_columns)
         children = t.derivation.children
         new_children = []
         for child in children:
@@ -335,7 +335,7 @@ class Table:
                 if idx >= 0:
                     intermediate = IntermediateNode(domains, repr, child.hidden_keys)
                     intermediate.add_nodes_as_children(child.children)
-                    new_child = DerivationNode(domains[:idx] + cols_to_add + domains[idx+1:], [], child.hidden_keys.item_list + hidden_columns)
+                    new_child = DerivationNode(domains[:idx] + cols_to_add + domains[idx+1:], [], child.hidden_keys.item_list)
                     new_child.add_node_as_child(intermediate)
                     new_children += [new_child]
                 else:
@@ -583,6 +583,7 @@ class Table:
         inverted = DerivationNode.invert_path(path, t)
         for i in range(len(inverted)-1, 0, -1):
             inverted[i].intermediate_representation = inverted[i-1].intermediate_representation
+            inverted[i].hidden_keys = inverted[i-1].hidden_keys
         inverted_repr = [n.intermediate_representation for n in inverted[1:]]
         # todo: update cardinality
         new_key = new_root.insert_key(val_doms)

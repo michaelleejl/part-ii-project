@@ -63,6 +63,14 @@ class OrderedSet:
         else:
             raise NotImplemented()
 
+    def functional_union(self, other):
+        if isinstance(other, OrderedSet):
+            res = OrderedSet(self.item_list)
+            res.append_all(other.item_list)
+            return res
+        else:
+            raise NotImplemented()
+
     def __len__(self):
         return len(self.item_list)
 
@@ -72,23 +80,26 @@ class OrderedSet:
     def __getitem__(self, item):
         return self.item_list[item]
 
+    def copy(self):
+        return OrderedSet([i.copy() for i in self.item_list])
+
 
 class DerivationNode:
     def __init__(self, domains: list[Domain], intermediate_representation: list[RepresentationStep],
                  hidden_keys: list[Domain] = None, parent=None,
                  children: list[tuple[SchemaNode, list[RepresentationStep], list[Domain]]] = None):
-        self.domains = domains
-        self.intermediate_representation = intermediate_representation
+        self.domains = domains.copy()
+        self.intermediate_representation = intermediate_representation.copy()
         self.on_completion = None
         self.parent = parent
         if children is None:
-            self.children = OrderedSet()
+            self.children = OrderedSet([])
         else:
             self.children = OrderedSet([DerivationNode(n, ir, hk, parent=self) for (n, ir, hk) in children])
         if hidden_keys is None:
-            self.hidden_keys = OrderedSet()
+            self.hidden_keys = OrderedSet([])
         else:
-            self.hidden_keys = OrderedSet(hidden_keys)
+            self.hidden_keys = OrderedSet(hidden_keys.copy())
 
     @classmethod
     def create_root(cls, domains: list[Domain]):
@@ -102,10 +113,22 @@ class DerivationNode:
             root.add_node_as_child(key_node)
         return root
 
+    def get_hidden(self):
+        assert self.parent is None
+        return self.get_all_hidden_keys_in_subtree().item_list
     def find_hidden(self, name: str):
         assert self.parent is None
-        idx = find_index(name, [d.name for d in self.get_hidden()])
-        return self.get_hidden()[idx]
+        hidden_keys = self.get_all_hidden_keys_in_subtree()
+        idx = find_index(name, [d.name for d in hidden_keys])
+        return hidden_keys[idx]
+
+    def get_all_hidden_keys_in_subtree(self):
+        hidden_keys = OrderedSet([])
+        for child in self.children:
+            hk = child.get_all_hidden_keys_in_subtree()
+            hidden_keys.union(hk)
+        hidden_keys.union(self.hidden_keys)
+        return hidden_keys
 
     def is_node_in_subtree(self, node):
         if self == node:
@@ -121,14 +144,8 @@ class DerivationNode:
         else:
             return self.parent.is_node_in_tree(node)
 
-    def propagate_hidden_keys_upwards(self, hidden_keys):
-        self.hidden_keys.union(OrderedSet(hidden_keys))
-        if self.parent is not None:
-            self.parent.propagate_hidden_keys_upwards(hidden_keys)
-
     def add_node_as_child(self, node):
         assert not self.is_node_in_tree(node)
-        self.propagate_hidden_keys_upwards(OrderedSet(node.hidden_keys))
         node.parent = self
         self.children.append(node)
         return node
@@ -137,17 +154,10 @@ class DerivationNode:
         for node in nodes:
             self.add_node_as_child(node)
 
-    def recompute_hidden_keys(self):
-        new_hidden_keys = OrderedSet()
-        for child in self.children:
-            new_hidden_keys.union(child.hidden_keys)
-
     def remove_child(self, domains: list[Domain]):
         idx = find_index(domains, [c.domains for c in self.children])
         child = self.children[idx]
         self.children.remove(child)
-        # TODO: Batch it together
-        self.recompute_hidden_keys()
         child.parent = None
         return child
 
@@ -311,25 +321,13 @@ class DerivationNode:
                 new_ir += [next_step]
                 hidden_columns += cols
             curr.intermediate_representation = new_ir
-            if len(hidden_columns) > 0:
-                curr.propagate_hidden_keys(hidden_columns)
+            curr.hidden_keys = OrderedSet(hidden_columns)
             if curr.is_key_column():
                 curr.to_value_column(Cardinality.MANY_TO_MANY)
             new_path += [curr]
             curr = prev
             i-=1
         return new_path
-
-    def propagate_hidden_keys(self, hidden_keys):
-        to_append = hidden_keys
-        domains = []
-        if self.parent is not None:
-            domains = self.parent.domains
-        if is_sublist(self.domains, domains):
-            to_append = [hk for hk in hidden_keys if hk not in set(self.parent.domains).difference(self.domains)]
-        self.hidden_keys.append_all(to_append)
-        for child in self.children:
-            child.propagate_hidden_keys(to_append)
 
     def remove_value(self, node):
         assert isinstance(node, ColumnNode) and isinstance(node.column_type, Val)
@@ -374,19 +372,23 @@ class DerivationNode:
               intermediates: list, cardinality, repr: list[RepresentationStep]):
         assert self.parent is None
         to_prepend = []
-        for i, intermediate in enumerate(intermediates):
-            intermediate_steps = intermediate.intermediate_representation
-            if i == 0:
-                to_prepend += intermediate_steps
-            else:
-                to_prepend += [Reset()] + intermediate_steps + [Merge()]
+        filtered = set([i.domains[0] for i in intermediates]).difference(set(strong_keys))
         key_node = self.insert_key(strong_keys)
-        intermediate_node = key_node.find_node_with_domains([i.domains[0] for i in intermediates])
-        if intermediate_node is None:
-            intermediate_cardinality = functools.reduce(compose_cardinality, [i.cardinality for i in intermediates])
-            intermediate_node = IntermediateNode([i.domains[0] for i in intermediates], to_prepend, old_hids, intermediate_cardinality)
-            key_node.add_node_as_child(intermediate_node)
-        intermediate_node.insert_value(value, strong_keys, repr, old_hids + new_hids, cardinality)
+        if len(filtered) > 0:
+            for i, intermediate in enumerate(intermediates):
+                intermediate_steps = intermediate.intermediate_representation
+                if i == 0:
+                    to_prepend += intermediate_steps
+                else:
+                    to_prepend += [Reset()] + intermediate_steps + [Merge()]
+            intermediate_node = key_node.find_node_with_domains([i.domains[0] for i in intermediates])
+            if intermediate_node is None:
+                intermediate_cardinality = functools.reduce(compose_cardinality, [i.cardinality for i in intermediates])
+                intermediate_node = IntermediateNode([i.domains[0] for i in intermediates], to_prepend, old_hids, intermediate_cardinality)
+                key_node.add_node_as_child(intermediate_node)
+            intermediate_node.insert_value(value, strong_keys, repr, new_hids, cardinality)
+        else:
+            key_node.insert_value(value, strong_keys, repr, new_hids, cardinality)
 
     def hide_internal(self, column):
         col = column
@@ -395,6 +397,7 @@ class DerivationNode:
             self.domains = self.domains[:idx] + self.domains[idx+1:]
             self.hidden_keys.append(col)
 
+        #TODO: Propagate hidden keys
         for child in self.children:
             child.hide_internal(col)
 
@@ -437,36 +440,58 @@ class DerivationNode:
     def show_internal(self, column):
         col = column
 
-        new_children = []
-        new_children_indices = {}
+        without_col = []
+        without_col_idxs = {}
+        with_col = []
+        with_col_idxs = {}
         for child in self.children:
-            new = child.show_internal(col)
-            for new_child in new:
-                if new_child not in new_children_indices:
-                    new_children_indices[new_child] = len(new_children)
-                    new_children += [new_child]
+            if col not in child.hidden_keys.item_set:
+                new = child.show_internal(col)
+                for new_child in new:
+                    idx = find_index(col, new_child.domains)
+                    if idx < 0:
+                        array = without_col
+                        idxs = without_col_idxs
+                    else:
+                        array = with_col
+                        idxs = with_col_idxs
+                    if new_child not in idxs:
+                        idxs[new_child] = len(array)
+                        array += [new_child]
+                    else:
+                        base = array[idxs[new_child]]
+                        base.add_nodes_as_children(new_child.children)
+            else:
+                child.hidden_keys.remove(col)
+                new_child = child
+                array = with_col
+                idxs = with_col_idxs
+                if new_child not in idxs:
+                    idxs[new_child] = len(array)
+                    array += [new_child]
                 else:
-                    base = new_children[new_children_indices[new_child]]
+                    base = array[idxs[new_child]]
                     base.add_nodes_as_children(new_child.children)
 
-        idx = find_index(col, self.get_hidden())
-        if idx < 0:
+        if len(with_col) == 0:
             self.children = OrderedSet([])
-            self.add_nodes_as_children(new_children)
+            self.add_nodes_as_children(without_col)
             return [self]
         else:
-            with_hk = self.duplicate()
-            without_hk = self.duplicate()
+            self.children = OrderedSet([])
+            with_hk = self.copy()
+            with_hk.children = OrderedSet([])
+            without_hk = self.copy()
+            without_hk.children = OrderedSet([])
+
+            if with_hk.is_key_column():
+                with_hk = with_hk.to_derivation_node()
 
             with_hk.domains += [column]
-            with_hk.hidden_keys.remove(col)
 
-            for child in new_children:
-                c_idx = find_index(col, child.domains)
-                if c_idx >= 0:
-                    with_hk.add_node_as_child(child)
-                else:
-                    without_hk.add_node_as_child(child)
+            with_hk.add_nodes_as_children(with_col)
+            without_hk.add_nodes_as_children(without_col)
+
             return [with_hk, without_hk]
 
     def forget(self, column):
@@ -554,8 +579,11 @@ class DerivationNode:
         values = self.get_values()
         return keys + values
 
-    def get_hidden(self):
-        return self.hidden_keys.item_list
+    def get_hidden_keys_for_val(self):
+        if self.parent is None:
+            return OrderedSet([])
+        else:
+            return self.parent.get_hidden_keys_for_val().functional_union(self.hidden_keys)
 
     def is_key_column(self):
         return False
@@ -570,16 +598,16 @@ class DerivationNode:
             return self.parent.find_strong_keys()
 
     def duplicate(self):
-        node = DerivationNode(self.domains, self.intermediate_representation)
-        node.hidden_keys = self.hidden_keys
-        node.parent = self.parent
-        node.children = self.children
-        return node
+        return self.copy()
+
+    def to_derivation_node(self):
+        copy = DerivationNode([d.copy() for d in self.domains], self.intermediate_representation,
+                              [hk.copy() for hk in self.hidden_keys.item_list])
+        copy.children = self.children.copy()
+        return copy
 
     def __hash__(self):
-        if self.parent is None:
-            return hash((tuple([c.name for c in self.domains]), tuple([c.name for c in self.hidden_keys])))
-        return hash((tuple([c.name for c in self.domains]), tuple([c.name for c in self.hidden_keys]), self.parent))
+        return hash((tuple([c.name for c in self.domains])))
 
     def __eq__(self, other):
         if isinstance(other, DerivationNode):
@@ -602,13 +630,10 @@ class DerivationNode:
         return intermediate
 
     def copy(self):
-        copy = DerivationNode(self.domains, self.intermediate_representation,
-                 self.hidden_keys.item_list)
-        for child in self.children:
-            child_copy = child.copy()
-            copy.add_node_as_child(child_copy)
+        copy = DerivationNode([d.copy() for d in self.domains], self.intermediate_representation,
+                 [hk.copy() for hk in self.hidden_keys.item_list])
+        copy.children = self.children.copy()
         return copy
-
 
 
 class ColumnType(abc.ABC):
@@ -664,7 +689,7 @@ class Val(ColumnType):
         return node.find_strong_keys()
 
     def get_hidden_keys(self, node):
-        return node.get_hidden()
+        return node.get_hidden_keys_for_val()
 
     def get_derivation(self, node):
         return self.get_strong_keys(node), self.get_hidden_keys(node)
