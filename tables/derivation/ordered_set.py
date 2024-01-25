@@ -74,6 +74,9 @@ class OrderedSet:
     def __copy__(self):
         return self.copy()
 
+    def __contains__(self, item):
+        return item in self.item_set
+
     def to_list(self):
         return copy.copy(self.item_list)
 

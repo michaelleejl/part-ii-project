@@ -338,7 +338,7 @@ val_id
 
 """)
 
-    def test_ex1_goal4_step5_hide(self):
+    def test_ex1_goal4_step5_forget(self):
         s, cardnum, person = self.initialise()
         t31 = s.get([cardnum['val_id']])
         t32 = t31.infer(['val_id'], cardnum['cardnum'])

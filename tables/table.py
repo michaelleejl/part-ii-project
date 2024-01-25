@@ -48,6 +48,33 @@ def check_for_uniqueness(column_names):
     if len(column_names) != len(set(column_names)):
         raise ColumnsNeedToBeUniqueException()
 
+
+def classify_groups(children, to_invert):
+    groups = {n:[] for n in range(5)}
+    for i, child in enumerate(children):
+        domains = child.domains
+        if len(domains) == 0:
+            groups[0] += [child]
+            continue
+        elif domains == to_invert:
+            continue
+        elif is_sublist(domains, to_invert):
+            groups[1] += [child]
+            continue
+        elif is_sublist(to_invert, domains):
+            groups[2] += [child]
+            continue
+        elif len(set(to_invert).intersection(set(domains))) > 0:
+            groups[3] += [child]
+            continue
+        elif len(set(to_invert).intersection(set(domains))) == 0:
+            groups[4] += [child]
+            continue
+        else:
+            assert False
+    return groups
+
+
 class Table:
     class ColumnRequirements(Enum):
         IS_KEY = 1
@@ -456,7 +483,7 @@ class Table:
         if idx < t.marker:
             t.marker -= 1
         t.set_displayed_columns(t.displayed_columns[:idx] + t.displayed_columns[idx + 1:])
-        t.derivation.hide(column)
+        t.derivation = self.derivation.hide(column)
         t.extend_intermediate_representation()
         t.execute()
         return t
@@ -469,7 +496,7 @@ class Table:
         if idx < t.marker:
             t.marker -= 1
         t.set_displayed_columns(t.displayed_columns[:idx] + t.displayed_columns[idx + 1:])
-        t.derivation.forget(column)
+        t.derivation = self.derivation.forget(column)
         t.extend_intermediate_representation()
         t.execute()
         return t
@@ -483,7 +510,7 @@ class Table:
         col = t.derivation.find_hidden(name)
         t.set_displayed_columns(t.displayed_columns[:t.marker] + [column] + t.displayed_columns[t.marker:])
         t.marker += 1
-        t.derivation.show(col)
+        t.derivation = self.derivation.show(col)
         t.extend_intermediate_representation()
         t.execute()
         return t
@@ -532,7 +559,7 @@ class Table:
         new_root = DerivationNode.create_root(new_keys)
 
         children = old_root.children.item_list
-        groups = self.classify_groups(children, key_doms)
+        groups = classify_groups(children, key_doms)
 
         # Six groups
         # Holy fuck
@@ -616,40 +643,6 @@ class Table:
         t.execute()
         return t
 
-    def classify_groups(self, children, to_invert):
-        groups = {n:[] for n in range(5)}
-        for i, child in enumerate(children):
-            domains = child.domains
-            if len(domains) == 0:
-                groups[0] += [child]
-                continue
-            elif domains == to_invert:
-                continue
-            elif is_sublist(domains, to_invert):
-                groups[1] += [child]
-                continue
-            elif is_sublist(to_invert, domains):
-                groups[2] += [child]
-                continue
-            elif len(set(to_invert).intersection(set(domains))) > 0:
-                groups[3] += [child]
-                continue
-            elif len(set(to_invert).intersection(set(domains))) == 0:
-                groups[4] += [child]
-                continue
-            else:
-                assert False
-        return groups
-
-
-    def filter(self, by: existing_column):
-        column = self.get_existing_column(by)
-        self.verify_columns([column], {Table.ColumnRequirements.IS_KEY_OR_VAL})
-        t = Table.create_from_table(self)
-        t.extend_intermediate_representation([Filter(column.get_domain())])
-        t.execute()
-        return t
-
     def equate(self, col1, col2):
         self.verify_columns([col1, col2], {Table.ColumnRequirements.IS_KEY_OR_VAL})
 
@@ -672,6 +665,14 @@ class Table:
         rexp = Column(column1) == Column(column2)
         exp, arguments, _ = Exp.convert_exp(rexp)
         t.extend_intermediate_representation([Filter(exp, arguments)])
+        t.execute()
+        return t
+
+    def filter(self, by: existing_column):
+        column = self.get_existing_column(by)
+        self.verify_columns([column], {Table.ColumnRequirements.IS_KEY_OR_VAL})
+        t = Table.create_from_table(self)
+        t.extend_intermediate_representation([Filter(column.get_domain())])
         t.execute()
         return t
 
