@@ -25,12 +25,12 @@ class ColumnsNeedToBeKeysException(Exception):
 
 class ColumnsNeedToBeValuesException(Exception):
     def __init__(self):
-        super().__init__("All columns need to be keys")
+        super().__init__("All columns need to be values")
 
 
 class ColumnsNeedToBeHiddenException(Exception):
     def __init__(self):
-        super().__init__("All columns need to be keys")
+        super().__init__("All columns need to be hidden")
 
 
 class ColumnsNeedToBeInTableAndVisibleException(Exception):

@@ -38,6 +38,14 @@ def exp_interpreter(exp: Exp):
                 col = ext.column
                 fun = exp_interpreter(ext.fexp)
                 return lambda t: t[col].where(t[col].notna(), fun(t))
+            case "MSK":
+                msk = typing.cast(MaskExp, exp)
+                keys = msk.keys
+                col = msk.column
+                bxp = bexp_interpreter(msk.bexp)
+                def anon(t):
+                    return t[col].where(bxp(t).notna() & bxp(t), np.nan)
+                return anon
 
 
 def aexp_interpreter(exp: Aexp):

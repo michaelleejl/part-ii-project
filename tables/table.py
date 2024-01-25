@@ -15,8 +15,8 @@ from tables.derivation_node import DerivationNode, ColumnNode, IntermediateNode
 from tables.domain import Domain
 from tables.exceptions import ColumnsNeedToBeUniqueException, \
     ColumnsNeedToBeInTableAndVisibleException, ColumnsNeedToBeKeysException, ColumnsNeedToBeInTableException, \
-    ColumnsNeedToBeHiddenException
-from tables.exp import Exp, ExtendExp
+    ColumnsNeedToBeHiddenException, ColumnsNeedToBeValuesException
+from tables.exp import Exp, ExtendExp, MaskExp
 from tables.helpers.carry_keys_through_path import carry_keys_through_representation
 from tables.helpers.transform_step import transform_step
 from tables.helpers.wrap_aexp import wrap_aexp
@@ -194,7 +194,7 @@ class Table:
         if Table.ColumnRequirements.IS_KEY in requirements and not set(columns).issubset(keys):
             raise ColumnsNeedToBeKeysException()
         if Table.ColumnRequirements.IS_VAL in requirements and not set(columns).issubset(vals):
-            raise ColumnsNeedToBeHiddenException()
+            raise ColumnsNeedToBeValuesException()
         if Table.ColumnRequirements.IS_UNIQUE in requirements and not len(set(columns)) == len(columns):
             raise ColumnsNeedToBeUniqueException()
 
@@ -391,6 +391,18 @@ class Table:
         assert value.get_schema_node().node_type == with_function.exp_type
         function = ExtendExp([], value.domains[0], with_function, with_function.exp_type)
         return self.deduce(function, with_name)
+
+    def mask(self, column: existing_column, mask_with, with_name: str):
+        column = self.get_existing_column(column)
+        self.verify_columns([column], {self.ColumnRequirements.IS_KEY_OR_VAL})
+        strong_keys = self.find_strong_keys_for_column([column])
+        hidden_keys = [hk for hk in column.get_hidden_keys() if hk.name != column]
+
+        mask_with = wrap_bexp(mask_with)
+        assert len(strong_keys + hidden_keys) > 0
+        function = MaskExp([], column.domains[0], mask_with, column.get_schema_node().node_type)
+        return self.deduce(function, with_name)
+
 
     # TODO: Handle the case where from columns is zero
     def infer(self, from_columns: list[existing_column], to_column: new_column, via: list[SchemaNode] = None,
@@ -658,8 +670,6 @@ class Table:
             else:
                 assert False
         return groups
-
-
 
 
     def filter(self, by: existing_column):

@@ -169,16 +169,16 @@ Val_id Cardnum
         t1 = s.get([Val_id, Cardnum])
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"])
-        t4 = t3.filter(t3["bonus"].isnotnull())
+        t4 = t3.filter(t3["bonus"])
         self.assertExpectedInline(str(t4), """\
 [Val_id Cardnum || bonus tstart]
                 bonus               tstart
 Val_id Cardnum                            
 1      5172       4.0  2023-01-01 09:50:00
-       1410      12.0  2023-01-01 09:50:00
 2      1111       5.0  2023-01-01 11:10:00
-       6440       7.0  2023-01-01 11:10:00
 3      1111       1.0  2023-01-01 15:32:00
+1      1410      12.0  2023-01-01 09:50:00
+2      6440       7.0  2023-01-01 11:10:00
 5      1410       2.0  2023-01-01 20:11:00
 42 keys hidden
 
@@ -229,12 +229,14 @@ Val_id Cardnum
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"])
         t4 = t3.infer(["Val_id"], cardnum["cardnum"])
-        t5 = t4.deduce(t4["Cardnum"] == t4["cardnum"])
+        t5 = t4.mask(t4["Cardnum"], (t4["Cardnum"] == t4["cardnum"]) & t4["bonus"].isnotnull(), "Cardnum_filtered")
+        t6 = t5.filter(t5["Cardnum_filtered"])
+        self.maxDiff = None
         self.assertExpectedInline(str(t6), """\
-[Val_id Cardnum || bonus tstart cardnum]
-                bonus               tstart  cardnum
-Val_id Cardnum                                     
-1      5172       4.0  2023-01-01 09:50:00     5172
+[Val_id Cardnum || bonus tstart cardnum Cardnum_filtered]
+                bonus               tstart  cardnum Cardnum_filtered
+Val_id Cardnum                                                      
+1      5172       4.0  2023-01-01 09:50:00   5172.0             5172
 47 keys hidden
 
 """)

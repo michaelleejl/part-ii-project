@@ -75,11 +75,11 @@ Steve   [funding, investment, budget]
 [person task_1 || task]
                          task
 person task_1                
-Dick   manpower      manpower
-Tom    research      research
 Steve  funding        funding
        investment  investment
        budget          budget
+Tom    research      research
+Dick   manpower      manpower
 23 keys hidden
 
 """)
@@ -95,14 +95,15 @@ Steve  funding        funding
         t2 = t1.infer(["person"], task["task"])
         t3 = t2.show("task_1")
         t4 = t3.hide("task_1")
-        print(t4)
+        print("T4 DERIVATION")
+        print(t4.derivation)
         self.assertExpectedInline(str(t4), """\
 [person || task]
                                  task
 person                               
-Dick                       [manpower]
-Tom                        [research]
 Steve   [funding, investment, budget]
+Tom                        [research]
+Dick                       [manpower]
 1 keys hidden
 
 """)
@@ -119,11 +120,11 @@ Steve   [funding, investment, budget]
 [person task_1 || task]
                          task
 person task_1                
-Dick   manpower      manpower
-Tom    research      research
 Steve  funding        funding
        investment  investment
        budget          budget
+Tom    research      research
+Dick   manpower      manpower
 23 keys hidden
 
 """)

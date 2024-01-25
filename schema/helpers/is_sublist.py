@@ -9,5 +9,5 @@ def is_sublist(list1, list2):
         new_index = find_index(item, list2[start_index:]) + start_index
         if start_index > new_index:
             return False
-        start_index = new_index
+        start_index = new_index + 1
     return True
