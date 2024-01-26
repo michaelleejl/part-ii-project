@@ -57,8 +57,10 @@ class DerivationNode:
             return functools.reduce(operator.or_, [c.is_node_in_tree(node) for c in self.children])
 
     def set_parent(self, parent):
-        self.parent = parent
-        return self
+        clone = self.copy()
+        clone.parent = parent
+        clone.children = OrderedSet([c.set_parent(clone) for c in self.children])
+        return clone
 
     def add_child(self, parent, child):
         clone = self.copy()
@@ -67,7 +69,7 @@ class DerivationNode:
             clone.children = clone.children.append(child.set_parent(clone))
             return clone
         else:
-            clone.children = OrderedSet([c.add_child(parent, child).set_parent(clone) for c in self.children])
+            clone.children = OrderedSet([c.set_parent(clone).add_child(parent, child) for c in self.children])
         return clone
 
     def add_children(self, parent, children):
@@ -77,7 +79,7 @@ class DerivationNode:
             clone.children = clone.children.append_all([c.set_parent(clone) for c in children])
             return clone
         else:
-            clone.children = OrderedSet([c.add_children(parent, children).set_parent(clone) for c in self.children])
+            clone.children = OrderedSet([c.set_parent(clone).add_children(parent, children) for c in self.children])
         return clone
 
     def remove_child(self, child):
@@ -86,7 +88,7 @@ class DerivationNode:
             if c == child:
                 continue
             else:
-                parent.children = parent.children.append(c.remove_child(child).set_parent(parent))
+                parent.children = parent.children.append(c.set_parent(parent).remove_child(child))
         return parent
 
     def remove_children(self, children):
@@ -95,7 +97,7 @@ class DerivationNode:
             if c in set(children):
                 continue
             else:
-                parent.children.append(c.remove_children(children).set_parent(parent))
+                parent.children.append(c.set_parent(parent).remove_children(children))
         return parent
 
     def find_node_with_domains(self, domains):
@@ -148,76 +150,70 @@ class DerivationNode:
             return None
 
     @classmethod
-    def invert_path_internal(cls, path: list, table, namespace, prev_domains, hidden):
-        if len(path) == 0:
-            return []
-        else:
-            curr = path[0]
-            inverted = invert_representation(curr.intermediate_representation)
-            get_next_step = transform_step(namespace, table, curr.domains, prev_domains, [])
-            inverted = invert_representation(curr.intermediate_representation)
-            hidden_columns = []
-            new_ir = []
-            for step in inverted:
-                next_step, cols = get_next_step(step)
-                new_ir += [next_step]
-                hidden_columns += cols
-            curr.intermediate_representation = new_ir
-            if len(path) == 1:
-                inverted_tail = []
-                inv_hidden = []
-            else:
-                curr.remove_child_node(path[1])
-                path[1].parent = None
-                inverted_tail, inv_hidden = DerivationNode.invert_path_internal(path[1:], table,
-                                                                                namespace | set(curr.domains) | set(
-                                                                                    prev_domains), curr.domains, hidden)
-                inverted_tail[-1].add_child(curr)
-
-            return inverted_tail + [curr], inv_hidden + [hidden_columns]
-
-    @classmethod
     def invert_path(cls, path: list, table):
         start: DerivationNode = path[-1]
         end: DerivationNode = path[0]
         parent = end.parent
 
-        # should be detached from tree
         assert parent is None
-
-        curr: DerivationNode = path[-1]
 
         namespace = table.get_namespace()
 
-        i = len(path) - 1
-        new_path = []
+        curr: DerivationNode = path[-2].copy()
+
+        start_inverted = invert_representation(start.intermediate_representation)
+        new_start_ir = []
+        start_hidden_cols = []
+        namespace |= set([d.name for d in start.domains + curr.domains])
+        get_next_step = transform_step(namespace, table, start.domains, curr.domains, [])
+        for step in start_inverted:
+            next_step, cols = get_next_step(step)
+            new_start_ir += [next_step]
+            start_hidden_cols += cols
+        intermediate_representation = new_start_ir
+        hidden_keys = start_hidden_cols
+
+        i = len(path) - 2
+        start = start.set_parent(None)
+        new_path = start
+        parent = start
+
+        path_representation = [new_start_ir]
+
         while i >= 0:
-            prev_domains = []
-            prev = None
+            child = None
+            child_domains = []
             if i > 0:
-                prev = path[i - 1]
-                prev.remove_child_node(curr)
-                curr.parent = None
-                curr.add_child(prev)
-                prev_domains = prev.domains
+                child = path[i-1]
+                child_domains = child.domains
+            curr.children = OrderedSet([c for c in curr.children if c != parent])
 
             inverted = invert_representation(curr.intermediate_representation)
             hidden_columns = []
             new_ir = []
-            namespace |= set([d.name for d in curr.domains + prev_domains])
-            get_next_step = transform_step(namespace, table, curr.domains, prev_domains, [])
+            namespace |= set([d.name for d in curr.domains + child_domains])
+            get_next_step = transform_step(namespace, table, curr.domains, child_domains,[])
             for step in inverted:
                 next_step, cols = get_next_step(step)
                 new_ir += [next_step]
                 hidden_columns += cols
-            curr.intermediate_representation = new_ir
-            curr.hidden_keys = OrderedSet(hidden_columns)
+
+            curr.intermediate_representation = intermediate_representation
+            path_representation = [intermediate_representation] + path_representation
+            curr.hidden_keys = OrderedSet(hidden_keys)
+
+            intermediate_representation = new_ir
+            hidden_keys = hidden_columns
+
             if curr.is_key_column():
-                curr.to_value_column(Cardinality.MANY_TO_MANY)
-            new_path += [curr]
-            curr = prev
+                curr = curr.to_value_column(Cardinality.MANY_TO_MANY)
+
+            new_path = new_path.add_child(parent, curr)
+            parent = curr
+            curr = child
             i -= 1
-        return new_path
+        assert len(new_path.children) == 1
+        return new_path.children[0], path_representation
 
     def remove_value(self, node):
         assert isinstance(node, ColumnNode) and isinstance(node.column_type, Val)
@@ -227,15 +223,16 @@ class DerivationNode:
             else:
                 intermediate_node = self.to_intermediate_node()
                 intermediate_node.cardinality = self.cardinality
+                intermediate_node.children = OrderedSet([c.set_parent(intermediate_node) for c in self.children])
                 return intermediate_node
         else:
             new_node = self.copy()
             new_children = []
             for child in self.children:
-                new_child = child.remove_value(node)
+                new_child = child.set_parent(new_node).remove_value(node)
                 if new_child is not None:
                     new_children += [new_child]
-            new_node.children = OrderedSet([])
+            new_node.children = OrderedSet(new_children)
             new_node.parent = None
             return new_node
 
@@ -309,7 +306,8 @@ class DerivationNode:
 
         if len(with_col) == 0:
             new_node = self.copy()
-            return [new_node.add_children(new_node, without_col)]
+            new_node.children = OrderedSet([c.set_parent(new_node) for c in without_col])
+            return [new_node]
         else:
             with_hk = self.copy()
             without_hk = self.copy()
@@ -319,8 +317,8 @@ class DerivationNode:
 
             with_hk.domains += [column]
 
-            with_hk = with_hk.add_children(with_hk, with_col)
-            without_hk = without_hk.add_children(without_hk, without_col)
+            with_hk.children = OrderedSet([c.set_parent(with_hk) for c in with_col])
+            without_hk.children = OrderedSet([c.set_parent(without_hk) for c in without_col])
 
             return [with_hk, without_hk]
 
@@ -376,14 +374,26 @@ class DerivationNode:
 
     def to_derivation_node(self):
         copy = DerivationNode(self.domains, self.intermediate_representation, self.hidden_keys)
+        copy.parent = self.parent
+        copy = copy.add_children(self.children)
         return copy
 
     def to_key_column(self):
         copy = ColumnNode(self.domains[0], Key(), self.intermediate_representation, self.hidden_keys)
+        copy.parent = self.parent
+        copy = copy.add_children(copy, self.children)
+        return copy
+
+    def to_value_column(self, cardinality):
+        copy = ColumnNode(self.domains[0], Val(), self.intermediate_representation, self.hidden_keys, cardinality)
+        copy.parent = self.parent
+        copy = copy.add_children(copy, self.children)
         return copy
 
     def to_intermediate_node(self):
         intermediate = IntermediateNode(self.domains, self.intermediate_representation, self.hidden_keys)
+        intermediate.parent = self.parent
+        intermediate = intermediate.add_children(intermediate, self.children)
         return intermediate
 
     def __hash__(self):
@@ -405,6 +415,8 @@ class DerivationNode:
 
     def copy(self):
         copy = DerivationNode(self.domains, self.intermediate_representation, self.hidden_keys)
+        copy.parent = self.parent
+        copy.children = self.children
         return copy
 
 
@@ -432,7 +444,9 @@ class RootNode(DerivationNode):
 
     def forget(self, column):
         assert column.is_val_column()
-        return self.remove_value(column)
+        new_root = self.copy()
+        new_root.children = OrderedSet([c.remove_value(column).set_parent(new_root) for c in self.children])
+        return new_root
 
     def hide(self, column):
         assert column.is_key_column()
@@ -558,22 +572,22 @@ class RootNode(DerivationNode):
 
     def add_child(self, parent, child):
         clone = self.copy()
-        clone.children = OrderedSet([c.add_child(parent, child).set_parent(clone) for c in self.children])
+        clone.children = OrderedSet([c.set_parent(clone).add_child(parent, child) for c in self.children])
         return clone
 
     def add_children(self, parent, children):
         clone = self.copy()
-        clone.children = OrderedSet([c.add_children(parent, children).set_parent(clone) for c in self.children])
+        clone.children = OrderedSet([c.set_parent(clone).add_children(parent, children) for c in self.children])
         return clone
 
     def remove_child(self, child):
         clone = self.copy()
-        clone.children = OrderedSet([c.remove_child(child).set_parent(clone) for c in self.children])
+        clone.children = OrderedSet([c.set_parent(clone).remove_child(child) for c in self.children])
         return clone
 
     def remove_children(self, children):
         clone = self.copy()
-        clone.children = OrderedSet([c.remove_children(children).set_parent(clone) for c in self.children])
+        clone.children = OrderedSet([c.set_parent(clone).remove_children(children) for c in self.children])
         return clone
 
     def copy(self):
@@ -619,22 +633,12 @@ class ColumnNode(DerivationNode):
     def get_domain(self):
         return self.domains[0]
 
-    def duplicate(self):
-        node = ColumnNode(self.get_domain(), self.column_type, self.intermediate_representation)
-        node.hidden_keys = self.hidden_keys
-        node.parent = self.parent
-        node.children = self.children
-        node.cardinality = self.cardinality
-        return node
-
     def copy(self):
         copy = ColumnNode(self.domains[0], self.column_type, self.intermediate_representation.copy(),
                           self.hidden_keys, cardinality=self.cardinality)
+        copy.parent = self.parent
+        copy.children = self.children
         return copy
-
-    def to_value_column(self, cardinality):
-        self.column_type = Val()
-        self.cardinality = cardinality
 
 
 class IntermediateNode(DerivationNode):
@@ -658,4 +662,6 @@ class IntermediateNode(DerivationNode):
     def copy(self):
         copy = IntermediateNode(self.domains, self.intermediate_representation.copy(),
                                 self.hidden_keys, cardinality=self.cardinality)
+        copy.parent = self.parent
+        copy.children = self.children
         return copy

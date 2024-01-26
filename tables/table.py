@@ -532,6 +532,7 @@ class Table:
 
         key_node = t.derivation.find_node_with_domains(key_doms)
         val_node = t.derivation.find_node_with_domains(val_doms)
+
         path = key_node.path_to_value(val_node)
 
         assert path is not None
@@ -552,13 +553,17 @@ class Table:
         filtered_displayed_columns = [c for i, c in enumerate(t.displayed_columns) if i not in set(visible_indices_to_replace)]
         t.displayed_columns = (filtered_displayed_columns[:visible_idx] + [v.name for v in val_doms] +
                                filtered_displayed_columns[visible_idx:] + [k.name for k in key_doms])
-        count = np.sum(np.array(visible_key_indices_to_replace) < t.marker)
-        t.marker += len(val_doms) - count
+        t.marker += len(val_doms) - np.sum(np.array(visible_key_indices_to_replace) < t.marker)
         # Let k be the key we're inverting
         old_root = t.derivation
+
+        key_node.parent = None
+
         new_root = DerivationNode.create_root(new_keys)
 
-        children = old_root.children.item_list
+        res, inverted_repr = DerivationNode.invert_path(path, t)
+
+        children = old_root.children.to_list()
         groups = classify_groups(children, key_doms)
 
         # Six groups
@@ -570,75 +575,77 @@ class Table:
         # Group 4 {k' | k and k' disjoint}
         group4 = groups[4]
 
-        new_root.add_children(group0)
-        new_root.add_children(group4)
+        for c in group0 + group4:
+            new_root = new_root.insert_key(c.domains)
+            key = new_root.find_node_with_domains(c.domains)
+            new_root = new_root.add_children(key, c.children)
+
+        # todo: update cardinality
+        new_root = new_root.insert_key(val_doms)
+        new_key = new_root.find_node_with_domains(val_doms)
+        new_root = new_root.add_child(new_key, res)
 
         # Group 1 {k' | k' is subset of k}
         group1 = groups[1]
         for child in group1:
-            if child in set(key_node.children.item_list):
-                key_node.remove_child_node(child)
+            # if child in set(key_node.children.item_list):
+            #     key_node.remove_child_node(child)
             if len(child.domains) > 1:
-                key_node.add_child(child.to_intermediate_node())
+                intermediate = child.to_intermediate_node()
+                intermediate = intermediate.add_children(intermediate, child.children)
+                new_root = new_root.add_child(new_key, intermediate)
             else:
-                child.to_value_column()
-                key_node.add_child()
+                value = child.to_value_column()
+                value = value.add_children(value, child.children)
+                new_root = new_root.add_child(new_key, value)
 
-        key_node.parent = None
-        path = key_node.path_to_value(val_node)
-
-        t.derivation = new_root
-
-        inverted = DerivationNode.invert_path(path, t)
-        for i in range(len(inverted)-1, 0, -1):
-            inverted[i].intermediate_representation = inverted[i-1].intermediate_representation
-            inverted[i].hidden_keys = inverted[i-1].hidden_keys
-        inverted_repr = [n.intermediate_representation for n in inverted[1:]]
-        # todo: update cardinality
-        new_key = new_root.insert_key(val_doms)
-        new_key.add_child(inverted[1])
+        to_merge = {}
 
         # Group 2 {k' | k is subset of k'}
         group2 = groups[2]
-
-        # Group 3 {k' | k and k' overlap}
-        group3 = groups[3]
-
-        to_merge = {}
 
         for child in group2:
             difference = [d for d in child.domains if d not in set(key_node.children.item_list)]
             assert difference not in to_merge
             child.parent = None
             to_merge[difference] = child
+            new_root = new_root.insert_key(val_doms + difference)
             possible = child.find_node_with_domains(val_doms + difference)
+            key_node = new_root.find_node_with_domains(val_doms + difference)
             if possible is None:
-                key_node = t.derivation.insert_key(val_doms + difference)
                 intermediate = child.to_intermediate_node()
+                intermediate = intermediate.add_children(intermediate, child.children)
                 new_ir = carry_keys_through_representation(inverted_repr, difference)
                 intermediate.internal_representation = new_ir
-                key_node.add_child(intermediate)
+                new_root = new_root.add_child(key_node, intermediate)
             else:
                 path = child.path_to_value(val_doms + difference)
                 inverted_path = DerivationNode.invert_path(path, t)
-                end = inverted_path[-1].to_intermediate_node()
-                inverted_path[-2].remove_child(inverted_path[-1].domains)
-                inverted_path[-2].add_child(end)
-                t.derivation.add_child(inverted_path[0])
-                to_merge[difference] = end
+                new_root = new_root.add_child(key_node, inverted_path[1])
+                penultimate = new_root.find_node_with_domains(inverted_path[-2].domains)
+                end = new_root.find_node_with_domains(child.domains)
+                intermediate = end.to_intermediate_node()
+                intermediate = intermediate.add_children(intermediate, inverted_path[-1].children)
+                new_root = new_root.remove_child(end).add_child(penultimate, intermediate)
+                to_merge[difference] = intermediate
+
+        # Group 3 {k' | k and k' overlap}
+        group3 = groups[3]
 
         for child in group3:
             difference = [d for d in child.domains if d not in set(key_node.children.item_list)]
             if difference in to_merge:
-                to_merge[difference].add_child(child)
+                new_root = new_root.add_child(to_merge[difference], child)
             else:
-                key_node = t.derivation.insert_key(val_doms + difference)
+                new_root = new_root.insert_key(val_doms + difference)
+                key_node = new_root.find_node_with_domains(val_doms + difference)
                 new_ir = carry_keys_through_representation(inverted_repr, difference)
                 intermediate = IntermediateNode(key_doms + difference, new_ir, inverted[-1].get_hidden())
-                key_node.add_child(intermediate)
-                intermediate.add_child(child)
+                new_root = new_root.add_child(key_node, intermediate)
+                new_root = new_root.add_child(intermediate, child)
                 to_merge[difference] = intermediate
 
+        t.derivation = new_root
         t.extend_intermediate_representation()
         t.execute()
         return t
