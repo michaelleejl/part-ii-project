@@ -35,32 +35,40 @@ def get(derivation_step: Get, backend, stack, sp) -> interp:
 
 
 def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
-    keys = derivation_step.keys
-    values = derivation_step.values
+    left = derivation_step.left
+    keys = derivation_step.left
+    hidden = [c.get_hidden_keys() for c in keys if c.is_val_column()]
+    to_add_set = set()
+    to_add = []
+    for hid in hidden:
+        for h in hid:
+            if h not in to_add_set:
+                to_add_set.add(h)
+                to_add += [h]
+    keys = keys + to_add
+    values = derivation_step.right
+
     if len(values) == 0:
-        keys_count = reduce(operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in keys])
+        keys_count = reduce(operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in left])
         return pd.DataFrame(), keys_count, 0
     keys_str = [k.get_name() for k in keys]
     vals_str = [v.get_name() for v in values]
     app = table
     app = app.loc[app.astype(str).drop_duplicates().index]
-    for k in keys_str:
-        app[f"KEY_{k}"] = app[k]
-    keys_str_with_marker = [f"KEY_{k}" for k in keys_str]
-    df = app[keys_str_with_marker].reset_index(drop=True)
+    df = app[keys_str].reset_index(drop=True)
     columns_with_hidden_keys_str = []
     columns_with_hidden_keys = []
 
     for i, val in enumerate(values):
-        hidden_dependencies = [v.name for v in val.get_hidden_keys()]
+        hidden_dependencies = [v.name for v in val.get_hidden_keys() if v.name not in set(hidden)]
 
         if len(hidden_dependencies) > 0:
-            to_add = app[keys_str_with_marker + [val.get_name()]].groupby(keys_str_with_marker)[val.get_name()].agg(list)
+            to_add = app[keys_str + [val.get_name()]].groupby(keys_str)[val.get_name()].agg(list)
             columns_with_hidden_keys_str += [val.get_name()]
             columns_with_hidden_keys += [val]
         else:
-            to_add = app[keys_str_with_marker + [val.get_name()]]
-        df = pd.merge(df, to_add, on=keys_str_with_marker, how="outer")
+            to_add = app[keys_str + [val.get_name()]]
+        df = pd.merge(df, to_add, on=keys_str, how="outer")
         df = df.loc[df.astype(str).drop_duplicates().index]
 
     df[columns_with_hidden_keys_str] = df[columns_with_hidden_keys_str].map(
@@ -69,16 +77,16 @@ def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFram
         df2 = df.dropna(subset=vals_str, how="all")
     else:
         df2 = df
-    df3 = df2.dropna(subset=keys_str_with_marker, how="any")
+    df3 = df2.dropna(subset=keys_str, how="any")
 
     df3[columns_with_hidden_keys_str] = df3[columns_with_hidden_keys_str].map(lambda d: d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else [])
 
-    df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index(keys_str_with_marker)
-    renaming = keys_str
-    df3.index.set_names(renaming, inplace=True)
-    keys_count = reduce(operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in keys])
+    df3 = df3[[d.name for d in left + values]]
+    df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index([d.name for d in left])
+    keys_count = reduce(operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in left])
     dropped_keys_cnt = keys_count - len(df3)
     return df3, dropped_keys_cnt, 0
+
 
 def stt(derivation_step: StartTraversal, backend, stack, sp) -> interp:
     table = stack[-1]

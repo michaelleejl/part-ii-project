@@ -120,11 +120,11 @@ Steve   [funding, investment, budget]
 [person task_1 || task]
                          task
 person task_1                
+Dick   manpower      manpower
+Tom    research      research
 Steve  funding        funding
        investment  investment
        budget          budget
-Tom    research      research
-Dick   manpower      manpower
 23 keys hidden
 
 """)

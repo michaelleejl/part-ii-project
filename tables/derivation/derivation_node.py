@@ -322,6 +322,39 @@ class DerivationNode:
 
             return [with_hk, without_hk]
 
+    def equate(self, key1, key2):
+        idx1 = find_index(key1, self.domains)
+        idx2 = find_index(key2, self.domains)
+
+        new_node = self.copy()
+
+        if idx2 >= 0:
+            if idx1 >= 0:
+                new_node.domains = self.domains[:idx2] + self.domains[idx2+1:]
+                start_node = SchemaNode.product([d.node for d in new_node.domains])
+                end_node = key1.node
+                ir = [StartTraversal(new_node.domains),
+                      Project(start_node, end_node, [idx1]),
+                      EndTraversal(new_node.domains, [key2])]
+                intermediate = IntermediateNode(self.domains, ir, parent=new_node)
+                intermediate = intermediate.add_children(intermediate, self.children)
+                new_node.children = OrderedSet([intermediate])
+            else:
+                new_node.domains = self.domains[:idx2] + [key1] + self.domains[idx2+1:]
+                start_node = SchemaNode.product([d.node for d in new_node.domains])
+                end_node = key1.node
+                ir = [StartTraversal(new_node.domains),
+                      Project(start_node, end_node, [idx2]),
+                      EndTraversal(new_node.domains, [key2])]
+                intermediate = IntermediateNode(self.domains, ir, parent=new_node)
+                intermediate = intermediate.add_children(intermediate, self.children)
+                new_node.children = OrderedSet([intermediate])
+                return new_node
+        else:
+            new_node.children = OrderedSet([c.set_parent(new_node) for c in self.children])
+
+        return new_node
+
     def find_node_for_column(self, column):
         assert isinstance(column, ColumnNode)
         if self.domains == column.domains:
@@ -375,7 +408,7 @@ class DerivationNode:
     def to_derivation_node(self):
         copy = DerivationNode(self.domains, self.intermediate_representation, self.hidden_keys)
         copy.parent = self.parent
-        copy = copy.add_children(self.children)
+        copy = copy.add_children(copy, self.children)
         return copy
 
     def to_key_column(self):
@@ -441,6 +474,19 @@ class RootNode(DerivationNode):
 
     def is_root(self):
         return True
+
+    # inner product
+    def equate(self, key1, key2):
+        idx = find_index(key2, self.domains)
+        new_keys = self.domains[:idx] + self.domains[idx+1:]
+        new_root = RootNode(new_keys)
+        for child in self.children:
+            new_child = child.equate(key1, key2)
+            new_root = new_root.insert_key(new_child.domains)
+            key_node = new_root.find_node_with_domains(new_child.domains)
+            new_root = new_root.add_children(key_node, new_child.children)
+        return new_root
+
 
     def forget(self, column):
         assert column.is_val_column()

@@ -89,7 +89,7 @@ val_id
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
-        t3 = t2.set_key(["val_id", "cardnum"])
+        t3 = t2.shift_right()
         self.assertExpectedInline(str(t3), """\
 [val_id cardnum || bonus]
                       bonus
@@ -115,18 +115,19 @@ val_id cardnum
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
-        t3 = t2.set_key(["val_id", "cardnum"])
+        t3 = t2.shift_right()
         t4 = t3.show("cardnum_1")
+        self.maxDiff = None
         self.assertExpectedInline(str(t4), """\
 [val_id cardnum cardnum_1 || bonus]
                           bonus
 val_id cardnum cardnum_1       
-1      5172    5172.0       4.0
-               1410.0      12.0
-2      2354    1111.0       5.0
-               6440.0       7.0
-3      1410    1111.0       1.0
-5      2354    1410.0       2.0
+1      5172    5172         4.0
+2      2354    1111         5.0
+3      1410    1111         1.0
+1      5172    1410        12.0
+2      2354    6440         7.0
+5      2354    1410         2.0
 114 keys hidden
 
 """)
@@ -144,15 +145,17 @@ val_id cardnum cardnum_1
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
-        t3 = t2.set_key(["val_id", "cardnum"])
+        t3 = t2.shift_right()
         t4 = t3.show("cardnum_1")
-        t5 = t4.equate("cardnum", "cardnum_1")
-        self.assertExpectedInline(str(t5), """\
-[val_id cardnum || bonus]
-                bonus
-val_id cardnum       
-1      5172       4.0
-29 keys hidden
+        t5 = t4.mask("cardnum", (t4["cardnum"] == t4["cardnum_1"]) & t4["bonus"].isnotnull(), "is_cardnum_equal")
+        t6 = t5.filter("is_cardnum_equal")
+        self.maxDiff = None
+        self.assertExpectedInline(str(t6), """\
+[val_id cardnum cardnum_1 || bonus is_cardnum_equal]
+                          bonus  is_cardnum_equal
+val_id cardnum cardnum_1                         
+1      5172    5172         4.0            5172.0
+119 keys hidden
 
 """)
         # # [cardnum.val_id cardnum.cardnum  || bonus.bonus]

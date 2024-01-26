@@ -147,8 +147,9 @@ Ringo  Pepper   29  Buster
         s, allergies, persons, Person, Pet = self.initialise()
         t1 = s.get([persons["person"], persons["pet"]]).infer(["person"], persons["age"])
         t2 = t1.infer(["person"], persons["pet"])
-        t3 = t2.set_key(["person", "pet", "pet_1"])
-        self.assertExpectedInline(str(t3), """\
+        t3 = t2.swap("age", "pet_1")
+        t4 = t3.shift_right()
+        self.assertExpectedInline(str(t4), """\
 [person pet pet_1 || age]
                       age
 person pet    pet_1      
@@ -184,17 +185,19 @@ Ringo  Pepper Buster   29
         s, allergies, persons, Person, Pet = self.initialise()
         t1 = s.get([persons["person"], persons["pet"]]).infer(["person"], persons["age"])
         t2 = t1.infer(["person"], persons["pet"])
-        t3 = t2.set_key(["person", "pet", "pet_1"])
-        t4 = t3.equate("pet", "pet_1")
-        self.assertExpectedInline(str(t4), """\
-[person pet || age]
-               age
-person pet        
-John   Pepper   27
-Paul   Martha   25
-George Corky    23
-Ringo  Buster   29
-12 keys hidden
+        t3 = t2.swap("age", "pet_1")
+        t4 = t3.shift_right()
+        t5 = t4.mask("pet", t4["pet"] == t4["pet_1"], "is_own_pet").filter("is_own_pet")
+        self.maxDiff = None
+        self.assertExpectedInline(str(t5), """\
+[person pet pet_1 || age is_own_pet]
+                      age is_own_pet
+person pet    pet_1                 
+John   Pepper Pepper   27     Pepper
+Paul   Martha Martha   25     Martha
+George Corky  Corky    23      Corky
+Ringo  Buster Buster   29     Buster
+60 keys hidden
 
 """)
 
@@ -208,36 +211,14 @@ Ringo  Buster   29
         # and equating is only different from filter + hide in that it takes weak keys and makes them strong
         # in this case there is no difference. PLUS we don't even need to do a filter.
 
-    def test_ex8_conversion1_step4_hide(self):
-        s, allergies, persons, Person, Pet = self.initialise()
-        t1 = s.get([persons["person"], persons["pet"]]).infer(["person"], persons["age"])
-        t2 = t1.infer(["person"], persons["pet"])
-        t3 = t2.set_key(["person", "pet", "pet_1"])
-        t4 = t3.equate("pet", "pet_1")
-        t5 = t4.hide("pet")
-        self.assertExpectedInline(str(t5), """\
-[person || age]
-        age
-person     
-John     27
-Paul     25
-George   23
-Ringo    29
-
-""")
-        # [persons.person persons.pet (1) || persons.age]
-        #  John           Pepper          ||  27
-        #  Paul           Martha          ||  25
-        #  George         Corky           ||  23
-        #  Ringo          Buster          ||  29
-
         # # Can I convert in the other direction? Yes
         # # Call compose
 
     def test_ex8_conversion2_step1_compose(self):
         s, allergies, persons, Person, Pet = self.initialise()
         t11 = s.get([persons["person"]]).infer(["person"], persons["pet"]).infer(["person"], persons["age"])
-        t12 = t11.set_key(["person", "pet"])
+        t12 = t11.shift_right()
+        #TODO: Fix
         t13 = t12.compose([persons["person"], persons["pet"]], "person")
         self.maxDiff = None
         self.assertExpectedInline(str(t13), """\

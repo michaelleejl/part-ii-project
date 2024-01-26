@@ -124,7 +124,7 @@ C  q
     def test_ex9_goal4_step2_setKey(self):
         s, l, v, L = self.initialise()
         t31 = s.get([l["k"]]).infer(["k"], L)
-        t32 = t31.set_key(["k", "L"])
+        t32 = t31.shift_right()
         self.assertExpectedInline(str(t32), """\
 [k L || ]
 Empty DataFrame
@@ -141,7 +141,7 @@ Index: []
     def test_ex9_goal4_step3_infer(self):
         s, l, v, L = self.initialise()
         t31 = s.get([l["k"]]).infer(["k"], L)
-        t32 = t31.set_key(["k", "L"])
+        t32 = t31.shift_right()
         t33 = t32.infer(["L"], v["v"])
         self.assertExpectedInline(str(t33), """\
 [k L || v]

@@ -119,7 +119,7 @@ order
     def test_ex6_goal2_step2_setKey(self):
         s, billing, delivery, payment, Address, Order, Payment_Method = self.initialise()
         t11 = s.get([payment["order"]]).infer(["order"], payment["payment_method"])
-        t12 = t11.set_key(["order", "payment_method"])
+        t12 = t11.shift_right()
         self.assertExpectedInline(str(t12), """\
 [order payment_method || ]
 Empty DataFrame

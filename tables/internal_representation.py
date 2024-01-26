@@ -246,14 +246,14 @@ class Sort(RepresentationStep):
 
 
 class End(RepresentationStep):
-    def __init__(self, keys, hidden_keys, values):
+    def __init__(self, left, hidden, right):
         super().__init__("END")
-        self.keys = keys
-        self.hidden_keys = hidden_keys
-        self.values = values
+        self.left = left
+        self.hidden = hidden
+        self.right = right
 
     def __repr__(self):
-        return f"{self.name} <{self.keys}, {self.hidden_keys}, {self.values}>"
+        return f"{self.name} <{self.left}, {self.hidden}, {self.right}>"
 
     def __str__(self):
         return self.__repr__()
