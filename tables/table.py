@@ -256,11 +256,15 @@ class Table:
 
         return list(sorted(strong_keys, key=lambda x: find_index(x.name, self.displayed_columns)))
 
-    def find_hidden_keys_for_column(self, inferred_from: list[ColumnNode]):
+    def find_hidden_keys_for_column(self, inferred_from: list[ColumnNode], aggregated_over: set[ColumnNode]):
         hidden_keys = set()
+        blocked_hidden_keys = self.blocked_hidden_keys()
         for column in inferred_from:
             hidden_keys_of_column = column.get_hidden_keys()
-            hidden_keys = hidden_keys.union(hidden_keys_of_column)
+            if column.get_domain() in aggregated_over:
+                hidden_keys = hidden_keys.union(set(hidden_keys_of_column).intersection(blocked_hidden_keys))
+            else:
+                hidden_keys = hidden_keys.union(hidden_keys_of_column)
         return list(sorted(hidden_keys, key=lambda x: find_index(x, self.derivation.get_hidden())))
 
     def get_namespace(self):
@@ -347,18 +351,17 @@ class Table:
 
         return t
 
+    def blocked_hidden_keys(self):
+        left, _, _ = self.get_columns_as_lists()
+        hidden = set(flatten([c.get_hidden_keys() for c in left]))
+        return hidden
+
     def deduce(self, function: Exp, with_name: str):
         t = Table.create_from_table(self)
         exp, start_columns, aggregated_over = Exp.convert_exp(function)
         nodes = [c.node for c in start_columns]
         start_columns = [c for c in start_columns]
         start_node = SchemaNode.product(nodes)
-        hidden_keys = [self.derivation.find_column_with_name(c.name).get_hidden_keys() for c in start_columns if
-                       c not in set(aggregated_over) and c.name in self.displayed_columns]
-        acc = set()
-        for hk in hidden_keys:
-            acc |= set(hk)
-        hidden_keys = list(sorted(acc, key=lambda x: find_index(x, self.derivation.get_hidden())))
         node_type = function.exp_type
         end_node = self.schema.add_node(AtomicNode(with_name, node_type))
         # TODO: Consider special ONE-TO-ONE Functions
@@ -370,7 +373,6 @@ class Table:
             modified_start_node = SchemaNode.product([start_columns[i].node for i in modified_start_cols])
         self.schema.map_edge_to_closure_function(edge, exp, len(start_columns), modified_start_node,
                                                  modified_start_cols)
-        print(hidden_keys)
         return t.infer_internal([col.name for col in start_columns], end_node, with_name=with_name,
                                 aggregated_over=aggregated_over)
 
@@ -436,8 +438,7 @@ class Table:
         strong_keys = t.find_strong_keys_for_column(assumption_columns)
         if aggregated_over is None:
             aggregated_over = []
-        old_hidden_keys = t.find_hidden_keys_for_column(
-            [col for col in assumption_columns if col.get_domain() not in set(aggregated_over)])
+        old_hidden_keys = t.find_hidden_keys_for_column(assumption_columns, set(aggregated_over))
         cardinalities = [column.cardinality for column in assumption_columns]
         conclusion_column = Domain(name, to_column_node)
 
@@ -662,7 +663,16 @@ class Table:
     def shift_left(self):
         assert self.marker > 1
         t = Table.create_from_table(self)
-        t.marker -= 1
+        col = t.get_existing_column(t.displayed_columns[t.marker - 1])
+        if col.is_key_column():
+            new_name = t.get_fresh_name(col.name, t.get_namespace())
+            temp_name = t.get_fresh_name(col.name, t.get_namespace() | {new_name})
+            t = t.infer([col], col.get_domain().node, with_name=temp_name)
+            t = t.rename(col.name, new_name).rename(temp_name, col.name)
+            t = t.hide(new_name)
+            t.displayed_columns = t.displayed_columns[:t.marker] + [col.name] + t.displayed_columns[t.marker:-1]
+        else:
+            t.marker -= 1
         t.extend_intermediate_representation()
         t.execute()
         return t
@@ -703,7 +713,6 @@ class Table:
         t.execute()
         return t
 
-
     def filter(self, by: existing_column):
         column = self.get_existing_column(by)
         self.verify_columns([column], {Table.ColumnRequirements.IS_KEY_OR_VAL})
@@ -715,6 +724,17 @@ class Table:
     def sort(self, cols: list[str]):
         t = Table.create_from_table(self)
         t.extend_intermediate_representation([Sort(cols)])
+        t.execute()
+        return t
+
+    def rename(self, old_name: str, new_name: str):
+        assert new_name not in self.get_namespace()
+        t = Table.create_from_table(self)
+        idx = find_index(old_name, t.displayed_columns)
+        assert idx >= 0
+        t.derivation = self.derivation.rename(old_name, new_name)
+        t.displayed_columns = t.displayed_columns[:idx] + [new_name] + t.displayed_columns[idx+1:]
+        t.extend_intermediate_representation()
         t.execute()
         return t
 

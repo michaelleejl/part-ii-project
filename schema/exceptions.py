@@ -73,9 +73,9 @@ class NoShortestPathBetweenNodesException(Exception):
 
 
 class MultipleShortestPathsBetweenNodesException(Exception):
-    def __init__(self, node1, node2):
+    def __init__(self, node1, node2, shortest_paths):
         super().__init__(f"Multiple shortest paths found between nodes {node1} and {node2}."
-                         f"Please specify one or more waypoints!")
+                         f"Shortest paths: {shortest_paths}")
 
 
 class CycleDetectedInPathException(Exception):

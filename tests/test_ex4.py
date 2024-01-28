@@ -95,6 +95,7 @@ Steve  funding        funding
         t2 = t1.infer(["person"], task["task"])
         t3 = t2.show("task_1")
         t4 = t3.hide("task_1")
+        self.maxDiff = None
         print("T4 DERIVATION")
         print(t4.derivation)
         self.assertExpectedInline(str(t4), """\
@@ -115,6 +116,8 @@ Steve   [funding, investment, budget]
         t3 = t2.show("task_1")
         t4 = t3.hide("task_1")
         t5 = t4.show("task_1")
+        print("T5 DERIVATION")
+        print(t5.derivation)
         self.maxDiff = None
         self.assertExpectedInline(str(t5), """\
 [person task_1 || task]

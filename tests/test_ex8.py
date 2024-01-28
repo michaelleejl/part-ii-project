@@ -88,7 +88,7 @@ Ringo   Buster   29
     def test_ex8_goal2_step2_setKey(self):
         s, allergies, persons, Person, Pet = self.initialise()
         t11 = s.get([persons["person"]]).infer(["person"], persons["pet"]).infer(["person"], persons["age"])
-        t12 = t11.set_key(["person", "pet"])
+        t12 = t11.shift_right()
         self.assertExpectedInline(str(t12), """\
 [person pet || age]
                age
@@ -218,9 +218,7 @@ Ringo  Buster Buster   29     Buster
         s, allergies, persons, Person, Pet = self.initialise()
         t11 = s.get([persons["person"]]).infer(["person"], persons["pet"]).infer(["person"], persons["age"])
         t12 = t11.shift_right()
-        #TODO: Fix
         t13 = t12.compose([persons["person"], persons["pet"]], "person")
-        self.maxDiff = None
         self.assertExpectedInline(str(t13), """\
 [person pet_1 pet || age]
                       age
@@ -255,9 +253,9 @@ Ringo  Pepper Buster   29
     def test_ex8_conversion2_step2_hide(self):
         s, allergies, persons, Person, Pet = self.initialise()
         t11 = s.get([persons["person"]]).infer(["person"], persons["pet"]).infer(["person"], persons["age"])
-        t12 = t11.set_key(["person", "pet"])
+        t12 = t11.shift_right()
         t13 = t12.compose([persons["person"], persons["pet"]], "person")
-        t14 = t13.hide("pet")
+        t14 = t13.forget("pet")
         self.assertExpectedInline(str(t14), """\
 [person pet_1 || age]
                age

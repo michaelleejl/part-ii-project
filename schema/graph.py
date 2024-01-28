@@ -208,6 +208,8 @@ class SchemaGraph:
                         c = count
                     if 0 < shortest_path_length < c:
                         continue
+                    if c < shortest_path_length:
+                        shortest_paths = []
                     shortest_path_length = c
                     shortest_paths += [path + [SchemaEquality(u, e)]] if e != u else [path]
                     nodes += [node_path + [e]] if e != u else [node_path]
@@ -269,7 +271,7 @@ class SchemaGraph:
                                  hks + next_step.hidden_keys, count + 2))
 
         if len(shortest_paths) > 1:
-            raise MultipleShortestPathsBetweenNodesException(node1, node2)
+            raise MultipleShortestPathsBetweenNodesException(node1, node2, shortest_paths)
 
         if len(shortest_paths) == 0:
             raise NoShortestPathBetweenNodesException(node1, node2)

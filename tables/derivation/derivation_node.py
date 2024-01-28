@@ -9,6 +9,7 @@ from schema.helpers.find_index import find_index
 from schema.helpers.invert_representation import invert_representation
 from tables.derivation.column_type import ColumnType, Key, Val
 from tables.derivation.ordered_set import OrderedSet
+from tables.helpers.rename_column_in_representation import rename_column_in_representation
 from tables.helpers.transform_step import transform_step
 from tables.internal_representation import *
 from tables.domain import Domain
@@ -149,6 +150,15 @@ class DerivationNode:
                     return [self] + suffix
             return None
 
+    def intermediate_representation_for_path(self, path):
+        intermediate_representation = []
+        suffix = []
+        for node in path:
+            intermediate_representation += node.intermediate_representation
+            if isinstance(node, IntermediateNode):
+                suffix = [Drop(node.get_intermediates())] + suffix
+        return intermediate_representation + suffix
+
     @classmethod
     def invert_path(cls, path: list, table):
         start: DerivationNode = path[-1]
@@ -251,13 +261,32 @@ class DerivationNode:
         idx = find_index(column, self.domains)
         if idx >= 0:
             new_node = self.copy()
-            new_node.domains = new_node.domains[:idx] + new_node.domains[idx + 1:]
+            new_columns = new_node.domains[:idx] + new_node.domains[idx + 1:]
+            new_node.domains = new_columns
+
+            if len(new_node.domains) == 0 and new_node.is_key_column() or new_node.is_val_column():
+                new_node = new_node.to_derivation_node()
+
             new_node.children = OrderedSet([])
+
             for child in self.children:
                 new_child = child.hide(column)
-                new_child.hidden_keys = new_child.hidden_keys.append(column)
                 new_child.parent = new_node
-                new_node = new_node.add_child(new_node, new_child)
+                old_columns = self.domains
+                intermediate_node = new_node.find_node_with_domains(old_columns)
+                if len(new_columns) == 0:
+                    intermediate_representation = [Pop(), Get(old_columns)]
+                else:
+                    start_node = SchemaNode.product([d.node for d in new_columns])
+                    end_node = SchemaNode.product([d.node for d in old_columns])
+                    indices = [i for i in range(len(old_columns)) if i != idx]
+                    intermediate_representation = [StartTraversal(new_columns),
+                                                   Expand(start_node, end_node, indices, [column], old_columns),
+                                                   EndTraversal(new_columns, old_columns)]
+                if intermediate_node is None:
+                    intermediate_node = DerivationNode(old_columns, intermediate_representation, [column])
+                    new_node = new_node.add_child(new_node, intermediate_node)
+                new_node = new_node.add_child(intermediate_node, new_child)
         else:
             new_node = self.copy()
             for child in self.children:
@@ -316,9 +345,19 @@ class DerivationNode:
                 with_hk = with_hk.to_derivation_node()
 
             with_hk.domains += [column]
+            with_hk.children = OrderedSet([])
+            without_hk.children = OrderedSet([])
+            for c in with_col:
+                if c.domains != with_hk.domains:
+                    with_hk = with_hk.add_child(with_hk, c)
+                else:
+                    with_hk = with_hk.add_children(with_hk, c.children)
 
-            with_hk.children = OrderedSet([c.set_parent(with_hk) for c in with_col])
-            without_hk.children = OrderedSet([c.set_parent(without_hk) for c in without_col])
+            for c in without_col:
+                if c.domains != without_hk.domains:
+                    without_hk = without_hk.add_child(without_hk, c)
+                else:
+                    without_hk = without_hk.add_children(without_hk, c.children)
 
             return [with_hk, without_hk]
 
@@ -353,6 +392,20 @@ class DerivationNode:
         else:
             new_node.children = OrderedSet([c.set_parent(new_node) for c in self.children])
 
+        return new_node
+
+    def rename(self, old_name: str, new_name: str):
+        idx = find_index(old_name, [d.name for d in self.domains])
+        if idx >= 0:
+            old_domain = self.domains[idx]
+            new_domain = Domain(new_name, old_domain.node)
+            new_domains = self.domains[:idx] + [new_domain] + self.domains[idx + 1:]
+        else:
+            new_domains = self.domains
+        new_node = self.copy()
+        new_node.domains = new_domains.copy()
+        new_node.intermediate_representation = rename_column_in_representation(self.intermediate_representation, old_name, new_name)
+        new_node.children = OrderedSet([c.set_parent(new_node).rename(old_name, new_name) for c in self.children])
         return new_node
 
     def find_node_for_column(self, column):
@@ -523,13 +576,19 @@ class RootNode(DerivationNode):
         new_root = self.insert_key(strong_keys)
         key_node = new_root.find_node_with_domains(strong_keys)
         val_node = create_value(value, repr, new_hids, cardinality)
+        j = 0
         if len(filtered) > 0:
             for i, intermediate in enumerate(intermediates):
-                intermediate_steps = intermediate.intermediate_representation
-                if i == 0:
-                    to_prepend += intermediate_steps
-                else:
-                    to_prepend += [Reset()] + intermediate_steps + [Merge()]
+                if intermediate.is_val_column():
+                    i_keys = intermediate.get_strong_keys()
+                    key_node = self.find_node_with_domains(i_keys)
+                    path = key_node.path_to_value(intermediate)
+                    intermediate_steps = self.intermediate_representation_for_path(path)
+                    j+=1
+                    if j == 0:
+                        to_prepend += intermediate_steps
+                    else:
+                        to_prepend += [Reset()] + intermediate_steps + [Merge()]
             intermediate_node = new_root.find_node_with_domains([i.domains[0] for i in intermediates])
             if intermediate_node is None:
                 intermediate_cardinality = functools.reduce(compose_cardinality, [i.cardinality for i in intermediates])
@@ -548,6 +607,9 @@ class RootNode(DerivationNode):
             if child.domains == [old_key]:
                 if len(child.children) == 0:
                     continue
+                elif old_key in set(new_keys):
+                    new_keys_node = new_root.find_node_with_domains([old_key])
+                    new_root = new_root.add_children(new_keys_node, child.children)
                 else:
                     new_root = new_root.insert_key(new_keys)
                     new_keys_node = new_root.find_node_with_domains(new_keys)
@@ -570,6 +632,23 @@ class RootNode(DerivationNode):
                     key_node = new_root.find_node_with_domains(child.domains)
                     new_root = new_root.add_children(key_node, child.children)
 
+        return new_root
+
+    def rename(self, old_name: str, new_name: str):
+        idx = find_index(old_name, [d.name for d in self.domains])
+        if idx >= 0:
+            old_domain = self.domains[idx]
+            new_domain = Domain(new_name, old_domain.node)
+            new_domains = self.domains[:idx] + [new_domain] + self.domains[idx+1:]
+            new_root = RootNode(new_domains)
+        else:
+            new_root = RootNode(self.domains)
+
+        for child in self.children:
+            new_child = child.rename(old_name, new_name)
+            new_root = new_root.insert_key(new_child.domains)
+            key_node = new_root.find_node_with_domains(new_child.domains)
+            new_root = new_root.add_children(key_node, new_child.children)
         return new_root
 
     def is_node_in_tree(self, node):
@@ -698,12 +777,16 @@ class IntermediateNode(DerivationNode):
     def to_intermediate_representation(self):
         assert len(self.children) > 0
         assert self.parent is not None
+        intermediates = self.get_intermediates()
+        ir = super().to_intermediate_representation()
+        return ir[:-1] + [Drop(intermediates)] + [Return()]
+
+    def get_intermediates(self):
         root = self.find_root_of_tree()
         keys = set([n.domains[0] for n in root.get_keys()])
         vals = set([n.domains[0] for n in self.find_values()])
         intermediates = [c for c in self.domains if c not in keys | vals]
-        ir = super().to_intermediate_representation()
-        return ir[:-1] + [Drop(intermediates)] + [Return()]
+        return intermediates
 
     def copy(self):
         copy = IntermediateNode(self.domains, self.intermediate_representation.copy(),

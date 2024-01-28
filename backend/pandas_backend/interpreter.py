@@ -63,7 +63,9 @@ def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFram
         hidden_dependencies = [v.name for v in val.get_hidden_keys() if v.name not in set(hidden)]
 
         if len(hidden_dependencies) > 0:
-            to_add = app[keys_str + [val.get_name()]].groupby(keys_str)[val.get_name()].agg(list)
+            to_add = app[keys_str + [val.get_name()]]
+            to_add = to_add.loc[to_add.dropna().index]
+            to_add = to_add.groupby(keys_str)[val.get_name()].agg(list)
             columns_with_hidden_keys_str += [val.get_name()]
             columns_with_hidden_keys += [val]
         else:
@@ -79,11 +81,11 @@ def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFram
         df2 = df
     df3 = df2.dropna(subset=keys_str, how="any")
 
-    df3[columns_with_hidden_keys_str] = df3[columns_with_hidden_keys_str].map(lambda d: d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else [])
+    df3[columns_with_hidden_keys_str] = df3[columns_with_hidden_keys_str].map(
+        lambda d: d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else [])
 
-    df3 = df3[[d.name for d in left + values]]
-    df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index([d.name for d in left])
-    keys_count = reduce(operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in left])
+    df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index(keys_str)
+    keys_count = reduce(operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in keys])
     dropped_keys_cnt = keys_count - len(df3)
     return df3, dropped_keys_cnt, 0
 
@@ -156,21 +158,15 @@ def exp(derivation_step: Expand, backend, stack, sp) -> interp:
     table = stack[-1]
     start_node = derivation_step.start_node
     end_node = derivation_step.end_node
-    start_nodes = SchemaNode.get_constituents(start_node)
     end_nodes = SchemaNode.get_constituents(end_node)
     indices = derivation_step.indices
-    hidden_keys = [c for c in derivation_step.hidden_keys]
-    idxs = []
-    i = 0
+    hidden_keys = derivation_step.hidden_keys
 
-    for hk in hidden_keys:
-        while end_nodes[i] != hk:
-            i += 1
-        idxs += [i]
+    idxs = [i for i in range(len(end_nodes)) if i not in set(indices)]
 
     df = table
     exists = set(indices)
-    df = df.rename({i: j for i, j in enumerate(indices)})
+    df = df.rename({i: j for i, j in enumerate(indices)}, axis=1)
 
     for j in range(len(end_nodes)):
         if j not in exists:
@@ -189,7 +185,7 @@ def equ(derivation_step: Equate, _, stack, sp) -> interp:
 
 
 def ent(derivation_step: EndTraversal, _, stack, sp) -> interp:
-    cols = [c.name for c in derivation_step.start_columns]
+    cols = [c for c in stack[-1].columns]
     end_cols = [c.name for c in derivation_step.end_columns]
     should_merge = [c not in set(cols) for c in end_cols]
     to_drop = [i for i, b in enumerate(should_merge) if not b]

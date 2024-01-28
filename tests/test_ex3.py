@@ -333,6 +333,8 @@ Val_id
                .infer(["Val_id"], tstart["tstart"])
                .infer(["Val_id"], bonus["bonus"]))
         t14 = t12.show("cardnum_1").filter("bonus")
+        print("T14 DERIVATION")
+        print(t14.derivation)
         self.maxDiff = None
         self.assertExpectedInline(str(t14), """\
 [Val_id cardnum_1 || cardnum tstart bonus]

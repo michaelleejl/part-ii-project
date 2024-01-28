@@ -20,6 +20,7 @@ def initialise():
 
 class TestChi(expecttest.TestCase):
 
+
     def test1(self):
         s, City, from_city, to_city, volume = initialise()
 
@@ -97,8 +98,8 @@ Oxford    Cambridge     NaN            0.0
         s, City, from_city, to_city, volume = initialise()
         t1 = s.get([City, City], ["FromCity", "ToCity"])
         t2 = t1.infer(["FromCity", "ToCity"], volume)
-        t3 = t2.extend("volume", 0, "volume_fillna").sort(["FromCity", "ToCity"])
-        t4 = t3.shift_column_left("ToCity")
+        t3 = t2.extend("volume", 0, "volume_fillna")
+        t4 = t3.swap("FromCity", "ToCity").sort(["FromCity", "ToCity"])
         self.assertExpectedInline(str(t4), """\
 [ToCity FromCity || volume volume_fillna]
                      volume  volume_fillna
@@ -126,28 +127,62 @@ Oxford    Oxford        NaN            0.0
         s, City, from_city, to_city, volume = initialise()
         t1 = s.get([City, City], ["FromCity", "ToCity"])
         t2 = t1.infer(["FromCity", "ToCity"], volume)
-        t3 = t2.extend("volume", 0, "volume_fillna").sort(["FromCity", "ToCity"])
-        t4 = t3.shift_column_left("ToCity").change_aggregation_level(-1)
-        t4a = t4.deduce(t4["volume_fillna"].sum(), "total_inflow").sort(["FromCity", "ToCity"])
-        print(t4a["volume"].get_hidden_keys())
-        self.assertExpectedInline(str(t4a), """\
+        t3 = t2.extend("volume", 0, "volume_fillna")
+        t4 = t3.swap("FromCity", "ToCity")
+        t5 = t4.shift_left()
+        self.assertExpectedInline(str(t5), """\
+[ToCity || FromCity volume volume_fillna]
+                                         FromCity  ...         volume_fillna
+ToCity                                             ...                      
+London     [Cambridge, London, Edinburgh, Oxford]  ...  [3.0, 0.0, 2.4, 1.2]
+Edinburgh  [Cambridge, London, Edinburgh, Oxford]  ...  [2.4, 0.0, 0.0, 1.8]
+Oxford     [Cambridge, London, Edinburgh, Oxford]  ...  [0.6, 2.4, 0.0, 0.0]
+Cambridge  [Cambridge, London, Edinburgh, Oxford]  ...  [0.0, 4.2, 1.8, 0.0]
+
+[4 rows x 3 columns]
+
+""")
+
+    def test6(self):
+        s, City, from_city, to_city, volume = initialise()
+        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t2 = t1.infer(["FromCity", "ToCity"], volume)
+        t3 = t2.extend("volume", 0, "volume_fillna")
+        t4 = t3.swap("FromCity", "ToCity")
+        t5 = t4.shift_left()
+        t6 = t5.deduce(t5["volume_fillna"].sum(), "total_inflow")
+        self.assertExpectedInline(str(t6), """\
 [ToCity || FromCity volume volume_fillna total_inflow]
                                          FromCity  ... total_inflow
 ToCity                                             ...             
-Cambridge  [Cambridge, Edinburgh, London, Oxford]  ...          3.0
-Cambridge  [Cambridge, Edinburgh, London, Oxford]  ...          4.2
-Cambridge  [Cambridge, Edinburgh, London, Oxford]  ...          6.0
-Edinburgh  [Cambridge, Edinburgh, London, Oxford]  ...          6.0
-Edinburgh  [Cambridge, Edinburgh, London, Oxford]  ...          6.6
-Edinburgh  [Cambridge, Edinburgh, London, Oxford]  ...          4.2
-London     [Cambridge, Edinburgh, London, Oxford]  ...          6.0
-London     [Cambridge, Edinburgh, London, Oxford]  ...          6.6
-London     [Cambridge, Edinburgh, London, Oxford]  ...          4.2
-Oxford     [Cambridge, Edinburgh, London, Oxford]  ...          6.0
-Oxford     [Cambridge, Edinburgh, London, Oxford]  ...          3.0
-Oxford     [Cambridge, Edinburgh, London, Oxford]  ...          4.2
+London     [Cambridge, Edinburgh, Oxford, London]  ...          6.6
+Edinburgh  [Cambridge, Edinburgh, Oxford, London]  ...          4.2
+Oxford     [Cambridge, Edinburgh, Oxford, London]  ...          3.0
+Cambridge  [Cambridge, Edinburgh, Oxford, London]  ...          6.0
 
-[12 rows x 4 columns]
+[4 rows x 4 columns]
+
+""")
+
+    def test7(self):
+        s, City, from_city, to_city, volume = initialise()
+        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t2 = t1.infer(["FromCity", "ToCity"], volume)
+        t3 = t2.extend("volume", 0, "volume_fillna")
+        t4 = t3.swap("FromCity", "ToCity")
+        t5 = t4.shift_left()
+        t6 = t5.deduce(t5["volume_fillna"].sum(), "total_inflow")
+        t7 = t6.deduce(t6["volume_fillna"]/t6["total_inflow"], "relative_inflow")
+        self.assertExpectedInline(str(t7), """\
+[ToCity || FromCity volume volume_fillna total_inflow relative_inflow]
+                                         FromCity  ...                                    relative_inflow
+ToCity                                             ...                                                   
+London     [Cambridge, Edinburgh, Oxford, London]  ...  [0.45454545454545453, 0.3636363636363636, 0.18...
+Edinburgh  [Cambridge, Edinburgh, Oxford, London]  ...  [0.5714285714285714, 0.0, 0.42857142857142855,...
+Oxford     [Cambridge, Edinburgh, Oxford, London]  ...  [0.19999999999999998, 0.0, 0.0, 0.799999999999...
+Cambridge  [Cambridge, Edinburgh, Oxford, London]  ...                [0.0, 0.3, 0.0, 0.7000000000000001]
+
+[4 rows x 5 columns]
 
 """)
     #     t5 = t4b.assign("total_inflows", t4b["total_inflow"].aggregate(sum))
