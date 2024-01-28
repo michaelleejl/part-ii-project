@@ -150,14 +150,14 @@ class DerivationNode:
                     return [self] + suffix
             return None
 
-    def intermediate_representation_for_path(self, path):
+    def intermediate_representation_for_path(self, path, keys):
         intermediate_representation = []
-        suffix = []
         for node in path:
             intermediate_representation += node.intermediate_representation
-            if isinstance(node, IntermediateNode):
-                suffix = [Drop(node.get_intermediates())] + suffix
-        return intermediate_representation + suffix
+        ents = [step for step in intermediate_representation if isinstance(step, EndTraversal)]
+        to_add = functools.reduce(lambda x, y: x.union(y), [step.end_columns for step in ents[:-1]], set())
+        to_remove = set(ents[-1].end_columns)
+        return intermediate_representation + [Drop(list(to_add.difference(to_remove).difference(set(keys))))]
 
     @classmethod
     def invert_path(cls, path: list, table):
@@ -583,7 +583,7 @@ class RootNode(DerivationNode):
                     i_keys = intermediate.get_strong_keys()
                     key_node = self.find_node_with_domains(i_keys)
                     path = key_node.path_to_value(intermediate)
-                    intermediate_steps = self.intermediate_representation_for_path(path)
+                    intermediate_steps = self.intermediate_representation_for_path(path, strong_keys)
                     j+=1
                     if j == 0:
                         to_prepend += intermediate_steps
