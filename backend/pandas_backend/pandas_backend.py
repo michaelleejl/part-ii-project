@@ -77,8 +77,8 @@ class PandasBackend(Backend):
         else:
             target = rev_target
             idxs = target_idxs
+        forward = SchemaEdge(target, edge.to_node, edge.cardinality)
         rev = SchemaEdge(edge.to_node, target, reverse_cardinality(edge.cardinality))
-
         fun = interpret_function(function)
 
         def closure(table):
@@ -86,6 +86,7 @@ class PandasBackend(Backend):
             series = pd.Series(fun(df))
             df[num_args] = series
             data = copy_data(pd.DataFrame(df))
+            self.map_edge_to_data_relation(forward, data[idxs + [num_args]])
             self.map_edge_to_data_relation(rev, data[[num_args] + idxs])
             self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[num_args]).drop_duplicates())
             return df[list(range(num_args+1))]

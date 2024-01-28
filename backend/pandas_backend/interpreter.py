@@ -56,6 +56,7 @@ def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFram
     app = table
     app = app.loc[app.astype(str).drop_duplicates().index]
     df = app[keys_str].reset_index(drop=True)
+    df = df.loc[df.astype(str).drop_duplicates().index]
     columns_with_hidden_keys_str = []
     columns_with_hidden_keys = []
 

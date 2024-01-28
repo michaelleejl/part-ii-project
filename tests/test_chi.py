@@ -173,6 +173,7 @@ Cambridge  [Cambridge, Edinburgh, Oxford, London]  ...          6.0
         t5 = t4.shift_left()
         t6 = t5.deduce(t5["volume_fillna"].sum(), "total_inflow")
         t7 = t6.deduce(t6["volume_fillna"]/t6["total_inflow"], "relative_inflow")
+        self.maxDiff = None
         self.assertExpectedInline(str(t7), """\
 [ToCity || FromCity volume volume_fillna total_inflow relative_inflow]
                                          FromCity  ...                                    relative_inflow
@@ -185,6 +186,18 @@ Cambridge  [Cambridge, Edinburgh, Oxford, London]  ...                [0.0, 0.3,
 [4 rows x 5 columns]
 
 """)
+
+    def test8(self):
+        s, City, from_city, to_city, volume = initialise()
+        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t2 = t1.infer(["FromCity", "ToCity"], volume)
+        t3 = t2.extend("volume", 0, "volume_fillna")
+        t4 = t3.swap("FromCity", "ToCity")
+        t5 = t4.shift_left()
+        t6 = t5.deduce(t5["volume_fillna"].sum(), "total_inflow")
+        t7 = t6.deduce(t6["volume_fillna"] / t6["total_inflow"], "relative_inflow")
+        t8 = t2.infer(["ToCity"], t7["total_inflow"])
+        print(t8)
     #     t5 = t4b.assign("total_inflows", t4b["total_inflow"].aggregate(sum))
     #     print(t5)
     #

@@ -25,7 +25,7 @@ from tables.helpers.wrap_sexp import wrap_sexp
 from tables.internal_representation import RepresentationStep, End, Filter, Sort, Get, EndTraversal, StartTraversal, Pop
 
 existing_column = str | Column | ColumnNode
-new_column = AtomicNode | SchemaClass
+new_column = AtomicNode | SchemaClass | Column | ColumnNode
 
 
 def flatten(xss):
@@ -124,12 +124,12 @@ class Table:
         return table
 
     def get_name_and_node(self, input: new_column) -> tuple[str, AtomicNode]:
-        # if isinstance(input, AtomicNode | SchemaClass):
-        return input.name, input
-        # elif isinstance(input, Column):
-        #     return input.name, input.get_schema_node()
-        # elif isinstance(input, ColumnNode):
-        #     return input.get_name(), input.get_schema_node()
+        if isinstance(input, AtomicNode | SchemaClass):
+            return input.name, input
+        elif isinstance(input, Column):
+            return input.name, input.get_schema_node()
+        elif isinstance(input, ColumnNode):
+            return input.get_name(), input.get_schema_node()
         # elif isinstance(input, str):
         #     node = self.derivation.find_column_with_name(input)
         #     return node.get_name(), node.get_schema_node()
@@ -422,9 +422,12 @@ class Table:
         if with_name is not None:
             to_column_name = with_name
 
+
+
         t = Table.create_from_table(self)
 
         namespace = t.get_namespace()
+
         # STEP 1
         # Get name for inferred column
         # Append column to end of displayed columns
@@ -433,9 +436,31 @@ class Table:
 
         namespace |= {name}
 
-        # STEP 2
-        # Get the shortest path in the schema graph
         strong_keys = t.find_strong_keys_for_column(assumption_columns)
+
+        if isinstance(to_column, Column) or isinstance(to_column, ColumnNode):
+            if isinstance(to_column, Column):
+                col = to_column.node
+            else:
+                col = to_column
+            root = col.find_root_of_tree()
+            key_node = root.find_node_with_domains(strong_keys)
+            path = key_node.path_to_value(col)
+
+            #todo: cleanup hidden keys etc
+            new_root = t.derivation.insert_key(strong_keys)
+            parent = key_node
+            for child in path[1:]:
+                new_root = new_root.add_child(parent, child)
+                parent = child
+
+            t.derivation = new_root
+            t.extend_intermediate_representation()
+            t.execute()
+            return t
+
+            # STEP 2
+        # Get the shortest path in the schema graph
         if aggregated_over is None:
             aggregated_over = []
         old_hidden_keys = t.find_hidden_keys_for_column(assumption_columns, set(aggregated_over))
@@ -478,7 +503,7 @@ class Table:
         # STEP 4
         # Update intermediate representation
         t.derivation = self.derivation.infer(new_col, strong_keys, old_hidden_keys, hidden_assumptions,
-                                             assumption_columns, cardinality, repr)
+                                             [c for c in assumption_columns], cardinality, repr)
         t.extend_intermediate_representation()
         t.execute()
 
