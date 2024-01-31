@@ -374,10 +374,18 @@ class Table:
             if len(modified_start_cols) > 0:
                 self.schema.add_edge(modified_start_node, end_node, Cardinality.MANY_TO_ONE)
                 self.schema.add_edge(end_node, modified_start_node, Cardinality.ONE_TO_MANY)
+
         self.schema.map_edge_to_closure_function(edge, exp, len(start_columns), modified_start_node,
                                                  modified_start_cols)
-        return t.infer_internal([col.name for col in start_columns], end_node, with_name=with_name,
+        t_new = t.infer_internal([col.name for col in start_columns], end_node, with_name=with_name,
                                 aggregated_over=aggregated_over)
+        t_new = t_new.forget(with_name)
+        if modified_start_cols is None:
+            modified_start_cols = start_columns
+        else:
+            modified_start_cols = [start_columns[i] for i in modified_start_cols]
+        t_new = t_new.infer([c.name for c in modified_start_cols], end_node, with_name=with_name)
+        return t_new
 
     def extend(self, column: existing_column, with_function, with_name: str):
         column = self.get_existing_column(column)

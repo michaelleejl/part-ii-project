@@ -150,14 +150,14 @@ class DerivationNode:
                     return [self] + suffix
             return None
 
-    def intermediate_representation_for_path(self, path, keys):
+    def intermediate_representation_for_path(self, path, keys, hids):
         intermediate_representation = []
         for node in path:
             intermediate_representation += node.intermediate_representation
         ents = [step for step in intermediate_representation if isinstance(step, EndTraversal)]
         to_add = functools.reduce(lambda x, y: x.union(y), [step.end_columns for step in ents[:-1]], set())
         to_remove = set(ents[-1].end_columns)
-        return intermediate_representation + [Drop(list(to_add.difference(to_remove).difference(set(keys))))]
+        return intermediate_representation + [Drop(list(to_add.difference(to_remove).difference(set(keys).union(set(hids)))))]
 
     @classmethod
     def invert_path(cls, path: list, table):
@@ -243,6 +243,8 @@ class DerivationNode:
                 if new_child is not None:
                     new_children += [new_child]
             new_node.children = OrderedSet(new_children)
+            if len(new_node.children) == 0 and new_node.is_intermediate_node():
+                return None
             new_node.parent = None
             return new_node
 
@@ -436,6 +438,9 @@ class DerivationNode:
     def is_val_column(self):
         return False
 
+    def is_intermediate_node(self):
+        return False
+
     def find_values(self):
         res = []
         if self.is_val_column():
@@ -581,9 +586,10 @@ class RootNode(DerivationNode):
             for i, intermediate in enumerate(intermediates):
                 if intermediate.is_val_column():
                     i_keys = intermediate.get_strong_keys()
+                    hid_keys = intermediate.get_hidden_keys_for_val()
                     key_node = self.find_node_with_domains(i_keys)
                     path = key_node.path_to_value(intermediate)
-                    intermediate_steps = self.intermediate_representation_for_path(path, strong_keys)
+                    intermediate_steps = self.intermediate_representation_for_path(path, strong_keys, hid_keys)
                     j+=1
                     if j == 0:
                         to_prepend += intermediate_steps
@@ -785,8 +791,12 @@ class IntermediateNode(DerivationNode):
         root = self.find_root_of_tree()
         keys = set([n.domains[0] for n in root.get_keys()])
         vals = set([n.domains[0] for n in self.find_values()])
-        intermediates = [c for c in self.domains if c not in keys | vals]
+        hids = set(self.get_hidden_keys_for_val())
+        intermediates = [c for c in self.domains if c not in keys | vals | hids]
         return intermediates
+
+    def is_intermediate_node(self):
+        return True
 
     def copy(self):
         copy = IntermediateNode(self.domains, self.intermediate_representation.copy(),
