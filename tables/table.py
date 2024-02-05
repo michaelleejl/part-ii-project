@@ -449,26 +449,26 @@ class Table:
 
         strong_keys = t.find_strong_keys_for_column(assumption_columns)
 
-        # if isinstance(to_column, Column) or isinstance(to_column, ColumnNode):
-        #     if isinstance(to_column, Column):
-        #         col = to_column.node
-        #     else:
-        #         col = to_column
-        #     root = col.find_root_of_tree()
-        #     key_node = root.find_node_with_domains(strong_keys)
-        #     path = key_node.path_to_value(col)
-        #
-        #     #todo: cleanup hidden keys etc
-        #     new_root = t.derivation.insert_key(strong_keys)
-        #     parent = key_node
-        #     for child in path[1:]:
-        #         new_root = new_root.add_child(parent, child)
-        #         parent = child
-        #
-        #     t.derivation = new_root
-        #     t.extend_intermediate_representation()
-        #     t.execute()
-        #     return t
+        if isinstance(to_column, Column) or isinstance(to_column, ColumnNode):
+            if isinstance(to_column, Column):
+                col = to_column.node
+            else:
+                col = to_column
+            root = col.find_root_of_tree()
+            key_node = root.find_node_with_domains(strong_keys)
+            path = key_node.path_to_value(col)
+
+            #todo: cleanup hidden keys etc
+            new_root = t.derivation.insert_key(strong_keys)
+            parent = key_node
+            for child in path[1:]:
+                new_root = new_root.add_child(parent, child)
+                parent = child
+
+            t.derivation = new_root
+            t.extend_intermediate_representation()
+            t.execute()
+            return t
 
             # STEP 2
         # Get the shortest path in the schema graph

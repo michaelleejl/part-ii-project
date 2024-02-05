@@ -197,9 +197,130 @@ Cambridge  [Cambridge, Edinburgh, Oxford, London]  ...                [0.0, 0.3,
         t5 = t4.shift_left()
         t6 = t5.deduce(t5["volume_fillna"].sum(), "total_inflow")
         t7 = t6.deduce(t6["volume_fillna"] / t6["total_inflow"], "relative_inflow")
-        t8 = t2.infer(["ToCity"], t7["total_inflow"])
+        t8 = t2.infer(["ToCity"], t7["relative_inflow"])
         #TODO
-        print(t8)
+        self.assertExpectedInline(str(t8), """\
+[FromCity ToCity || volume relative_inflow]
+                     volume                                    relative_inflow
+FromCity  ToCity                                                              
+Cambridge London        3.0                [1.0, 1.5714285714285714, 2.2, 1.1]
+          Edinburgh     2.4  [0.6363636363636364, 1.0, 1.4000000000000001, ...
+          Oxford        0.6  [0.45454545454545453, 0.7142857142857143, 1.0,...
+London    Cambridge     4.2  [0.9090909090909091, 1.4285714285714286, 2.0, ...
+          Oxford        2.4  [0.45454545454545453, 0.7142857142857143, 1.0,...
+Oxford    London        1.2                [1.0, 1.5714285714285714, 2.2, 1.1]
+          Edinburgh     1.8  [0.6363636363636364, 1.0, 1.4000000000000001, ...
+Edinburgh Cambridge     1.8  [0.9090909090909091, 1.4285714285714286, 2.0, ...
+          London        2.4                [1.0, 1.5714285714285714, 2.2, 1.1]
+Cambridge Cambridge     NaN  [0.9090909090909091, 1.4285714285714286, 2.0, ...
+London    London        NaN                [1.0, 1.5714285714285714, 2.2, 1.1]
+          Edinburgh     NaN  [0.6363636363636364, 1.0, 1.4000000000000001, ...
+Oxford    Cambridge     NaN  [0.9090909090909091, 1.4285714285714286, 2.0, ...
+          Oxford        NaN  [0.45454545454545453, 0.7142857142857143, 1.0,...
+Edinburgh Oxford        NaN  [0.45454545454545453, 0.7142857142857143, 1.0,...
+          Edinburgh     NaN  [0.6363636363636364, 1.0, 1.4000000000000001, ...
+
+""")
+
+    def test9(self):
+        s, City, from_city, to_city, volume = initialise()
+        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t2 = t1.infer(["FromCity", "ToCity"], volume)
+        t3 = t2.extend("volume", 0, "volume_fillna")
+        t9 = t3.shift_left()
+        self.assertExpectedInline(str(t9), """\
+[FromCity || ToCity volume volume_fillna]
+                                           ToCity  ...         volume_fillna
+FromCity                                           ...                      
+Cambridge  [London, Edinburgh, Oxford, Cambridge]  ...  [3.0, 2.4, 0.6, 0.0]
+Edinburgh  [London, Edinburgh, Oxford, Cambridge]  ...  [2.4, 0.0, 0.0, 1.8]
+Oxford     [London, Edinburgh, Oxford, Cambridge]  ...  [1.2, 1.8, 0.0, 0.0]
+London     [London, Edinburgh, Oxford, Cambridge]  ...  [0.0, 0.0, 2.4, 4.2]
+
+[4 rows x 3 columns]
+
+""")
+
+    def test10(self):
+        s, City, from_city, to_city, volume = initialise()
+        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t2 = t1.infer(["FromCity", "ToCity"], volume)
+        t3 = t2.extend("volume", 0, "volume_fillna")
+        t9 = t3.shift_left()
+        t10 = t9.deduce(t9["volume_fillna"].sum(), "total_outflow")
+        self.assertExpectedInline(str(t10), """\
+[FromCity || ToCity volume volume_fillna total_outflow]
+                                           ToCity  ... total_outflow
+FromCity                                           ...              
+Cambridge  [London, Edinburgh, Oxford, Cambridge]  ...           6.0
+London     [London, Edinburgh, Oxford, Cambridge]  ...           6.6
+Edinburgh  [London, Edinburgh, Oxford, Cambridge]  ...           4.2
+Oxford     [London, Edinburgh, Oxford, Cambridge]  ...           3.0
+
+[4 rows x 4 columns]
+
+""")
+
+    def test11(self):
+        s, City, from_city, to_city, volume = initialise()
+        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t2 = t1.infer(["FromCity", "ToCity"], volume)
+        t3 = t2.extend("volume", 0, "volume_fillna")
+        t9 = t3.shift_left()
+        t10 = t9.deduce(t9["volume_fillna"].sum(), "total_outflow")
+        t11 = t10.deduce(t10["volume_fillna"] / t10["total_outflow"], "relative_outflow")
+        self.assertExpectedInline(str(t11), """\
+[FromCity || ToCity volume volume_fillna total_outflow relative_outflow]
+                                           ToCity  ...                                   relative_outflow
+FromCity                                           ...                                                   
+Cambridge  [London, Edinburgh, Oxford, Cambridge]  ...  [0.5, 0.39999999999999997, 0.09999999999999999...
+London     [London, Edinburgh, Oxford, Cambridge]  ...  [0.0, 0.0, 0.36363636363636365, 0.636363636363...
+Edinburgh  [London, Edinburgh, Oxford, Cambridge]  ...  [0.5714285714285714, 0.0, 0.0, 0.4285714285714...
+Oxford     [London, Edinburgh, Oxford, Cambridge]  ...               [0.39999999999999997, 0.6, 0.0, 0.0]
+
+[4 rows x 5 columns]
+
+""")
+
+    def test12(self):
+        s, City, from_city, to_city, volume = initialise()
+        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t2 = t1.infer(["FromCity", "ToCity"], volume)
+        t3 = t2.extend("volume", 0, "volume_fillna")
+        t4 = t3.swap("FromCity", "ToCity")
+        t5 = t4.shift_left()
+        t6 = t5.deduce(t5["volume_fillna"].sum(), "total_inflow")
+        t7 = t6.deduce(t6["volume_fillna"] / t6["total_inflow"], "relative_inflow")
+
+        t9 = t3.shift_left()
+        t10 = t9.deduce(t9["volume_fillna"].sum(), "total_outflow")
+        t11 = t10.deduce(t10["volume_fillna"] / t10["total_outflow"], "relative_outflow")
+
+        t12 = t2.infer(["ToCity", "FromCity"], t7["relative_inflow"], with_name="expected_outflow")
+        print("T12 DERIVATION")
+        print(t12.derivation)
+        self.assertExpectedInline(str(t12), """\
+[FromCity ToCity || volume expected_outflow]
+                     volume                                   expected_outflow
+FromCity  ToCity                                                              
+Cambridge London        3.0                [1.0, 1.5714285714285714, 2.2, 1.1]
+London    London        NaN                [1.0, 1.5714285714285714, 2.2, 1.1]
+Oxford    London        1.2                [1.0, 1.5714285714285714, 2.2, 1.1]
+Edinburgh London        2.4                [1.0, 1.5714285714285714, 2.2, 1.1]
+Cambridge Edinburgh     2.4  [0.6363636363636364, 1.0, 1.4000000000000001, ...
+London    Edinburgh     NaN  [0.6363636363636364, 1.0, 1.4000000000000001, ...
+Oxford    Edinburgh     1.8  [0.6363636363636364, 1.0, 1.4000000000000001, ...
+Edinburgh Edinburgh     NaN  [0.6363636363636364, 1.0, 1.4000000000000001, ...
+Cambridge Oxford        0.6  [0.45454545454545453, 0.7142857142857143, 1.0,...
+London    Oxford        2.4  [0.45454545454545453, 0.7142857142857143, 1.0,...
+Oxford    Oxford        NaN  [0.45454545454545453, 0.7142857142857143, 1.0,...
+Edinburgh Oxford        NaN  [0.45454545454545453, 0.7142857142857143, 1.0,...
+Cambridge Cambridge     NaN  [0.9090909090909091, 1.4285714285714286, 2.0, ...
+London    Cambridge     4.2  [0.9090909090909091, 1.4285714285714286, 2.0, ...
+Oxford    Cambridge     NaN  [0.9090909090909091, 1.4285714285714286, 2.0, ...
+Edinburgh Cambridge     1.8  [0.9090909090909091, 1.4285714285714286, 2.0, ...
+
+""")
     #     t5 = t4b.assign("total_inflows", t4b["total_inflow"].aggregate(sum))
     #     print(t5)
     #

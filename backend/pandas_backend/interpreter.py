@@ -157,11 +157,9 @@ def prj(derivation_step: Project, _, stack, sp) -> interp:
 
 def exp(derivation_step: Expand, backend, stack, sp) -> interp:
     table = stack[-1]
-    start_node = derivation_step.start_node
     end_node = derivation_step.end_node
     end_nodes = SchemaNode.get_constituents(end_node)
     indices = derivation_step.indices
-    hidden_keys = derivation_step.hidden_keys
 
     idxs = [i for i in range(len(end_nodes)) if i not in set(indices)]
 
@@ -174,9 +172,10 @@ def exp(derivation_step: Expand, backend, stack, sp) -> interp:
             domain = backend.get_domain_from_atomic_node(end_nodes[j], j)
             df = pd.merge(df, domain, how="cross")
 
-    new_cols = derivation_step.columns
-    for i, idx in enumerate(idxs):
-        df[new_cols[i].name] = df[idx]
+    hidden_keys = derivation_step.hidden_keys
+    if len(hidden_keys) > 0:
+        for i, idx in enumerate(idxs):
+            df[hidden_keys[i].name] = df[idx]
 
     return stack[:-1] + [df], sp
 
