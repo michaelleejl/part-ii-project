@@ -332,7 +332,6 @@ def step(next_step: RepresentationStep, backend, stack: list, sp) -> interp:
 def interpret(steps: list[RepresentationStep], backend) -> pd.DataFrame:
     stack = []
     sp = None
-    print("steps:" + str(steps))
     for s in steps:
         print(s)
         stack, sp = step(s, backend, stack, sp)

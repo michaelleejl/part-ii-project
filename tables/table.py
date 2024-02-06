@@ -12,6 +12,7 @@ from schema.helpers.find_index import find_index
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from tables.column import Column
 from tables.derivation.derivation_node import DerivationNode, ColumnNode, IntermediateNode, RootNode
+from tables.derivation.ordered_set import OrderedSet
 from tables.domain import Domain
 from tables.exceptions import ColumnsNeedToBeUniqueException, \
     ColumnsNeedToBeInTableAndVisibleException, ColumnsNeedToBeKeysException, ColumnsNeedToBeInTableException, \
@@ -433,8 +434,6 @@ class Table:
         if with_name is not None:
             to_column_name = with_name
 
-
-
         t = Table.create_from_table(self)
 
         namespace = t.get_namespace()
@@ -455,13 +454,19 @@ class Table:
             else:
                 col = to_column
             root = col.find_root_of_tree()
-            key_node = root.find_node_with_domains(strong_keys)
-            path = key_node.path_to_value(col)
+            if to_column.name != to_column_name:
+                root = root.rename(to_column.name, to_column_name)
+            key_node = root.find_node_with_domains(col.get_strong_keys())
+            val_node = root.find_node_with_domains([Domain(to_column_name, to_column_node)])
+            path = key_node.path_to_value(val_node)
 
             #todo: cleanup hidden keys etc
             new_root = t.derivation.insert_key(strong_keys)
             parent = key_node
             for child in path[1:]:
+                if child.is_val_column() and child.get_domain().name not in set(t.displayed_columns):
+                    child = child.to_intermediate_node()
+                child.children = OrderedSet([])
                 new_root = new_root.add_child(parent, child)
                 parent = child
 
@@ -722,10 +727,11 @@ class Table:
         return t
 
     def equate(self, col1, col2):
-        self.verify_columns([col1, col2], {Table.ColumnRequirements.IS_KEY})
 
         col1 = self.get_existing_column(col1)
         col2 = self.get_existing_column(col2)
+
+        self.verify_columns([col1, col2], {Table.ColumnRequirements.IS_KEY})
 
         t = Table.create_from_table(self)
         idx = self.displayed_columns.index(col2.name)

@@ -363,7 +363,7 @@ class DerivationNode:
 
             return [with_hk, without_hk]
 
-    def equate(self, key1, key2):
+    def equate_internal(self, key1, key2, root_keys):
         idx1 = find_index(key1, self.domains)
         idx2 = find_index(key2, self.domains)
 
@@ -374,22 +374,43 @@ class DerivationNode:
                 new_node.domains = self.domains[:idx2] + self.domains[idx2+1:]
                 start_node = SchemaNode.product([d.node for d in new_node.domains])
                 end_node = key1.node
-                ir = [StartTraversal(new_node.domains),
-                      Project(start_node, end_node, [idx1]),
-                      EndTraversal(new_node.domains, [key2])]
-                intermediate = IntermediateNode(self.domains, ir, parent=new_node)
-                intermediate = intermediate.add_children(intermediate, self.children)
-                new_node.children = OrderedSet([intermediate])
+                if len(self.children) > 0:
+                    indices = [i if i != idx2 else idx1 for i in range(len(self.domains))]
+                    ir = [StartTraversal(new_node.domains),
+                          Project(start_node, end_node, [idx1]),
+                          EndTraversal(self.domains, [key2])]
+                    intermediate = IntermediateNode(self.domains, ir, parent=new_node)
+                    intermediate = intermediate.add_children(intermediate, self.children)
+                    new_node.children = OrderedSet([intermediate])
+                else:
+                    new_node.children = OrderedSet([])
             else:
-                new_node.domains = self.domains[:idx2] + [key1] + self.domains[idx2+1:]
+                filtered = self.domains[:idx2] + self.domains[idx2+1:]
+                idxs = [(i, find_index(d, root_keys)) for i, d in enumerate(filtered)]
+                marker = find_index(key1, root_keys)
+
+                def find_insertion_point(prev, curr):
+                    i, j = curr
+                    if j <= marker:
+                        return i+1
+                    else:
+                        return prev
+
+                to_insert = functools.reduce(find_insertion_point, idxs, 0)
+                new_domains = filtered[:to_insert] + [key1] + filtered[to_insert:]
+                new_node.domains = new_domains
                 start_node = SchemaNode.product([d.node for d in new_node.domains])
                 end_node = key1.node
-                ir = [StartTraversal(new_node.domains),
-                      Project(start_node, end_node, [idx2]),
-                      EndTraversal(new_node.domains, [key2])]
-                intermediate = IntermediateNode(self.domains, ir, parent=new_node)
-                intermediate = intermediate.add_children(intermediate, self.children)
-                new_node.children = OrderedSet([intermediate])
+                indices = [i if i != idx2 else idx1 for i in range(len(self.domains))]
+                if len(self.children) > 0:
+                    ir = [StartTraversal(new_node.domains),
+                          Project(start_node, end_node, [to_insert]),
+                          EndTraversal(self.domains, [key2])]
+                    intermediate = IntermediateNode(self.domains, ir, parent=new_node)
+                    intermediate = intermediate.add_children(intermediate, self.children)
+                    new_node.children = OrderedSet([intermediate])
+                else:
+                    new_node.children = OrderedSet([])
                 return new_node
         else:
             new_node.children = OrderedSet([c.set_parent(new_node) for c in self.children])
@@ -535,11 +556,13 @@ class RootNode(DerivationNode):
 
     # inner product
     def equate(self, key1, key2):
+        key1 = key1.get_domain()
+        key2 = key2.get_domain()
         idx = find_index(key2, self.domains)
         new_keys = self.domains[:idx] + self.domains[idx+1:]
         new_root = RootNode(new_keys)
         for child in self.children:
-            new_child = child.equate(key1, key2)
+            new_child = child.equate_internal(key1, key2, new_keys)
             new_root = new_root.insert_key(new_child.domains)
             key_node = new_root.find_node_with_domains(new_child.domains)
             new_root = new_root.add_children(key_node, new_child.children)
