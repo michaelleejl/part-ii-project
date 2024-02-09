@@ -4,6 +4,7 @@ import pandas as pd
 
 from schema.exceptions import *
 from schema.schema import Schema
+from tables.domain import Domain
 
 
 class TestSchema(expecttest.TestCase):
@@ -208,6 +209,11 @@ v
                                         lambda: schema.add_edge(u, v, Cardinality.MANY_TO_ONE),
                                         """Node u is not in schema graph.""")
 
+    def test_create_class_successfullyCreatesClass(self):
+        schema = Schema()
+        clss = schema.create_class("clss")
+        self.assertExpectedInline(str(clss), """clss""")
+
     def test_schema_blend(self):
         bonus_df = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
         person_df = pd.read_csv("./person.csv").dropna().set_index(["cardnum"])
@@ -230,9 +236,9 @@ ADJACENCY LIST
 ==========================
 trip_id;cardnum
 --------------------------
-trip_id;cardnum ---> trip_id
-trip_id;cardnum ---> bonus
 trip_id;cardnum ---> cardnum
+trip_id;cardnum ---> bonus
+trip_id;cardnum ---> trip_id
 ==========================
 
 ==========================
@@ -309,12 +315,36 @@ person
         cardnum_person = person["cardnum"]
         Cardnum = schema.create_class("Cardnum")
         schema.blend(cardnum_bonus, cardnum_person, Cardnum)
-        t = schema.get([cardnum_person, cardnum_bonus])
+        t = schema.get(cardnum=cardnum_person,
+                       cardnum_bonus=cardnum_bonus)
         self.assertExpectedInline(str(t), """\
-[cardnum cardnum_1 || ]
+[cardnum cardnum_bonus || ]
 Empty DataFrame
 Columns: []
 Index: []
 6 keys hidden
 
 """)
+
+    def test_find_shortest_path_successfullyFindsShortestPath(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        from schema.cardinality import Cardinality
+        u = AtomicNode('u')
+        v = AtomicNode('v')
+        w = AtomicNode('w')
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+        schema.add_node(u)
+        schema.add_node(v)
+        schema.add_node(w)
+        schema.add_edge(u, v, Cardinality.MANY_TO_ONE)
+        schema.add_edge(v, w, Cardinality.MANY_TO_ONE)
+        domain1 = Domain("u", u)
+        domain2 = Domain("w", w)
+        cardinality, path, hidden_keys = schema.find_shortest_path([domain1], [domain2])
+        self.assertExpectedInline(str(cardinality), """Cardinality.MANY_TO_ONE""")
+        self.assertExpectedInline(str(path), """[STT <[u]>, TRV <u ---> v, []>, TRV <v ---> w, []>, ENT <[u], [w]>]""")
+        self.assertExpectedInline(str(hidden_keys), """[]""")
+

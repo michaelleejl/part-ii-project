@@ -96,3 +96,24 @@ class CannotRenameClassException(Exception):
 class CannotInsertDataFrameIfSchemaBackedBySQLBackendException(Exception):
     def __init__(self):
         super().__init__("Cannot insert dataframe if schema is backed by non-pandas backend")
+
+
+class SchemaClassMustBeSpecifiedException(Exception):
+    def __init__(self):
+        super().__init__("Both nodes have no associated class. SchemaClass must be specified")
+
+
+class CannotBlendNodesUnderDifferentClassesException(Exception):
+    def __init__(self):
+        super().__init__("Cannot blend nodes under different classes")
+
+
+class CannotBlendNodesWithDifferentTypeException(Exception):
+    def __init__(self, node1, node2):
+        super().__init__(
+            f"Cannot blend nodes with different type. Nodes have type {node1.node_type} and {node2.node_type}")
+
+
+class ColumnMustBeAnAtomicNodeOrClassException(Exception):
+    def __init__(self, name):
+        super().__init__(f"Column {name} must be an atomic node or class")

@@ -36,7 +36,7 @@ class TestEx1(expecttest.TestCase):
     def test_ex1_goal1_step1(self):
         s, cardnum, person = self.initialise()
         c_cardnum = cardnum["cardnum"]
-        t1 = s.get([c_cardnum])
+        t1 = s.get(cardnum = c_cardnum)
         print(t1.intermediate_representation)
         print(t1.derivation.to_intermediate_representation())
         self.assertExpectedInline(str(t1), """\
@@ -57,7 +57,7 @@ Index: []
 
     def test_ex1_goal1_step2(self):
         s, cardnum, person = self.initialise()
-        t1 = s.get([cardnum["cardnum"]])
+        t1 = s.get(cardnum = cardnum["cardnum"])
         print(t1.derivation.to_intermediate_representation())
         t2 = t1.infer(["cardnum"], person["person"])
         print(t2.intermediate_representation)
@@ -81,7 +81,7 @@ cardnum
 
     def test_ex1_goal1_step3(self):
         s, cardnum, person = self.initialise()
-        t1 = s.get([cardnum["cardnum"]])
+        t1 = s.get(cardnum = cardnum["cardnum"])
         t2 = t1.infer(["cardnum"], person["cardnum"])
         t3 = t2.infer(["cardnum_1"], person["person"])
         self.maxDiff = None
@@ -99,7 +99,7 @@ cardnum
 
     def test_ex1_goal1_step4(self):
         s, cardnum, person = self.initialise()
-        t1 = s.get([cardnum["cardnum"]])
+        t1 = s.get(cardnum = cardnum["cardnum"])
         t2 = t1.infer(["cardnum"], person["person"])
         t3 = t2.compose([cardnum["val_id"]], "cardnum")
         t4 = t3.infer([], person["person"])
@@ -130,7 +130,7 @@ val_id
 
     def test_ex1_goal2_step1_get(self):
         s, cardnum, person = self.initialise()
-        t11 = s.get([person["cardnum"]])
+        t11 = s.get(cardnum = person["cardnum"])
         self.assertExpectedInline(str(t11), """\
 [cardnum || ]
 Empty DataFrame
@@ -149,7 +149,7 @@ Index: []
 
     def test_ex1_goal2_step2_infer(self):
         s, cardnum, person = self.initialise()
-        t11 = s.get([person["cardnum"]])
+        t11 = s.get(cardnum = person["cardnum"])
         t12 = t11.infer(["cardnum"], person["person"])
         self.assertExpectedInline(str(t12), """\
 [cardnum || person]
@@ -175,7 +175,7 @@ cardnum
 
     def test_ex1_goal2_step3_composeAndSort(self):
         s, cardnum, person = self.initialise()
-        t11 = s.get([person["cardnum"]])
+        t11 = s.get(cardnum = person["cardnum"])
         t12 = t11.infer(["cardnum"], person["person"])
         print("T12 DERIVATION")
         print(t12.derivation)
@@ -200,7 +200,7 @@ val_id
 
     def test_ex1_goal3_step1_getAndInferWithHiddenKey(self):
         s, cardnum, person = self.initialise()
-        t21 = s.get([cardnum["cardnum"]])
+        t21 = s.get(cardnum = cardnum['cardnum'])
         t22 = t21.infer(["cardnum"], cardnum["val_id"])
         self.assertExpectedInline(str(t22), """\
 [cardnum || val_id]
@@ -223,7 +223,7 @@ cardnum
 
     def test_ex1_goal3_step2_assignAndPlus(self):
         s, cardnum, person = self.initialise()
-        t21 = s.get([cardnum["cardnum"]])
+        t21 = s.get(cardnum = cardnum['cardnum'])
         t22 = t21.infer(["cardnum"], cardnum["val_id"])
         t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid")
         print("T23 DERIVATION")
@@ -243,7 +243,7 @@ cardnum
 
     def test_ex1_goal3_step3_setKey(self):
         s, cardnum, person = self.initialise()
-        t21 = s.get([cardnum["cardnum"]])
+        t21 = s.get(cardnum = cardnum['cardnum'])
         t22 = t21.infer(["cardnum"], cardnum["val_id"])
         t23 = t22.deduce(t22["cardnum"] + t22["val_id"], "numplusvalid")
         t24 = t23.invert(["cardnum"], ["numplusvalid"])
@@ -265,7 +265,7 @@ numplusvalid
 
     def test_ex1_goal4_step1_get(self):
         s, cardnum, person = self.initialise()
-        t31 = s.get([cardnum['val_id']])
+        t31 = s.get(val_id = cardnum['val_id'])
         self.assertExpectedInline(str(t31), """\
 [val_id || ]
 Empty DataFrame
@@ -277,7 +277,7 @@ Index: []
 
     def test_ex1_goal4_step2_infer(self):
         s, cardnum, person = self.initialise()
-        t31 = s.get([cardnum['val_id']])
+        t31 = s.get(val_id = cardnum['val_id'])
         t32 = t31.infer(['val_id'], cardnum['cardnum'])
         self.assertExpectedInline(str(t32), """\
 [val_id || cardnum]
@@ -302,7 +302,7 @@ val_id
 
     def test_ex1_goal4_step3_inferChain(self):
         s, cardnum, person = self.initialise()
-        t31 = s.get([cardnum['val_id']])
+        t31 = s.get(val_id = cardnum['val_id'])
         t32 = t31.infer(['val_id'], cardnum['cardnum'])
         t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
         self.assertExpectedInline(str(t33), """\
@@ -320,7 +320,7 @@ val_id
 
     def test_ex1_goal4_step4_inferChainAgain(self):
         s, cardnum, person = self.initialise()
-        t31 = s.get([cardnum['val_id']])
+        t31 = s.get(val_id = cardnum['val_id'])
         t32 = t31.infer(['val_id'], cardnum['cardnum'])
         t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
         t34 = t33.infer(['person.cardnum'], person['person'])
@@ -340,7 +340,7 @@ val_id
 
     def test_ex1_goal4_step5_forget(self):
         s, cardnum, person = self.initialise()
-        t31 = s.get([cardnum['val_id']])
+        t31 = s.get(val_id= cardnum['val_id'])
         t32 = t31.infer(['val_id'], cardnum['cardnum'])
         t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
         t34 = t33.infer(['person.cardnum'], person['person'])
@@ -360,7 +360,7 @@ val_id
 
     def test_ex1_goal4_step6_showAfterHide(self):
         s, cardnum, person = self.initialise()
-        t31 = s.get([cardnum['val_id']])
+        t31 = s.get(val_id = cardnum['val_id'])
         t32 = t31.infer(['val_id'], cardnum['cardnum'])
         t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
         t34 = t33.infer(['person.cardnum'], person['person'])
@@ -381,7 +381,7 @@ val_id
 
     def test_ex1_goal4_step6_extendString(self):
         s, cardnum, person = self.initialise()
-        t31 = s.get([cardnum['val_id']])
+        t31 = s.get(val_id = cardnum['val_id'])
         t32 = t31.infer(['val_id'], cardnum['cardnum'])
         t33 = t32.infer(['cardnum'], person['cardnum'], with_name="person.cardnum")
         t34 = t33.infer(['person.cardnum'], person['person'])
@@ -401,7 +401,7 @@ val_id
 
     def test_ex1_goal5_step1_getAndCompose(self):
         s, cardnum, person = self.initialise()
-        t41 = (s.get([person['cardnum']]).infer(['cardnum'], person['person']))
+        t41 = (s.get(cardnum = person['cardnum']).infer(['cardnum'], person['person']))
         t42 = t41.compose([cardnum['val_id']], 'cardnum')
         self.assertExpectedInline(str(t42), """\
 [val_id || person]
@@ -417,7 +417,7 @@ val_id
 
     def test_ex1_goal5_step2_setKey(self):
         s, cardnum, person = self.initialise()
-        t41 = (s.get([person['cardnum']]).infer(['cardnum'], person['person']))
+        t41 = (s.get(cardnum = person['cardnum']).infer(['cardnum'], person['person']))
         t42 = t41.compose([cardnum['val_id']], 'cardnum')
         print("T42 DERIVATION")
         print(t42.derivation)

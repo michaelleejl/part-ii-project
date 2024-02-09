@@ -1,20 +1,29 @@
+from __future__ import annotations
+
 import abc
 import uuid
 
 import numpy as np
 
 from schema.base_types import BaseType
-
-
-class SchemaNodeNameShouldNotContainSemicolonException(Exception):
-    def __init__(self, name):
-        super().__init__(f"Schema node name should not contain a semicolon. Name: {name}")
+from union_find.union_find import UnionFind
 
 
 class SchemaNode(abc.ABC):
+    """ SchemaNode is an abstract class that represents a node in a schema graph
+    """
 
     @classmethod
-    def product(cls, nodes: list[any]):
+    def product(cls, nodes: list[SchemaNode]) -> ProductNode:
+        """Takes a list of nodes and returns their product
+
+        Args:
+            nodes (list[SchemaNode]): list of nodes
+
+        Returns:
+            ProductNode: the node formed by taking the product of the nodes in the list
+        """
+
         atomics = []
         for node in nodes:
             cs = SchemaNode.get_constituents(node)
@@ -27,23 +36,52 @@ class SchemaNode(abc.ABC):
             return ProductNode(constituents)
 
     @classmethod
-    def get_constituents(cls, node):
+    def get_constituents(cls, node: SchemaNode) -> list[SchemaNode]:
+        """
+        Returns the constituents of a node. If the node is atomic, returns the node itself.
+        If the node is a product, returns its constituent atomic nodes
+
+        Args:
+            node (SchemaNode): The node whose constituents are to be found
+
+        Returns:
+            list[SchemaNode]: The constituents of the node
+        """
         if isinstance(node, AtomicNode) or isinstance(node, SchemaClass):
             return [node]
         else:
+            assert isinstance(node, ProductNode)
             return node.constituents
 
     @classmethod
-    def is_atomic(cls, node):
+    def is_atomic(cls, node: SchemaNode) -> bool:
+        """
+        Returns True if the node is atomic, False otherwise
+
+        Args:
+            node (SchemaNode): The node to check
+
+        Returns:
+            bool: True if the node is atomic, False otherwise
+        """
+
         return isinstance(node, AtomicNode)
 
     @classmethod
-    def is_equivalent(cls, node1, node2, equivalence_class):
+    def is_equivalent(cls, node1: SchemaNode, node2: SchemaNode, equivalence_class: UnionFind) -> bool:
+        """
+        Returns True if the two nodes are equivalent under the given equivalence class, False otherwise
+
+        Args:
+
+        """
         c1 = SchemaNode.get_constituents(node1)
         c2 = SchemaNode.get_constituents(node2)
+        if len(c1) != len(c2):
+            return False
         eq = np.all(np.array(list(
             map(lambda x: equivalence_class.find_leader(x[0]) == equivalence_class.find_leader(x[1]), zip(c1, c2)))))
-        return len(c1) == len(c2) and eq
+        return eq
 
     @abc.abstractmethod
     def __eq__(self, other):

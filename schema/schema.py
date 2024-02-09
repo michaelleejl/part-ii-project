@@ -3,9 +3,12 @@ import pandas as pd
 from backend.pandas_backend.determine_base_type_of_columns import determine_base_type_of_columns
 from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.pandas_backend import PandasBackend
+from schema import Cardinality
 from schema.edge import SchemaEdge
 from schema.exceptions import NodesDoNotExistInGraphException, \
-    ClassAlreadyExistsException, CannotRenameClassException, CannotInsertDataFrameIfSchemaBackedBySQLBackendException
+    ClassAlreadyExistsException, CannotRenameClassException, CannotInsertDataFrameIfSchemaBackedBySQLBackendException, \
+    SchemaClassMustBeSpecifiedException, CannotBlendNodesUnderDifferentClassesException, \
+    CannotBlendNodesWithDifferentTypeException, ColumnMustBeAnAtomicNodeOrClassException
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from tables.internal_representation import StartTraversal, EndTraversal
@@ -40,10 +43,10 @@ class Schema:
         An edge between the indices and each value column is added.
 
         Args:
-            df: A pandas DataFrame with non-empty index.
+            df (pd.DataFrame): A pandas DataFrame with non-empty index.
 
         Returns:
-            A dictionary from string to node in the SchemaGraph
+            dict[str, AtomicNode]: A dictionary from name of column in the df to corresponding node in the SchemaGraph
         """
         if self.backend is None:
             self.backend = PandasBackend()
@@ -78,40 +81,106 @@ class Schema:
 
         return {node.name: node for node in nodes}
 
-    def add_node(self, node: AtomicNode) -> SchemaNode:
+    def add_node(self, node: AtomicNode) -> AtomicNode:
         """Adds a node into the schema graph
-        
+        Raises an exception if the node is already in the graph
+
+        Args:
+            node (AtomicNode): The node to be added to the schema graph
+
+        Returns:
+            AtomicNode: The node that was added to the schema graph
         """
         self.schema_graph.check_node_not_in_graph(node)
         self.schema_graph.add_node(node)
         return node
 
-    def add_edge(self, node1, node2, cardinality):
+    def add_edge(self, node1: SchemaNode, node2: SchemaNode, cardinality: Cardinality) -> SchemaEdge:
+        """Adds a directed edge between two nodes in the schema graph
+        Raises an exception if either of the nodes are not in the graph
+
+        Args:
+            node1 (SchemaNode): The node at which the edge starts
+            node2 (SchemaNode): The node at which the edge ends
+            cardinality (Cardinality): The cardinality of the edge
+
+        Returns:
+            SchemaEdge: The edge that was added to the schema graph
+        """
         edge = SchemaEdge(node1, node2, cardinality)
         self.schema_graph.add_edge(node1, node2, cardinality)
         return edge
 
-    def map_edge_to_closure_function(self, edge, function: Function, num_args, rev_target=None, target_idxs = None):
-        self.backend.map_edge_to_closure_function(edge, function, num_args, rev_target, target_idxs)
+    def map_edge_to_closure(self, edge: SchemaEdge, closure: Function, num_args: int,
+                            data_relation_source: SchemaNode = None, data_relation_source_idxs: list[int] = None):
+        """
+        Maps a closure to an edge in the schema graph.
+        The closure is applied when the edge is traversed.
+
+        Args:
+            edge (SchemaEdge): The edge to which the closure is to be mapped
+            closure (Function): The closure to be mapped to the edge
+            num_args (int): The number of arguments to the closure
+            data_relation_source (SchemaNode): The source node of the data relation
+            data_relation_source_idxs (list[int]): The indices of the source node in the relation
+
+        Returns:
+            None
+        """
+
+        self.backend.map_edge_to_closure(edge, closure, num_args, data_relation_source, data_relation_source_idxs)
 
     def create_class(self, name: str) -> SchemaClass:
+        """Returns a new class that may be added to the schema graph
+        A class is a set of nodes that may be treated as equivalent to each other
+
+        Args:
+            name (str): The name of the class to be created
+
+        Returns:
+            SchemaClass: The class that was instantiated
+        """
+
         return SchemaClass(name)
 
     def blend(self, node1: AtomicNode, node2: AtomicNode, under: SchemaClass = None):
+        """Blends two nodes in the schema graph
+        If neither of the nodes has a class, then one must be provided.
+        If one of the nodes has a class, then the other node is added to that class.
+        If both of the nodes have classes, then they must be the same class.
+
+        Args:
+            node1 (AtomicNode): The first node to be blended
+            node2 (AtomicNode): The second node to be blended
+            under (SchemaClass): The class under which the nodes are to be blended
+
+        Returns:
+            None
+        """
+
+        clss1 = self.schema_graph.equivalence_class.get_classname(node1)
+        clss2 = self.schema_graph.equivalence_class.get_classname(node2)
+
+        if clss1 is None and clss2 is None and under is None:
+            raise SchemaClassMustBeSpecifiedException()
+
+        # TODO: Change this. Users should be allowed to union two classes
+        if clss1 is not None and clss2 is not None and clss1 != clss2:
+            raise CannotBlendNodesUnderDifferentClassesException()
+
         if under is not None:
             classname = under
-            clss1 = self.schema_graph.equivalence_class.get_classname(node1)
-            clss2 = self.schema_graph.equivalence_class.get_classname(node2)
-            assert node1.node_type == node2.node_type
+            if node1.node_type != node2.node_type:
+                raise CannotBlendNodesWithDifferentTypeException(node1, node2)
+            if classname in self.schema_graph.schema_nodes and (clss1 is None and clss2 is None):
+                raise ClassAlreadyExistsException()
+            if classname in self.schema_graph.schema_nodes and (clss1 is not None and clss1 != classname) and (clss2 is not None and clss2 != classname):
+                raise CannotBlendNodesUnderDifferentClassesException()
             under.node_type = node1.node_type
             if classname not in self.schema_graph.schema_nodes and clss1 is None and clss2 is None:
                 domain = pd.DataFrame([], columns=[under])
                 self.backend.map_atomic_node_to_domain(classname, domain)
                 self.schema_graph.add_class(classname)
-            elif classname in self.schema_graph.schema_nodes and (clss1 is None and clss2 is None):
-                raise ClassAlreadyExistsException()
-            elif classname in self.schema_graph.schema_nodes and (clss1 is not None and clss1 != classname) and (clss2 is not None and clss2 != classname):
-                raise CannotRenameClassException()
             new_members = frozenset()
             if clss1 is None:
                 new_members = new_members.union(self.schema_graph.equivalence_class.attach_classname(node1, classname))
@@ -136,7 +205,24 @@ class Schema:
     #     self.schema_graph.blend_nodes(new_node, node)
     #     return new_node
 
-    def get(self, keys: list[AtomicNode | SchemaClass], with_names: list[str] = None):
+    def get(self, **kwargs):
+        """
+        Returns a table with the specified keys
+
+        Args:
+            **kwargs: A dictionary of keys and their associated nodes
+
+        Returns:
+            Table: table with the specified keys
+        """
+        keys = []
+        with_names = []
+        for k, v in kwargs.items():
+            if not (isinstance(v, AtomicNode) or isinstance(v, SchemaClass)):
+                raise ColumnMustBeAnAtomicNodeOrClassException(k)
+            keys += [v]
+            with_names += [k]
+
         self.schema_graph.check_nodes_in_graph(keys)
         key_set = frozenset(keys)
         diff = key_set.difference(self.schema_graph.schema_nodes)
@@ -149,13 +235,28 @@ class Schema:
         columns = list(zip(key_nodes, with_names))
         return Table.construct(columns, self)
 
-    def find_shortest_path_in_graph(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
-        return self.schema_graph.find_shortest_path(node1, node2, via, backwards)
+    def __find_shortest_path_in_graph(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None):
+        return self.schema_graph.find_shortest_path(node1, node2, via)
 
-    def find_shortest_path(self, from_columns: list[Domain], to_columns: list[Domain], via: list[SchemaNode] = None, backwards=False):
+    def find_shortest_path(self, from_columns: list[Domain], to_columns: list[Domain], via: list[SchemaNode] = None):
+        """
+        Finds shortest path between nodes in the schema graph,
+        where the start node corresponds to the start columns
+        and the end node corresponds to the end columns
+
+        Args:
+            from_columns (list[Domain]): The start columns
+            to_columns (list[Domain]): The end columns
+            via (list [SchemaNode]): A list of nodes to be traversed through
+
+        Returns:
+            tuple[Cardinality, list[Traversal], list[SchemaNode]]: A tuple consisting of the cardinality of the path,
+            a list of traversals that need to be executed to get from the start to the end columns,
+            and a list of hidden keys
+        """
         node1 = SchemaNode.product([c.node for c in from_columns])
         node2 = SchemaNode.product([c.node for c in to_columns])
-        cardinality, commands, hidden_keys = self.find_shortest_path_in_graph(node1, node2, via, backwards)
+        cardinality, commands, hidden_keys = self.__find_shortest_path_in_graph(node1, node2, via)
         first = StartTraversal(from_columns)
         last = EndTraversal(from_columns, to_columns)
         if len(commands) > 0:

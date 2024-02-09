@@ -271,8 +271,8 @@ class Table:
     def get_namespace(self):
         return set([d.name for d in self.derivation.get_keys_and_values() + self.derivation.get_hidden()])
 
-    def get_representation(self, start: list[Domain], end: list[Domain], via, backwards, aggregated_over, namespace):
-        shortest_p = self.schema.find_shortest_path(start, end, via, backwards)
+    def get_representation(self, start: list[Domain], end: list[Domain], via, aggregated_over, namespace):
+        shortest_p = self.schema.find_shortest_path(start, end, via)
         cardinality, repr, hidden_keys = shortest_p
         new_repr: list[RepresentationStep] = []
         hidden_columns = []
@@ -341,7 +341,7 @@ class Table:
         via_nodes = None
         if via is not None:
             via_nodes = [t.schema.get_node_with_name(n) for n in via]
-        shortest_p = t.get_representation(cols_to_add, [key.get_domain()], via_nodes, False, [], namespace)
+        shortest_p = t.get_representation(cols_to_add, [key.get_domain()], via_nodes, [], namespace)
         cardinality, repr, hidden_columns = shortest_p
 
         # STEP 4
@@ -376,7 +376,7 @@ class Table:
                 self.schema.add_edge(modified_start_node, end_node, Cardinality.MANY_TO_ONE)
                 self.schema.add_edge(end_node, modified_start_node, Cardinality.ONE_TO_MANY)
 
-        self.schema.map_edge_to_closure_function(edge, exp, len(start_columns), modified_start_node,
+        self.schema.map_edge_to_closure(edge, exp, len(start_columns), modified_start_node,
                                                  modified_start_cols)
         t_new = t.infer_internal([col.name for col in start_columns], end_node, with_name=with_name,
                                 aggregated_over=aggregated_over)
@@ -497,7 +497,7 @@ class Table:
                 via_nodes = via
 
             shortest_p = t.get_representation([c.get_domain() for c in assumption_columns], [conclusion_column],
-                                              via_nodes, False, aggregated_over, namespace)
+                                              via_nodes, aggregated_over, namespace)
             cardinality, repr, hidden_keys = shortest_p
 
         # 2b. Turn the hidden keys into columns, and rename them if necessary.

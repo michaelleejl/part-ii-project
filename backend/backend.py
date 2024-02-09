@@ -15,5 +15,5 @@ class Backend(abc.ABC):
     def extend_domain(self, node, domain):
         raise NotImplemented()
 
-    def map_edge_to_closure_function(self, edge, function: Function, num_args):
+    def map_edge_to_closure(self, edge, function: Function, num_args):
         raise NotImplemented()

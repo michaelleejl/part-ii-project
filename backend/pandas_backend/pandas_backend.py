@@ -70,7 +70,8 @@ class PandasBackend(Backend):
         df.columns = list(range(len(df.columns)))
         self.edge_data[edge] = copy_data(df)
 
-    def map_edge_to_closure_function(self, edge, function: Exp, num_args: int, rev_target=None, target_idxs = None):
+    def map_edge_to_closure(self, edge, function: Exp, num_args: int, rev_target: SchemaNode = None,
+                            target_idxs: list[int] = None):
         if rev_target is None:
             target = edge.from_node
             idxs = list(range(num_args))
