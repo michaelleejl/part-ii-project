@@ -3,7 +3,7 @@ import operator
 
 import numpy as np
 
-from helpers.compose_cardinality import compose_cardinality
+from tables.helpers.compose_cardinality import compose_cardinality
 from schema import SchemaNode, is_sublist, Cardinality
 from schema.helpers.find_index import find_index
 from schema.helpers.invert_representation import invert_representation

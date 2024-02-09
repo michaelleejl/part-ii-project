@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from helpers.compose_cardinality import compose_cardinality
+from schema.helpers.compose_cardinality import compose_cardinality
 from schema import Cardinality, BaseType, is_sublist
 from schema.helpers.find_index import find_index
 from schema.node import SchemaNode, AtomicNode, SchemaClass
@@ -272,7 +272,7 @@ class Table:
         return set([d.name for d in self.derivation.get_keys_and_values() + self.derivation.get_hidden()])
 
     def get_representation(self, start: list[Domain], end: list[Domain], via, backwards, aggregated_over, namespace):
-        shortest_p = self.schema.find_shortest_path_between_columns(start, end, via, backwards)
+        shortest_p = self.schema.find_shortest_path(start, end, via, backwards)
         cardinality, repr, hidden_keys = shortest_p
         new_repr: list[RepresentationStep] = []
         hidden_columns = []

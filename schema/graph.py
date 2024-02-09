@@ -2,7 +2,7 @@ import itertools
 from collections import deque
 from dataclasses import dataclass
 
-from helpers.compose_cardinality import compose_cardinality
+from schema.helpers.compose_cardinality import compose_cardinality
 from schema import Cardinality, SchemaEquality
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.edge_list import SchemaEdgeList
@@ -133,7 +133,7 @@ class SchemaGraph:
         edge = SchemaEdge(from_node, to_node, cardinality)
 
         self.adjacencyList[from_node] = SchemaEdgeList.add_edge(self.adjacencyList[from_node], edge)
-        self.adjacencyList[to_node] = SchemaEdgeList.add_edge(self.adjacencyList[to_node], edge)
+        self.adjacencyList[to_node] = SchemaEdgeList.add_edge(self.adjacencyList[to_node], SchemaEdge.invert(edge))
 
     def get_all_neighbours_of_node(self, node):
         neighbours = set()

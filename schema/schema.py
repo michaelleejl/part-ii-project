@@ -5,7 +5,7 @@ from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.pandas_backend import PandasBackend
 from schema.edge import SchemaEdge
 from schema.exceptions import NodesDoNotExistInGraphException, \
-    ClassAlreadyExistsException, CannotRenameClassException
+    ClassAlreadyExistsException, CannotRenameClassException, CannotInsertDataFrameIfSchemaBackedBySQLBackendException
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from tables.internal_representation import StartTraversal, EndTraversal
@@ -26,16 +26,30 @@ def check_for_duplicate_keys(keys):
 
 
 class Schema:
+    """A Schema holds a SchemaGraph and a Backend"""
     def __init__(self):
+        """Creates a new Schema with an empty graph and no backend """
         self.schema_graph = SchemaGraph()
-        self.schema_types = {}
         self.backend = None
 
-    def insert_dataframe(self, df) -> dict[str, AtomicNode]:
+    def insert_dataframe(self, df: pd.DataFrame) -> dict[str, AtomicNode]:
+        """Inserts a dataframe with non-empty index into the Schema.
+        The backend must be of type PandasBackend.
+        If the Backend is None, it is automatically initialised as a new PandasBackend.
+        Each column is a new node in the schema.
+        An edge between the indices and each value column is added.
+
+        Args:
+            df: A pandas DataFrame with non-empty index.
+
+        Returns:
+            A dictionary from string to node in the SchemaGraph
+        """
         if self.backend is None:
             self.backend = PandasBackend()
         else:
-            assert type(self.backend) == PandasBackend
+            if not isinstance(self.backend, PandasBackend):
+                raise CannotInsertDataFrameIfSchemaBackedBySQLBackendException()
 
         keys = df.index.to_frame().reset_index(drop=True)
         check_for_duplicate_keys(keys)
@@ -65,6 +79,9 @@ class Schema:
         return {node.name: node for node in nodes}
 
     def add_node(self, node: AtomicNode) -> SchemaNode:
+        """Adds a node into the schema graph
+        
+        """
         self.schema_graph.check_node_not_in_graph(node)
         self.schema_graph.add_node(node)
         return node
@@ -108,16 +125,16 @@ class Schema:
         else:
             self.schema_graph.blend_nodes(node1, node2)
 
-    def clone(self, node: AtomicNode, name: str):
-        equivalent_nodes = self.schema_graph.find_all_equivalent_nodes(node)
-        already_exists = [node for node in equivalent_nodes if node.name == name]
-        if len(already_exists) > 0:
-            return already_exists[0]
-        new_node = AtomicNode.clone(node, name)
-        self.schema_graph.add_node(new_node)
-        self.backend.clone(node, new_node)
-        self.schema_graph.blend_nodes(new_node, node)
-        return new_node
+    # def clone(self, node: AtomicNode, name: str):
+    #     equivalent_nodes = self.schema_graph.find_all_equivalent_nodes(node)
+    #     already_exists = [node for node in equivalent_nodes if node.name == name]
+    #     if len(already_exists) > 0:
+    #         return already_exists[0]
+    #     new_node = AtomicNode.clone(node, name)
+    #     self.schema_graph.add_node(new_node)
+    #     self.backend.clone(node, new_node)
+    #     self.schema_graph.blend_nodes(new_node, node)
+    #     return new_node
 
     def get(self, keys: list[AtomicNode | SchemaClass], with_names: list[str] = None):
         self.schema_graph.check_nodes_in_graph(keys)
@@ -132,16 +149,13 @@ class Schema:
         columns = list(zip(key_nodes, with_names))
         return Table.construct(columns, self)
 
-    def find_shortest_path(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
+    def find_shortest_path_in_graph(self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None, backwards=False):
         return self.schema_graph.find_shortest_path(node1, node2, via, backwards)
 
-    def find_edge(self, node1: SchemaNode, node2: SchemaNode):
-        return self.schema_graph
-
-    def find_shortest_path_between_columns(self, from_columns: list[Domain], to_columns: list[Domain], via: list[SchemaNode] = None, backwards=False):
+    def find_shortest_path(self, from_columns: list[Domain], to_columns: list[Domain], via: list[SchemaNode] = None, backwards=False):
         node1 = SchemaNode.product([c.node for c in from_columns])
         node2 = SchemaNode.product([c.node for c in to_columns])
-        cardinality, commands, hidden_keys = self.find_shortest_path(node1, node2, via, backwards)
+        cardinality, commands, hidden_keys = self.find_shortest_path_in_graph(node1, node2, via, backwards)
         first = StartTraversal(from_columns)
         last = EndTraversal(from_columns, to_columns)
         if len(commands) > 0:

@@ -374,6 +374,9 @@ Edinburgh Cambridge          0.300000
         t11 = t10.deduce(t10["volume_fillna"] / t10["total_outflow"], "relative_outflow")
 
         t12 = t1.infer(["ToCity"], t7["relative_inflow"], with_name="expected_outflow")
+
+        ## t12 = t1.mutate(expected_outflow = infer(relative_inflow, from=to_city))
+
         t13 = t12.show("FromCity_1").equate("FromCity", "FromCity_1")
         t14 = (t13.infer(["FromCity"], t11["relative_outflow"])
                .show("ToCity_1")

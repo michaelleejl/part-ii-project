@@ -91,3 +91,8 @@ class ClassAlreadyExistsException(Exception):
 class CannotRenameClassException(Exception):
     def __init__(self):
         super().__init__(f"Class cannot be renamed.")
+
+
+class CannotInsertDataFrameIfSchemaBackedBySQLBackendException(Exception):
+    def __init__(self):
+        super().__init__("Cannot insert dataframe if schema is backed by non-pandas backend")

@@ -1,14 +1,16 @@
 import expecttest
 
 import pandas as pd
+
+from schema.exceptions import *
 from schema.schema import Schema
 
 
 class TestSchema(expecttest.TestCase):
     # [cardnum trip_id || bonus t_start]
 
-    def test_schema_insert(self):
-        test_df = pd.read_csv("./schema/tests/test_schema.csv").dropna()
+    def test_schema_insert_dataframe_successfullyModifiesSchemaGraph(self):
+        test_df = pd.read_csv("./test_schema.csv").dropna()
         test_df = test_df.set_index(["trip_id", "cardnum"])
         schema = Schema()
         test = schema.insert_dataframe(test_df)
@@ -23,9 +25,9 @@ ADJACENCY LIST
 ==========================
 trip_id;cardnum
 --------------------------
-trip_id;cardnum ---> bonus
 trip_id;cardnum ---> trip_id
 trip_id;cardnum ---> cardnum
+trip_id;cardnum ---> bonus
 trip_id;cardnum ---> person
 ==========================
 
@@ -85,9 +87,130 @@ bonus
 ==========================
 """)
 
+    def test_schema_insert_dataframe_raisesExceptionIfBackendNotPandasBackend(self):
+        schema = Schema()
+
+        from backend.backend import Backend
+        class NovelBackend(Backend):
+            def execute_query(self, table_id, derived_from, query):
+                pass
+
+        schema.backend = NovelBackend()
+
+        bonus_df = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
+        self.assertExpectedRaisesInline(CannotInsertDataFrameIfSchemaBackedBySQLBackendException,
+                                        lambda: schema.insert_dataframe(bonus_df),
+                                        """Cannot insert dataframe if schema is backed by non-pandas backend""")
+
+    def test_add_node_successfullyAddsNodeIfNodeNotAlreadyInGraph(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        node = AtomicNode('node')
+        node.id_prefix = 0
+        self.assertExpectedInline(str(schema), """\
+ADJACENCY LIST 
+==========================
+
+
+==========================
+
+EQUIVALENCE CLASSES 
+==========================
+
+
+==========================
+""")
+        schema.add_node(node)
+        self.assertExpectedInline(str(schema), """\
+ADJACENCY LIST 
+==========================
+
+
+==========================
+
+EQUIVALENCE CLASSES 
+==========================
+
+==========================
+Class 0
+--------------------------
+node
+==========================
+
+==========================
+""")
+
+    def test_add_node_raisesExceptionIfNodeAlreadyInGraph(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        node = AtomicNode('node')
+        node.id_prefix = 0
+        schema.add_node(node)
+        self.assertExpectedRaisesInline(NodeAlreadyInSchemaGraphException, lambda: schema.add_node(node),
+                                        """Node node is already in schema graph.""")
+
+    def test_add_edge_succeedsWhenNodesAreInGraph(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        from schema.cardinality import Cardinality
+        u = AtomicNode('u')
+        v = AtomicNode('v')
+        u.id_prefix = 0
+        v.id_prefix = 0
+        schema.add_node(u)
+        schema.add_node(v)
+        schema.add_edge(u, v, Cardinality.MANY_TO_ONE)
+        self.assertExpectedInline(str(schema), """\
+ADJACENCY LIST 
+==========================
+
+==========================
+u
+--------------------------
+u ---> v
+==========================
+
+==========================
+v
+--------------------------
+v <--- u
+==========================
+
+==========================
+
+EQUIVALENCE CLASSES 
+==========================
+
+==========================
+Class 0
+--------------------------
+u
+==========================
+
+==========================
+Class 1
+--------------------------
+v
+==========================
+
+==========================
+""")
+
+    def test_add_edge_fails_whenOneOrMoreNodesNotInGraph(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        from schema.cardinality import Cardinality
+        u = AtomicNode('u')
+        v = AtomicNode('v')
+        u.id_prefix = 0
+        v.id_prefix = 0
+        self.assertExpectedRaisesInline(NodeNotInSchemaGraphException,
+                                        lambda: schema.add_edge(u, v, Cardinality.MANY_TO_ONE),
+                                        """Node u is not in schema graph.""")
+
     def test_schema_blend(self):
-        bonus_df = pd.read_csv("./schema/tests/bonus.csv").dropna().set_index(["trip_id", "cardnum"])
-        person_df = pd.read_csv("./schema/tests/person.csv").dropna().set_index(["cardnum"])
+        bonus_df = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
+        person_df = pd.read_csv("./person.csv").dropna().set_index(["cardnum"])
         schema = Schema()
         bonus = schema.insert_dataframe(bonus_df)
         person = schema.insert_dataframe(person_df)
@@ -107,27 +230,27 @@ ADJACENCY LIST
 ==========================
 trip_id;cardnum
 --------------------------
-trip_id;cardnum ---> cardnum
-trip_id;cardnum ---> bonus
 trip_id;cardnum ---> trip_id
+trip_id;cardnum ---> bonus
+trip_id;cardnum ---> cardnum
 ==========================
 
 ==========================
 trip_id
 --------------------------
-trip_id;cardnum ---> trip_id
+trip_id <--- trip_id;cardnum
 ==========================
 
 ==========================
 cardnum
 --------------------------
-trip_id;cardnum ---> cardnum
+cardnum <--- trip_id;cardnum
 ==========================
 
 ==========================
 bonus
 --------------------------
-trip_id;cardnum ---> bonus
+bonus <--- trip_id;cardnum
 ==========================
 
 ==========================
@@ -139,7 +262,7 @@ cardnum ---> person
 ==========================
 person
 --------------------------
-cardnum ---> person
+person <--- cardnum
 ==========================
 
 ==========================
@@ -177,8 +300,8 @@ person
 """)
 
     def test_schema_get(self):
-        bonus_df = pd.read_csv("./schema/tests/bonus.csv").dropna().set_index(["trip_id", "cardnum"])
-        person_df = pd.read_csv("./schema/tests/person.csv").dropna().set_index(["cardnum"])
+        bonus_df = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
+        person_df = pd.read_csv("./person.csv").dropna().set_index(["cardnum"])
         schema = Schema()
         bonus = schema.insert_dataframe(bonus_df)
         person = schema.insert_dataframe(person_df)
@@ -191,6 +314,7 @@ person
 [cardnum cardnum_1 || ]
 Empty DataFrame
 Columns: []
-Index: [(101, 101), (101, 111), (101, 100), (111, 101), (111, 111), (111, 100)]
+Index: []
+6 keys hidden
 
 """)
