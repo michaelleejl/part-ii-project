@@ -73,7 +73,12 @@ class SchemaNode(abc.ABC):
         Returns True if the two nodes are equivalent under the given equivalence class, False otherwise
 
         Args:
+            node1 (SchemaNode): The first node
+            node2 (SchemaNode): The second node
+            equivalence_class (UnionFind): The equivalence class
 
+        Returns:
+            bool: True if the two nodes are equivalent under the given equivalence class, False otherwise
         """
         c1 = SchemaNode.get_constituents(node1)
         c2 = SchemaNode.get_constituents(node2)
@@ -104,24 +109,28 @@ class SchemaNode(abc.ABC):
         pass
 
 
-class UnknownBaseClassException(Exception):
-    def __init__(self, base_class):
-        super().__init__(f"Base class must be one of Object, Float, Bool, or String, not {base_class}")
-
-
 class AtomicNode(SchemaNode):
+    """
+    AtomicNode is a class that represents an atomic node in a schema graph
+    That is, it represents a node that cannot be represented as a product of other nodes
+    """
+
     def __init__(self, name: str, node_type: BaseType = BaseType.OBJECT):
+        """
+        Initializes an AtomicNode
+
+        Args:
+            name (str): The name of the node
+            node_type (BaseType): The type of the node
+
+        Returns:
+            AtomicNode: The initialized AtomicNode
+        """
         super().__init__()
         self.node_type = node_type
         self.name = name
         self.id = uuid.uuid4()
         self.id_prefix = 3
-
-    @classmethod
-    def clone(cls, node, name: str | None):
-        if name is None:
-            name = node.name
-        return AtomicNode(name, node.node_type)
 
     def get_id(self):
         return self.id
@@ -187,8 +196,17 @@ class ProductNodeShouldHaveAtLeastTwoConstituentsException(Exception):
 
 
 class ProductNode(SchemaNode):
+    """
+    ProductNode is a class that represents a node formed by taking the product of some number of atomic nodes
+    """
 
     def __init__(self, constituents: list[AtomicNode]):
+        """
+        Initializes a ProductNode
+
+        Args:
+            constituents (list[AtomicNode]): The atomic nodes that form the product
+        """
         super().__init__()
         if len(constituents) <= 1:
             raise ProductNodeShouldHaveAtLeastTwoConstituentsException(constituents)
@@ -254,8 +272,14 @@ class ProductNode(SchemaNode):
 
 
 class SchemaClass(SchemaNode):
+    """SchemaClass is a class that represents a class node in a schema graph"""
 
-    def __init__(self, name):
+    def __init__(self, name: str):
+        """Initializes a SchemaClass
+
+        Args:
+            name (str): The name of the class
+        """
         self.name = name
         self.node_type = None
 

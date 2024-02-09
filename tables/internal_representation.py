@@ -46,7 +46,7 @@ class Traverse(RepresentationStep):
             self.columns = columns
 
     def __repr__(self):
-        return f"{self.name} <{self.edge}, {self.columns}>"
+        return f"{self.name} <{self.edge}, {self.hidden_keys}>"
 
     def __str__(self):
         return self.__repr__()

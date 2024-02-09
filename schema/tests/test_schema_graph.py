@@ -153,7 +153,7 @@ name ---> name2
 ==========================
 name2
 --------------------------
-name ---> name2
+name2 <--- name
 ==========================
 
 ==========================
@@ -240,7 +240,7 @@ u <--> v
 ==========================
 v
 --------------------------
-u <--> v
+v <--> u
 ==========================
 
 ==========================
@@ -326,7 +326,7 @@ v
         g.blend_nodes(u, v)
         g.add_edge(v, w, Cardinality.ONE_TO_ONE)
         self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, w)),
-                                  """([v <001>, w <002>], [u <000> === v <001>, v <001> <--> w <002>], [EQU <u <000>, v <001>>, TRV <v <001>, w <002>, [], []>], [])""")
+                                  """([v <001>, w <002>], [u <000> === v <001>, v <001> <--> w <002>], [EQU <u <000>, v <001>>, TRV <v <001> <--> w <002>, []>], [])""")
 
     def test_findAllShortestPathsBetweenNodes_FindsProjectionEdgeIfLastEdgeInPath(self):
         g = SchemaGraph()
@@ -354,7 +354,7 @@ v
         g.add_edge(p, w)
         start = SchemaNode.product([u, v1])
         self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(start, w)),
-                                  """([u <000>;v2 <002>, w <003>], [u <000>;v1 <001> === u <000>;v2 <002>, u <000>;v2 <002> --- w <003>], [EQU <u <000>;v1 <001>, u <000>;v2 <002>>, TRV <u <000>;v2 <002>, w <003>, [w <003>], []>], [w <003>])""")
+                                  """([u <000>;v2 <002>, w <003>], [u <000>;v1 <001> === u <000>;v2 <002>, u <000>;v2 <002> --- w <003>], [EQU <u <000>;v1 <001>, u <000>;v2 <002>>, TRV <u <000>;v2 <002> --- w <003>, [w <003>]>], [w <003>])""")
 
     def test_findAllShortestPathsBetweenNodes_DoesNotFindProjectionEdgeIfProjectionNotLastEdgeInPath(self):
         g = SchemaGraph()
@@ -370,7 +370,7 @@ v
         self.assertExpectedRaisesInline(
             NoShortestPathBetweenNodesException,
             lambda: str(g.find_all_shortest_paths_between_nodes(p, w)),
-            """No paths found between nodes u;v and w.If the path involves a projection that isn't the last edge in the path,The projection will need to be specified as a waypoint.""")
+            """No paths found between nodes u;v and w.If the path involves a projection that isn't the last edge in the path. The projection will need to be specified as a waypoint.""")
 
     def test_findAllShortestPathsBetweenNodes_RaisesExceptionIfMultipleShortestPathsFound(self):
         g = SchemaGraph()
@@ -390,7 +390,7 @@ v
         self.assertExpectedRaisesInline(
             MultipleShortestPathsBetweenNodesException,
             lambda: str(g.find_all_shortest_paths_between_nodes(u, x)),
-            """Multiple shortest paths found between nodes u and x.Please specify one or more waypoints!"""
+            """Multiple shortest paths found between nodes u and x. Shortest paths: [[u --- v, v --- x], [u --- w, w --- x]]"""
         )
 
     def test_findAllShortestPathsBetweenNodes_findsShortestPath_ifMultiplePathsExist(self):
@@ -413,7 +413,7 @@ v
         g.add_edge(x, y)
         self.assertExpectedInline(
             str(g.find_all_shortest_paths_between_nodes(u, y)),
-            """([v, y], [u --- v, v <--- y], [TRV <u, v, [v], []>, TRV <v, y, [y], []>], [v, y])"""
+            """([v, y], [u --- v, v <--- y], [TRV <u --- v, [v]>, TRV <v <--- y, [y]>], [v, y])"""
         )
 
     def test_findShortestPath_worksIfNoWaypointsSpecified(self):
@@ -435,8 +435,8 @@ v
         g.add_edge(w, x, Cardinality.ONE_TO_ONE)
         g.add_edge(x, y)
         self.assertExpectedInline(
-            str(g.find_shortest_path(u, y, [], False)),
-            """(<Cardinality.MANY_TO_MANY: 4>, [TRV <u, v, [v], []>, TRV <v, y, [y], []>], [v, y])"""
+            str(g.find_shortest_path(u, y, [])),
+            """(<Cardinality.MANY_TO_MANY: 4>, [TRV <u --- v, [v]>, TRV <v <--- y, [y]>], [v, y])"""
         )
 
     def test_findShortestPath_worksIfWaypointsSpecified(self):
@@ -451,8 +451,8 @@ v
         p = SchemaNode.product([u, v])
         g.add_edge(v, w)
         self.assertExpectedInline(
-            str(g.find_shortest_path(p, w, [v], False)),
-            """(<Cardinality.MANY_TO_MANY: 4>, [PRJ <u;v, v, [], []>, TRV <v, w, [w], []>], [w])""")
+            str(g.find_shortest_path(p, w, [v])),
+            """(<Cardinality.MANY_TO_MANY: 4>, [PRJ <u;v, v, [], []>, TRV <v --- w, [w]>], [w])""")
 
     def test_findShortestPath_detectsCycles(self):
         g = SchemaGraph()
@@ -464,7 +464,7 @@ v
         g.add_edge(u, v)
         self.assertExpectedRaisesInline(
             CycleDetectedInPathException,
-            lambda: str(g.find_shortest_path(u, u, [v], False)),
+            lambda: str(g.find_shortest_path(u, u, [v])),
             """Cycle detected in path."""
         )
 
@@ -519,50 +519,10 @@ class
         g.add_nodes([u, v, w])
         g.add_edge(u, SchemaNode.product([v, w]))
         g.add_edge(u, w)
-        path = g.find_shortest_path(u, w, [], True)
-        self.assertExpectedInline(str(path), """(<Cardinality.MANY_TO_MANY: 4>, [TRV <u, w, [w], []>], [w])""")
+        path = g.find_shortest_path(u, w, [])
+        self.assertExpectedInline(str(path), """(<Cardinality.MANY_TO_MANY: 4>, [TRV <u --- w, [w]>], [w])""")
 
-    def test_findShortestPath_worksInBackwardsMode(self):
-        g = SchemaGraph()
-        u = AtomicNode("u")
-        v = AtomicNode("v")
-        w = AtomicNode("w")
-        u.id_prefix = 0
-        v.id_prefix = 0
-        w.id_prefix = 0
-        g.add_nodes([u, v, w])
-        g.add_edge(u, w, Cardinality.MANY_TO_ONE)
-        path = g.find_shortest_path(u, w, [], True)
-        self.assertExpectedInline(str(path), """(<Cardinality.ONE_TO_MANY: 2>, [TRV <u, w, [w], []>], [w])""")
-
-    def test_findShortestPath_inBackwardsMode_treatsExpansionAsProjection(self):
-        g = SchemaGraph()
-        u = AtomicNode("u")
-        v = AtomicNode("v")
-        w = AtomicNode("w")
-        u.id_prefix = 0
-        v.id_prefix = 0
-        w.id_prefix = 0
-        g.add_nodes([u, v, w])
-        g.add_edge(u, w, Cardinality.MANY_TO_ONE)
-        path = g.find_shortest_path(u, SchemaNode.product([v, w]), [], True)
-        self.assertExpectedInline(str(path), """(<Cardinality.MANY_TO_MANY: 4>, [TRV <u, w, [w], []>, EXP <w, v;w, [], []>], [w])""")
-
-    def test_findShortestPath_inBackwardsMode_succeedsWhenAnEquivalenceIsInvolved(self):
-        g = SchemaGraph()
-        u = AtomicNode("u")
-        v = AtomicNode("v")
-        w = AtomicNode("w")
-        u.id_prefix = 0
-        v.id_prefix = 0
-        w.id_prefix = 0
-        g.add_nodes([u, v, w])
-        g.blend_nodes(v, w)
-        g.add_edge(u, v, Cardinality.MANY_TO_ONE)
-        path = g.find_shortest_path(u, w, [], True)
-        self.assertExpectedInline(str(path), """(<Cardinality.ONE_TO_MANY: 2>, [TRV <u, v, [v], []>, EQU <v, w>], [v])""")
-
-    def test_get_next_step_forwards_correctly_gets_trv(self):
+    def test_get_next_step_correctly_gets_trv(self):
         g = SchemaGraph()
         u = AtomicNode("u")
         v = AtomicNode("v")
@@ -570,10 +530,10 @@ class
         v.id_prefix = 0
         g.add_nodes([u, v])
         edge = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
-        next_step = g.get_next_step(edge, False)
-        self.assertExpectedInline(str(next_step), """TRV <u, v, [v], []>""")
+        next_step = g.get_next_step(edge)
+        self.assertExpectedInline(str(next_step), """TRV <u <--- v, [v]>""")
 
-    def test_get_next_step_forwards_correctly_gets_exp(self):
+    def test_get_next_step_correctly_gets_exp(self):
         g = SchemaGraph()
         u = AtomicNode("u")
         v = AtomicNode("v")
@@ -581,10 +541,10 @@ class
         v.id_prefix = 0
         g.add_nodes([u, v])
         edge = SchemaEdge(u, SchemaNode.product([u, v]), Cardinality.ONE_TO_MANY)
-        next_step = g.get_next_step(edge, False)
+        next_step = g.get_next_step(edge)
         self.assertExpectedInline(str(next_step), """EXP <u, u;v, [v], []>""")
 
-    def test_get_next_step_forwards_correctly_gets_prj(self):
+    def test_get_next_step_correctly_gets_prj(self):
         g = SchemaGraph()
         u = AtomicNode("u")
         v = AtomicNode("v")
@@ -592,38 +552,5 @@ class
         v.id_prefix = 0
         g.add_nodes([u, v])
         edge = SchemaEdge(SchemaNode.product([u, v]), u, Cardinality.MANY_TO_ONE)
-        next_step = g.get_next_step(edge, False)
+        next_step = g.get_next_step(edge)
         self.assertExpectedInline(str(next_step), """PRJ <u;v, u, [], []>""")
-
-    def test_get_next_step_backwards_correctly_gets_trv(self):
-        g = SchemaGraph()
-        u = AtomicNode("u")
-        v = AtomicNode("v")
-        u.id_prefix = 0
-        v.id_prefix = 0
-        g.add_nodes([u, v])
-        edge = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
-        next_step = g.get_next_step(edge, True)
-        self.assertExpectedInline(str(next_step), """TRV <u, v, [], []>""")
-
-    def test_get_next_step_backwards_correctly_gets_exp(self):
-        g = SchemaGraph()
-        u = AtomicNode("u")
-        v = AtomicNode("v")
-        u.id_prefix = 0
-        v.id_prefix = 0
-        g.add_nodes([u, v])
-        edge = SchemaEdge(u, SchemaNode.product([u, v]), Cardinality.ONE_TO_MANY)
-        next_step = g.get_next_step(edge, True)
-        self.assertExpectedInline(str(next_step), """EXP <u, u;v, [], []>""")
-
-    def test_get_next_step_backwards_correctly_gets_prj(self):
-        g = SchemaGraph()
-        u = AtomicNode("u")
-        v = AtomicNode("v")
-        u.id_prefix = 0
-        v.id_prefix = 0
-        g.add_nodes([u, v])
-        edge = SchemaEdge(SchemaNode.product([u, v]), u, Cardinality.MANY_TO_ONE)
-        next_step = g.get_next_step(edge, True)
-        self.assertExpectedInline(str(next_step), """PRJ <u;v, u, [v], []>""")
