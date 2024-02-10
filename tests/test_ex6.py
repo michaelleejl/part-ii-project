@@ -42,19 +42,24 @@ class TestEx6(expecttest.TestCase):
         #   v                       |
         # payment_method ---> billing_address
 
-# GOAL: [order payment_method || address]
+    # GOAL: [order payment_method || address]
 
     def test_ex6_goal1_step1_get(self):
-        s, billing, delivery, payment, Address, Order, Payment_Method = self.initialise()
+        s, billing, delivery, payment, Address, Order, Payment_Method = (
+            self.initialise()
+        )
         t1 = s.get([payment["order"], payment["payment_method"]])
-        self.assertExpectedInline(str(t1), """\
+        self.assertExpectedInline(
+            str(t1),
+            """\
 [order payment_method || ]
 Empty DataFrame
 Columns: []
 Index: []
 16 keys hidden
 
-""")
+""",
+        )
         # [payment.order payment.payment_method || ]
         #  1             5172
         #  1             2354
@@ -63,10 +68,14 @@ Index: []
         #  ...
 
     def test_ex6_goal1_step2_infer(self):
-        s, billing, delivery, payment, Address, Order, Payment_Method = self.initialise()
+        s, billing, delivery, payment, Address, Order, Payment_Method = (
+            self.initialise()
+        )
         t1 = s.get([payment["order"], payment["payment_method"]])
         t2 = t1.infer(["order"], Address)
-        self.assertExpectedInline(str(t2), """\
+        self.assertExpectedInline(
+            str(t2),
+            """\
 [order payment_method || Address]
                         Address
 order payment_method           
@@ -87,7 +96,8 @@ order payment_method
       1410.0          Cambridge
       1111.0          Cambridge
 
-""")
+""",
+        )
         # [payment.order payment.payment_method || Address ]
         #  1             5172                   || Cambridge
         #  1             2354                   || Cambridge
@@ -98,9 +108,13 @@ order payment_method
 
     # STRESS TEST
     def test_ex6_goal2_step1_getAndInfer(self):
-        s, billing, delivery, payment, Address, Order, Payment_Method = self.initialise()
+        s, billing, delivery, payment, Address, Order, Payment_Method = (
+            self.initialise()
+        )
         t11 = s.get([payment["order"]]).infer(["order"], payment["payment_method"])
-        self.assertExpectedInline(str(t11), """\
+        self.assertExpectedInline(
+            str(t11),
+            """\
 [order || payment_method]
        payment_method
 order                
@@ -109,7 +123,8 @@ order
 4                1410
 5                1111
 
-""")
+""",
+        )
         # [payment.order || payment.payment_method]
         #  1             || 5172
         #  2             || 2354
@@ -117,17 +132,22 @@ order
         #  5             || 1111
 
     def test_ex6_goal2_step2_setKey(self):
-        s, billing, delivery, payment, Address, Order, Payment_Method = self.initialise()
+        s, billing, delivery, payment, Address, Order, Payment_Method = (
+            self.initialise()
+        )
         t11 = s.get([payment["order"]]).infer(["order"], payment["payment_method"])
         t12 = t11.shift_right()
-        self.assertExpectedInline(str(t12), """\
+        self.assertExpectedInline(
+            str(t12),
+            """\
 [order payment_method || ]
 Empty DataFrame
 Columns: []
 Index: []
 16 keys hidden
 
-""")
+""",
+        )
         # [payment.order   payment.payment_method  || ]
         #  1               5172
         #  2               2354

@@ -11,7 +11,9 @@ class TestEx7(expecttest.TestCase):
 
         cardnum_df = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
         tstart_df = pd.read_csv("./csv/bonuses/tstart.csv").set_index("val_id")
-        bonus_df = pd.read_csv("./csv/bonuses/bonus.csv").set_index(["val_id", "cardnum"])
+        bonus_df = pd.read_csv("./csv/bonuses/bonus.csv").set_index(
+            ["val_id", "cardnum"]
+        )
 
         cardnum = s.insert_dataframe(cardnum_df)
         tstart = s.insert_dataframe(tstart_df)
@@ -40,7 +42,9 @@ class TestEx7(expecttest.TestCase):
         # Get every Val_id, Cardnum pair
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
-        self.assertExpectedInline(str(t1), """\
+        self.assertExpectedInline(
+            str(t1),
+            """\
 [val_id || cardnum]
         cardnum
 val_id         
@@ -51,7 +55,8 @@ val_id
 5          2354
 8          4412
 
-""")
+""",
+        )
         # [cardnum.val_id || cardnum.cardnum ]
         #  1              || 5172
         #  2              || 2354
@@ -65,7 +70,9 @@ val_id
         t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
         self.maxDiff = None
-        self.assertExpectedInline(str(t2), """\
+        self.assertExpectedInline(
+            str(t2),
+            """\
 [val_id || cardnum bonus]
         cardnum        bonus
 val_id                      
@@ -76,7 +83,8 @@ val_id
 4          1111           []
 8          4412           []
 
-""")
+""",
+        )
         # [cardnum.val_id || cardnum.cardnum bonus.bonus]
         #  1              || 5172            [4, 12]
         #  2              || 2354            [5, 7]
@@ -90,7 +98,9 @@ val_id
         t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
         t3 = t2.shift_right()
-        self.assertExpectedInline(str(t3), """\
+        self.assertExpectedInline(
+            str(t3),
+            """\
 [val_id cardnum || bonus]
                       bonus
 val_id cardnum             
@@ -100,7 +110,8 @@ val_id cardnum
 5      2354           [2.0]
 26 keys hidden
 
-""")
+""",
+        )
 
         # [cardnum.val_id cardnum.cardnum || bonus.bonus]
         #  1              5172            || [4, 12]
@@ -118,7 +129,9 @@ val_id cardnum
         t3 = t2.shift_right()
         t4 = t3.show("cardnum_1")
         self.maxDiff = None
-        self.assertExpectedInline(str(t4), """\
+        self.assertExpectedInline(
+            str(t4),
+            """\
 [val_id cardnum cardnum_1 || bonus]
                           bonus
 val_id cardnum cardnum_1       
@@ -130,7 +143,8 @@ val_id cardnum cardnum_1
 5      2354    1410         2.0
 114 keys hidden
 
-""")
+""",
+        )
 
         # [cardnum.val_id cardnum.cardnum bonus.cardnum  || bonus.bonus]
         #  1              5172            5172           || 4
@@ -147,17 +161,24 @@ val_id cardnum cardnum_1
         t2 = t1.infer(["val_id"], bonus["bonus"])
         t3 = t2.shift_right()
         t4 = t3.show("cardnum_1")
-        t5 = t4.mask("cardnum", (t4["cardnum"] == t4["cardnum_1"]) & t4["bonus"].isnotnull(), "is_cardnum_equal")
+        t5 = t4.mask(
+            "cardnum",
+            (t4["cardnum"] == t4["cardnum_1"]) & t4["bonus"].isnotnull(),
+            "is_cardnum_equal",
+        )
         t6 = t5.filter("is_cardnum_equal")
         self.maxDiff = None
-        self.assertExpectedInline(str(t6), """\
+        self.assertExpectedInline(
+            str(t6),
+            """\
 [val_id cardnum cardnum_1 || bonus is_cardnum_equal]
                           bonus  is_cardnum_equal
 val_id cardnum cardnum_1                         
 1      5172    5172         4.0            5172.0
 119 keys hidden
 
-""")
+""",
+        )
         # # [cardnum.val_id cardnum.cardnum  || bonus.bonus]
         # #  1              5172             || 4
 

@@ -31,4 +31,6 @@ def check_columns_match(old_data: pd.DataFrame, new_data: pd.DataFrame) -> None:
     additional_columns = new_columns.difference(old_columns)
     missing_columns = old_columns.difference(new_columns)
     if len(additional_columns) > 0 or len(missing_columns) > 0:
-        raise UpdatingDataShouldPreserveColumnsException(additional_columns, missing_columns)
+        raise UpdatingDataShouldPreserveColumnsException(
+            additional_columns, missing_columns
+        )

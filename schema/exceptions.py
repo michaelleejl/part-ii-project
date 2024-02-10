@@ -5,12 +5,16 @@ class ClusterAlreadyExistsException(Exception):
 
 class ExtendMappingShouldConflictWithOldMappingException(Exception):
     def __init__(self, vals):
-        super().__init__(f"Values {vals} already exist in the old mapping. Use `update` instead.")
+        super().__init__(
+            f"Values {vals} already exist in the old mapping. Use `update` instead."
+        )
 
 
 class EdgeAlreadyExistsException(Exception):
     def __init__(self, edge):
-        super().__init__(f"Edge between {edge.from_node} and {edge.to_node} already exists. Use `replace` instead.")
+        super().__init__(
+            f"Edge between {edge.from_node} and {edge.to_node} already exists. Use `replace` instead."
+        )
 
 
 class EdgeDoesNotExistException(Exception):
@@ -50,32 +54,42 @@ class TableShouldNotHaveDuplicateKeysException(Exception):
 
 class AllNodesInClusterMustAlreadyBeInGraphException(Exception):
     def __init__(self, nodes):
-        super().__init__("When adding a cluster, all nodes in the cluster must already exist in the graph. " +
-                         f"The following nodes are not in the graph: {','.join(list(map(str, nodes)))}")
+        super().__init__(
+            "When adding a cluster, all nodes in the cluster must already exist in the graph. "
+            + f"The following nodes are not in the graph: {','.join(list(map(str, nodes)))}"
+        )
 
 
 class AllNodesInFullyConnectedClusterMustHaveSameClusterException(Exception):
     def __init__(self):
-        super().__init__("All nodes in a fully connected cluster must have the same cluster attribute")
+        super().__init__(
+            "All nodes in a fully connected cluster must have the same cluster attribute"
+        )
 
 
 class FindingEdgeViaNodeMustRespectEquivalence(Exception):
     def __init__(self, node1, via):
-        super().__init__(f"When finding an edge between node1 and node2 via node3, node1 and node3 must be equivalent. "
-                         f"{node1} and {via} are not equivalent.")
+        super().__init__(
+            f"When finding an edge between node1 and node2 via node3, node1 and node3 must be equivalent. "
+            f"{node1} and {via} are not equivalent."
+        )
 
 
 class NoShortestPathBetweenNodesException(Exception):
     def __init__(self, node1, node2):
-        super().__init__(f"No paths found between nodes {node1} and {node2}."
-                         f"If the path involves a projection that isn't the last edge in the path. "
-                         f"The projection will need to be specified as a waypoint.")
+        super().__init__(
+            f"No paths found between nodes {node1} and {node2}."
+            f"If the path involves a projection that isn't the last edge in the path. "
+            f"The projection will need to be specified as a waypoint."
+        )
 
 
 class MultipleShortestPathsBetweenNodesException(Exception):
     def __init__(self, node1, node2, shortest_paths):
-        super().__init__(f"Multiple shortest paths found between nodes {node1} and {node2}. "
-                         f"Shortest paths: {sorted(shortest_paths, key=lambda xs: ' '.join([str(x) for x in xs]))}")
+        super().__init__(
+            f"Multiple shortest paths found between nodes {node1} and {node2}. "
+            f"Shortest paths: {sorted(shortest_paths, key=lambda xs: ' '.join([str(x) for x in xs]))}"
+        )
 
 
 class CycleDetectedInPathException(Exception):
@@ -95,12 +109,16 @@ class CannotRenameClassException(Exception):
 
 class CannotInsertDataFrameIfSchemaBackedBySQLBackendException(Exception):
     def __init__(self):
-        super().__init__("Cannot insert dataframe if schema is backed by non-pandas backend")
+        super().__init__(
+            "Cannot insert dataframe if schema is backed by non-pandas backend"
+        )
 
 
 class SchemaClassMustBeSpecifiedException(Exception):
     def __init__(self):
-        super().__init__("Both nodes have no associated class. SchemaClass must be specified")
+        super().__init__(
+            "Both nodes have no associated class. SchemaClass must be specified"
+        )
 
 
 class CannotBlendNodesUnderDifferentClassesException(Exception):
@@ -111,7 +129,8 @@ class CannotBlendNodesUnderDifferentClassesException(Exception):
 class CannotBlendNodesWithDifferentTypeException(Exception):
     def __init__(self, node1, node2):
         super().__init__(
-            f"Cannot blend nodes with different type. Nodes have type {node1.node_type} and {node2.node_type}")
+            f"Cannot blend nodes with different type. Nodes have type {node1.node_type} and {node2.node_type}"
+        )
 
 
 class ColumnMustBeAnAtomicNodeOrClassException(Exception):

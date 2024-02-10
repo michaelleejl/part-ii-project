@@ -27,19 +27,22 @@ class TestEx4(expecttest.TestCase):
         # SCHEMA:
         # person ---> role <--- task
 
-# GOAL: I want to know, for each person, what tasks they may perform
+    # GOAL: I want to know, for each person, what tasks they may perform
 
     def test_ex4_goal1_step1_get(self):
         s, person, task, Role = self.initialise()
         t1 = s.get([person["person"]])
-        self.assertExpectedInline(str(t1), """\
+        self.assertExpectedInline(
+            str(t1),
+            """\
 [person || ]
 Empty DataFrame
 Columns: []
 Index: []
 4 keys hidden
 
-""")
+""",
+        )
 
         # [person.person || ]
         #  Steve
@@ -51,7 +54,9 @@ Index: []
         s, person, task, Role = self.initialise()
         t1 = s.get([person["person"]])
         t2 = t1.infer(["person"], task["task"])
-        self.assertExpectedInline(str(t2), """\
+        self.assertExpectedInline(
+            str(t2),
+            """\
 [person || task]
                                  task
 person                               
@@ -60,7 +65,8 @@ Tom                        [research]
 Steve   [funding, investment, budget]
 1 keys hidden
 
-""")
+""",
+        )
         # [person.person || task.task]
         #  Steve         || [funding, investment, budget]
         #  Tom           || [research]
@@ -71,7 +77,9 @@ Steve   [funding, investment, budget]
         t1 = s.get([person["person"]])
         t2 = t1.infer(["person"], task["task"])
         t3 = t2.show("task_1")
-        self.assertExpectedInline(str(t3), """\
+        self.assertExpectedInline(
+            str(t3),
+            """\
 [person task_1 || task]
                          task
 person task_1                
@@ -82,7 +90,8 @@ Steve  funding        funding
        budget          budget
 23 keys hidden
 
-""")
+""",
+        )
         # [person.person task.task || task.task]
         #  Steve         funding   || funding
         #  Steve         budget    || budget
@@ -98,7 +107,9 @@ Steve  funding        funding
         self.maxDiff = None
         print("T4 DERIVATION")
         print(t4.derivation)
-        self.assertExpectedInline(str(t4), """\
+        self.assertExpectedInline(
+            str(t4),
+            """\
 [person || task]
                                  task
 person                               
@@ -107,7 +118,8 @@ Tom                        [research]
 Steve   [funding, investment, budget]
 1 keys hidden
 
-""")
+""",
+        )
 
     def test_ex4_goal1_step4_showAfterHideAfterShow(self):
         s, person, task, Role = self.initialise()
@@ -119,7 +131,9 @@ Steve   [funding, investment, budget]
         print("T5 DERIVATION")
         print(t5.derivation)
         self.maxDiff = None
-        self.assertExpectedInline(str(t5), """\
+        self.assertExpectedInline(
+            str(t5),
+            """\
 [person task_1 || task]
                          task
 person task_1                
@@ -130,5 +144,5 @@ Steve  funding        funding
        budget          budget
 23 keys hidden
 
-""")
-
+""",
+        )

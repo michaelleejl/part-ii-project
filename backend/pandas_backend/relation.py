@@ -19,7 +19,11 @@ class DataRelation:
         extended_transformation = copy_data(with_extended.data)
         old_transformation = self.data
         check_columns_match(old_transformation, extended_transformation)
-        return pd.concat([old_transformation, extended_transformation]).reset_index().drop_duplicates()
+        return (
+            pd.concat([old_transformation, extended_transformation])
+            .reset_index()
+            .drop_duplicates()
+        )
 
 
 class FunctionRelation:

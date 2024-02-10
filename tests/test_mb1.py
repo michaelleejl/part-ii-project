@@ -28,11 +28,10 @@ class TestMb1(expecttest.TestCase):
         #  3      || 13       41.4  -8.3  09:11   002
         #  4      || 12       41.5  -8.4  15:00   002
 
-
         # We need to wrap the SchemaNode into
         # TODO: what do we do about
         # TODO:
-        t1["loc"] =  latlng(t1["lat"], t1["lng"])
+        t1["loc"] = latlng(t1["lat"], t1["lng"])
         # [val_id || bus_line lat   lng   loc  date    card_id]
         #  1      || 10       38.7  -9.2  l1   09:00   001
         #  2      || 12       41.1  -8.6  l2   09:10   001

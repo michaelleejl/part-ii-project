@@ -1,7 +1,7 @@
-
 from schema import Cardinality, AtomicNode
 
 from enum import Enum
+
 
 class Domain:
     def __init__(self, name: str, node: AtomicNode):

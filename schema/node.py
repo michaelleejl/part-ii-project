@@ -10,8 +10,7 @@ from union_find.union_find import UnionFind
 
 
 class SchemaNode(abc.ABC):
-    """ SchemaNode is an abstract class that represents a node in a schema graph
-    """
+    """SchemaNode is an abstract class that represents a node in a schema graph"""
 
     @classmethod
     def product(cls, nodes: list[SchemaNode]) -> ProductNode:
@@ -30,7 +29,7 @@ class SchemaNode(abc.ABC):
             atomics += cs
         constituents = atomics
         if len(constituents) == 1:
-            node, = atomics
+            (node,) = atomics
             return node
         else:
             return ProductNode(constituents)
@@ -68,7 +67,9 @@ class SchemaNode(abc.ABC):
         return isinstance(node, AtomicNode)
 
     @classmethod
-    def is_equivalent(cls, node1: SchemaNode, node2: SchemaNode, equivalence_class: UnionFind) -> bool:
+    def is_equivalent(
+        cls, node1: SchemaNode, node2: SchemaNode, equivalence_class: UnionFind
+    ) -> bool:
         """
         Returns True if the two nodes are equivalent under the given equivalence class, False otherwise
 
@@ -84,8 +85,17 @@ class SchemaNode(abc.ABC):
         c2 = SchemaNode.get_constituents(node2)
         if len(c1) != len(c2):
             return False
-        eq = np.all(np.array(list(
-            map(lambda x: equivalence_class.find_leader(x[0]) == equivalence_class.find_leader(x[1]), zip(c1, c2)))))
+        eq = np.all(
+            np.array(
+                list(
+                    map(
+                        lambda x: equivalence_class.find_leader(x[0])
+                        == equivalence_class.find_leader(x[1]),
+                        zip(c1, c2),
+                    )
+                )
+            )
+        )
         return eq
 
     @abc.abstractmethod
@@ -192,7 +202,9 @@ class AtomicNode(SchemaNode):
 
 class ProductNodeShouldHaveAtLeastTwoConstituentsException(Exception):
     def __init__(self, constituents):
-        super().__init__(f"Product node should have at least two constituents. Constituents: {constituents}")
+        super().__init__(
+            f"Product node should have at least two constituents. Constituents: {constituents}"
+        )
 
 
 class ProductNode(SchemaNode):
@@ -230,7 +242,10 @@ class ProductNode(SchemaNode):
                 return False
             elif isinstance(other, ProductNode):
                 from schema.helpers.is_sublist import is_sublist
-                return is_sublist(self.constituents, other.constituents) and self != other
+
+                return (
+                    is_sublist(self.constituents, other.constituents) and self != other
+                )
             return False
         raise NotImplemented()
 
@@ -240,6 +255,7 @@ class ProductNode(SchemaNode):
                 return False
             elif isinstance(other, ProductNode):
                 from schema.helpers.is_sublist import is_sublist
+
                 return is_sublist(self.constituents, other.constituents)
             return False
         raise NotImplemented()
@@ -250,7 +266,10 @@ class ProductNode(SchemaNode):
                 return other in self.constituents
             elif isinstance(other, ProductNode):
                 from schema.helpers.is_sublist import is_sublist
-                return is_sublist(other.constituents, self.constituents) and self != other
+
+                return (
+                    is_sublist(other.constituents, self.constituents) and self != other
+                )
             return False
         raise NotImplemented()
 
@@ -260,6 +279,7 @@ class ProductNode(SchemaNode):
                 return other in self.constituents
             elif isinstance(other, ProductNode):
                 from schema.helpers.is_sublist import is_sublist
+
                 return is_sublist(other.constituents, self.constituents)
             return False
         raise NotImplemented()

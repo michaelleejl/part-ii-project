@@ -6,4 +6,3 @@ class AggregationFunction:
         self.function = function
         self.column = column
         self.cardinality = Cardinality.MANY_TO_ONE
-

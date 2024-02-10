@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 from schema.cardinality import Cardinality
-from schema.node import SchemaNode, AtomicNode
+from schema.node import SchemaNode
 
 
-def reverse_cardinality(cardinality: Cardinality):
+def reverse_cardinality(cardinality: Cardinality) -> Cardinality:
+    """
+    If X->Y has cardinality c, then Y->X has cardinality invert_cardinality(c)
+
+    Args:
+        cardinality (Cardinality): The cardinality of the edge to be inverted
+
+    Returns:
+        Cardinality: The cardinality of the inverted edge
+    """
     match cardinality:
         case Cardinality.ONE_TO_MANY:
             return Cardinality.MANY_TO_ONE
@@ -19,7 +28,12 @@ class SchemaEdge:
     SchemaEdge represents an edge in a schema graph
     """
 
-    def __init__(self, from_node: SchemaNode, to_node: SchemaNode, cardinality: Cardinality = Cardinality.MANY_TO_MANY):
+    def __init__(
+        self,
+        from_node: SchemaNode,
+        to_node: SchemaNode,
+        cardinality: Cardinality = Cardinality.MANY_TO_MANY,
+    ):
         self.from_node: SchemaNode = from_node
         self.to_node: SchemaNode = to_node
         self.cardinality: Cardinality = cardinality
@@ -73,7 +87,10 @@ class SchemaEdge:
         Returns:
             bool: True if the edge is functional, False otherwise
         """
-        return self.cardinality == Cardinality.ONE_TO_ONE or self.cardinality == Cardinality.MANY_TO_ONE
+        return (
+            self.cardinality == Cardinality.ONE_TO_ONE
+            or self.cardinality == Cardinality.MANY_TO_ONE
+        )
 
     def get_hidden_keys(self) -> list[SchemaNode]:
         """
@@ -99,7 +116,9 @@ class SchemaEdge:
         Returns:
             SchemaEdge: The inverted edge
         """
-        return SchemaEdge(edge.to_node, edge.from_node, reverse_cardinality(edge.cardinality))
+        return SchemaEdge(
+            edge.to_node, edge.from_node, reverse_cardinality(edge.cardinality)
+        )
 
     def __hash__(self):
         return hash(self.__key())

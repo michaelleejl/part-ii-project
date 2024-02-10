@@ -1,6 +1,8 @@
 class KeyMismatchException(Exception):
     def __init__(self, keys1, keys2):
-        super().__init__(f"Key mismatch exception: no way to reconcile hidden keys {keys1} and {keys2}")
+        super().__init__(
+            f"Key mismatch exception: no way to reconcile hidden keys {keys1} and {keys2}"
+        )
 
 
 class ColumnsNeedToBeUniqueException(Exception):
@@ -45,4 +47,6 @@ class IntermediateRepresentationMustHaveEndMarkerException(Exception):
 
 class ColumnTypeException(Exception):
     def __init__(self, expected_type, got_type):
-        super().__init__(f"Expected column of type {expected_type}. Got column of type {got_type}")
+        super().__init__(
+            f"Expected column of type {expected_type}. Got column of type {got_type}"
+        )

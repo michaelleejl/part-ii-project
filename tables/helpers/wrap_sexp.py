@@ -6,6 +6,7 @@ def wrap_sexp(exp):
     from tables.column import Column
     from tables.sexp import ConstSexp, ColumnSexp
     from tables.exceptions import ColumnTypeException
+
     if isinstance(exp, str):
         return ConstSexp(exp)
     elif isinstance(exp, Column):

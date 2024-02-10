@@ -12,7 +12,9 @@ class TestEx3(expecttest.TestCase):
 
         cardnum_df = pd.read_csv("./csv/bonuses/cardnum.csv").set_index("val_id")
         tstart_df = pd.read_csv("./csv/bonuses/tstart.csv").set_index("val_id")
-        bonus_df = pd.read_csv("./csv/bonuses/bonus.csv").set_index(["val_id", "cardnum"])
+        bonus_df = pd.read_csv("./csv/bonuses/bonus.csv").set_index(
+            ["val_id", "cardnum"]
+        )
 
         cardnum = s.insert_dataframe(cardnum_df)
         tstart = s.insert_dataframe(tstart_df)
@@ -36,21 +38,24 @@ class TestEx3(expecttest.TestCase):
         # cardnum <--- val_id ---> t_start
         # val_id, cardnum ---> bonus
 
-# GOAL 1: I want to know, for each val_id cardnum pair, what the bonus is, and what the t_start is
+    # GOAL 1: I want to know, for each val_id cardnum pair, what the bonus is, and what the t_start is
 
     def test_ex3_goal1_step1_get(self):
         # Get every Val_id, Cardnum pair
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t1 = s.get([Val_id, Cardnum]).sort(["Val_id", "Cardnum"])
         self.maxDiff = None
-        self.assertExpectedInline(str(t1), """\
+        self.assertExpectedInline(
+            str(t1),
+            """\
 [Val_id Cardnum || ]
 Empty DataFrame
 Columns: []
 Index: []
 48 keys hidden
 
-""")
+""",
+        )
         # [Val_id Cardnum || ]
         #  1      5172
         #  1      1111
@@ -77,7 +82,9 @@ Index: []
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t1 = s.get([Val_id, Cardnum])
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
-        self.assertExpectedInline(str(t2), """\
+        self.assertExpectedInline(
+            str(t2),
+            """\
 [Val_id Cardnum || bonus]
                 bonus
 Val_id Cardnum       
@@ -89,7 +96,8 @@ Val_id Cardnum
 5      1410       2.0
 42 keys hidden
 
-""")
+""",
+        )
         # [Val_id Cardnum || bonus.bonus]
         #  1      5172    || 4
         #  1      1410    || 12
@@ -105,7 +113,9 @@ Val_id Cardnum
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"]).sort(["Val_id", "Cardnum"])
         self.maxDiff = None
-        self.assertExpectedInline(str(t3), """\
+        self.assertExpectedInline(
+            str(t3),
+            """\
 [Val_id Cardnum || bonus tstart]
                 bonus               tstart
 Val_id Cardnum                            
@@ -153,7 +163,8 @@ Val_id Cardnum
        6440       NaN  2023-01-02 05:34:00
 6 keys hidden
 
-""")
+""",
+        )
         # [Val_id Cardnum || bonus.bonus  tstart.tstart]
         #  1      5172    || 4            2023-01-01 09:50:00
         #  1      1111    || NA           2023-01-01 09:50:00
@@ -170,7 +181,9 @@ Val_id Cardnum
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"])
         t4 = t3.filter(t3["bonus"])
-        self.assertExpectedInline(str(t4), """\
+        self.assertExpectedInline(
+            str(t4),
+            """\
 [Val_id Cardnum || bonus tstart]
                 bonus               tstart
 Val_id Cardnum                            
@@ -182,7 +195,8 @@ Val_id Cardnum
 5      1410       2.0  2023-01-01 20:11:00
 42 keys hidden
 
-""")
+""",
+        )
         # [Val_id Cardnum || bonus.bonus  tstart.tstart]
         #  1      5172    || 4            2023-01-01 09:50:00
         #  1      1410    || 12           2023-01-01 09:50:00
@@ -200,7 +214,9 @@ Val_id Cardnum
         t4 = t3.infer(["Val_id"], cardnum["cardnum"])
         t5 = t4.deduce(t4["bonus"] / 100 * t4["cardnum"], "return").filter("return")
         self.maxDiff = None
-        self.assertExpectedInline(str(t5), """\
+        self.assertExpectedInline(
+            str(t5),
+            """\
 [Val_id Cardnum || bonus tstart cardnum return]
                 bonus               tstart  cardnum  return
 Val_id Cardnum                                             
@@ -212,7 +228,8 @@ Val_id Cardnum
 5      1410       2.0  2023-01-01 20:11:00   2354.0   47.08
 42 keys hidden
 
-""")
+""",
+        )
         # Values populate keys. Since we use the same values, we will end up with the same keys.
         # [Val_id Cardnum || bonus.bonus  tstart.tstart            cardnum.cardnum]
         #  1      5172    || 4            2023-01-01 09:50:00      5172
@@ -229,32 +246,42 @@ Val_id Cardnum
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"])
         t4 = t3.infer(["Val_id"], cardnum["cardnum"])
-        t5 = t4.mask(t4["Cardnum"], (t4["Cardnum"] == t4["cardnum"]) & t4["bonus"].isnotnull(), "Cardnum_filtered")
+        t5 = t4.mask(
+            t4["Cardnum"],
+            (t4["Cardnum"] == t4["cardnum"]) & t4["bonus"].isnotnull(),
+            "Cardnum_filtered",
+        )
         t6 = t5.filter(t5["Cardnum_filtered"])
         self.maxDiff = None
-        self.assertExpectedInline(str(t6), """\
+        self.assertExpectedInline(
+            str(t6),
+            """\
 [Val_id Cardnum || bonus tstart cardnum Cardnum_filtered]
                 bonus               tstart  cardnum Cardnum_filtered
 Val_id Cardnum                                                      
 1      5172       4.0  2023-01-01 09:50:00   5172.0             5172
 47 keys hidden
 
-""")
+""",
+        )
         # # [Val_id Cardnum || bonus.bonus  tstart.tstart            cardnum.cardnum]
         # #  1      5172    || 4            2023-01-01 09:50:00      5172
 
-# GOAL 2: [val_id || cardnum tstart bonus]
+    # GOAL 2: [val_id || cardnum tstart bonus]
     def test_ex3_goal2_step1_get(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t11 = s.get([Val_id])
-        self.assertExpectedInline(str(t11), """\
+        self.assertExpectedInline(
+            str(t11),
+            """\
 [Val_id || ]
 Empty DataFrame
 Columns: []
 Index: []
 8 keys hidden
 
-""")
+""",
+        )
         # [Val_id || ]
         #  1
         #  2
@@ -268,10 +295,14 @@ Index: []
     def test_ex3_goal2_step2_inferenceChain(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t11 = s.get([Val_id])
-        t12 = (t11.infer(["Val_id"], cardnum["cardnum"])
-               .infer(["Val_id"], tstart["tstart"])
-               .infer(["Val_id"], bonus["bonus"]))
-        self.assertExpectedInline(str(t12), """\
+        t12 = (
+            t11.infer(["Val_id"], cardnum["cardnum"])
+            .infer(["Val_id"], tstart["tstart"])
+            .infer(["Val_id"], bonus["bonus"])
+        )
+        self.assertExpectedInline(
+            str(t12),
+            """\
 [Val_id || cardnum tstart bonus]
         cardnum               tstart        bonus
 Val_id                                           
@@ -284,7 +315,8 @@ Val_id
 7           NaN  2023-01-02 05:34:00           []
 8        4412.0                  NaN           []
 
-""")
+""",
+        )
         # [Val_id || tstart.tstart         cardnum.cardnum   bonus.bonus]
         #  1      || 2023-01-01 09:50:00   5172              [4, 12]
         #  2      || 2023-01-01 11:10:00   2354              [5, 7]
@@ -298,15 +330,22 @@ Val_id
     def test_ex3_goal2_step3_assignAndAggregate(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t11 = s.get([Val_id])
-        t12 = (t11.infer(["Val_id"], cardnum["cardnum"])
-               .infer(["Val_id"], tstart["tstart"])
-               .infer(["Val_id"], bonus["bonus"]))
-        t13 = t12.deduce((t12["bonus"].sum() / t12["bonus"].count() / 100) * t12["cardnum"], "returns")
+        t12 = (
+            t11.infer(["Val_id"], cardnum["cardnum"])
+            .infer(["Val_id"], tstart["tstart"])
+            .infer(["Val_id"], bonus["bonus"])
+        )
+        t13 = t12.deduce(
+            (t12["bonus"].sum() / t12["bonus"].count() / 100) * t12["cardnum"],
+            "returns",
+        )
         print(t13.intermediate_representation)
         self.maxDiff = None
         print(t13["returns"].get_hidden_keys())
         print(t13.derivation)
-        self.assertExpectedInline(str(t13), """\
+        self.assertExpectedInline(
+            str(t13),
+            """\
 [Val_id || cardnum tstart bonus returns]
         cardnum               tstart        bonus  returns
 Val_id                                                    
@@ -319,7 +358,8 @@ Val_id
 6           NaN  2023-01-01 21:17:00           []      NaN
 7           NaN  2023-01-02 05:34:00           []      NaN
 
-""")
+""",
+        )
 
     def test_ex3_goal2_step3_showingAHiddenKey(self):
         # bonus.cardnum is a hidden key for bonus.bonus. Let's show it.
@@ -329,14 +369,18 @@ Val_id
         # the hidden key is NA? Yes.
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
         t11 = s.get([Val_id])
-        t12 = (t11.infer(["Val_id"], cardnum["cardnum"])
-               .infer(["Val_id"], tstart["tstart"])
-               .infer(["Val_id"], bonus["bonus"]))
+        t12 = (
+            t11.infer(["Val_id"], cardnum["cardnum"])
+            .infer(["Val_id"], tstart["tstart"])
+            .infer(["Val_id"], bonus["bonus"])
+        )
         t14 = t12.show("cardnum_1").filter("bonus")
         print("T14 DERIVATION")
         print(t14.derivation)
         self.maxDiff = None
-        self.assertExpectedInline(str(t14), """\
+        self.assertExpectedInline(
+            str(t14),
+            """\
 [Val_id cardnum_1 || cardnum tstart bonus]
                   cardnum               tstart  bonus
 Val_id cardnum_1                                     
@@ -348,7 +392,8 @@ Val_id cardnum_1
 5      1410        2354.0  2023-01-01 20:11:00    2.0
 26 keys hidden
 
-""")
+""",
+        )
         # [Val_id bonus.cardnum || tstart.tstart         cardnum.cardnum   bonus.bonus]
         #  1      5172          || 2023-01-01 09:50:00   5172              4
         #  1      1410          || 2023-01-01 09:50:00   5172              12

@@ -22,20 +22,23 @@ class TestEx2(expecttest.TestCase):
         s.blend(c_val_id, t_val_id, under=Val_id)
         return s, cardnum, tstart, Val_id
 
-# GOAL: For each trip (val_id), tell me when the trip started (t_start)
-# Only two obvious ways to do it
+    # GOAL: For each trip (val_id), tell me when the trip started (t_start)
+    # Only two obvious ways to do it
 
     def test_ex2_goal1_step1_get(self):
         s, cardnum, tstart, Val_id = self.initialise()
         t1 = s.get([tstart["val_id"]])
-        self.assertExpectedInline(str(t1), """\
+        self.assertExpectedInline(
+            str(t1),
+            """\
 [val_id || ]
 Empty DataFrame
 Columns: []
 Index: []
 7 keys hidden
 
-""")
+""",
+        )
         # Get every val_id in the tstart csv
         # [tstart.val_id || ]
         #  1
@@ -50,7 +53,9 @@ Index: []
         s, cardnum, tstart, Val_id = self.initialise()
         t1 = s.get([tstart["val_id"]])
         t2 = t1.infer(["val_id"], tstart["tstart"])
-        self.assertExpectedInline(str(t2), """\
+        self.assertExpectedInline(
+            str(t2),
+            """\
 [val_id || tstart]
                      tstart
 val_id                     
@@ -62,7 +67,8 @@ val_id
 6       2023-01-01 21:17:00
 7       2023-01-02 05:34:00
 
-""")
+""",
+        )
         # [tstart.val_id || tstart.tstart]
         #  1             || 2023-01-01 09:50:00
         #  2             || 2023-01-01 11:10:00
@@ -75,14 +81,17 @@ val_id
     def test_ex2_goal2_step1_get(self):
         s, cardnum, tstart, Val_id = self.initialise()
         t11 = s.get([Val_id]).sort("Val_id")
-        self.assertExpectedInline(str(t11), """\
+        self.assertExpectedInline(
+            str(t11),
+            """\
 [Val_id || ]
 Empty DataFrame
 Columns: []
 Index: []
 8 keys hidden
 
-""")
+""",
+        )
         # Get every possible val_id. Note that there is val_id 8, but we don't
         # have a timestamp for that.
         # [Val_id || ]
@@ -99,7 +108,9 @@ Index: []
         s, cardnum, tstart, Val_id = self.initialise()
         t11 = s.get([Val_id])
         t12 = t11.infer(["Val_id"], tstart["tstart"])
-        self.assertExpectedInline(str(t12), """\
+        self.assertExpectedInline(
+            str(t12),
+            """\
 [Val_id || tstart]
                      tstart
 Val_id                     
@@ -112,7 +123,8 @@ Val_id
 7       2023-01-02 05:34:00
 1 keys hidden
 
-""")
+""",
+        )
         # Values populate keys. Since we use the same values, we will end up with the same keys.
         # [Val_id || tstart.tstart]
         #  1      || 2023-01-01 09:50:00
@@ -130,7 +142,9 @@ Val_id
         # Hey, I also want the cardnum, not just the val_id
         # First two steps are the same as either Way 1 or Way 2, but then you can do
         t23 = t12.infer(["Val_id"], cardnum["cardnum"])
-        self.assertExpectedInline(str(t23), """\
+        self.assertExpectedInline(
+            str(t23),
+            """\
 [Val_id || tstart cardnum]
                      tstart  cardnum
 Val_id                              
@@ -143,7 +157,8 @@ Val_id
 6       2023-01-01 21:17:00      NaN
 7       2023-01-02 05:34:00      NaN
 
-""")
+""",
+        )
         # [Val_id || tstart.tstart            cardnum.cardnum]
         #  1      || 2023-01-01 09:50:00      5172
         #  2      || 2023-01-01 11:10:00      2354
@@ -158,18 +173,22 @@ Val_id
         # A key exists as long as ONE value is not NA.
 
         # STRESS TEST
+
     def test_ex2_goal4_step1_getCrossProduct(self):
         # What if the user accidentally makes cardnum a key, so gets the cross product?
         s, cardnum, tstart, Val_id = self.initialise()
         t31 = s.get([Val_id, cardnum["cardnum"]]).sort(["Val_id", "cardnum"])
-        self.assertExpectedInline(str(t31), """\
+        self.assertExpectedInline(
+            str(t31),
+            """\
 [Val_id cardnum || ]
 Empty DataFrame
 Columns: []
 Index: []
 40 keys hidden
 
-""")
+""",
+        )
         # [Val_id cardnum.cardnum || ]
         #  1      5172
         #  1      2354
@@ -190,7 +209,9 @@ Index: []
         s, cardnum, tstart, Val_id = self.initialise()
         t31 = s.get([Val_id, cardnum["cardnum"]]).sort(["Val_id", "cardnum"])
         t32 = t31.infer(["Val_id"], tstart["tstart"])
-        self.assertExpectedInline(str(t32), """\
+        self.assertExpectedInline(
+            str(t32),
+            """\
 [Val_id cardnum || tstart]
                              tstart
 Val_id cardnum                     
@@ -231,7 +252,8 @@ Val_id cardnum
        4412     2023-01-02 05:34:00
 5 keys hidden
 
-""")
+""",
+        )
         # [Val_id cardnum.cardnum || tstart.tstart]
         #  1      5172            || 2023-01-01 09:50:00
         #  1      2354            || 2023-01-01 09:50:00
@@ -252,7 +274,9 @@ Val_id cardnum
         t31 = s.get([Val_id, cardnum["cardnum"]]).sort(["Val_id", "cardnum"])
         t32 = t31.infer(["Val_id"], tstart["tstart"])
         t33 = t32.hide("cardnum")
-        self.assertExpectedInline(str(t33), """\
+        self.assertExpectedInline(
+            str(t33),
+            """\
 [Val_id || tstart]
                      tstart
 Val_id                     
@@ -265,8 +289,9 @@ Val_id
 7       2023-01-02 05:34:00
 1 keys hidden
 
-""")
-                #.delete(["cardnum.cardnum"])
+""",
+        )
+        # .delete(["cardnum.cardnum"])
         # [Val_id || tstart.tstart]
         #  1      || 2023-01-01 09:50:00
         #  2      || 2023-01-01 11:10:00
@@ -285,7 +310,9 @@ Val_id
         t32 = t31.infer(["Val_id"], tstart["tstart"])
         t33 = t32.hide("cardnum")
         t34 = t33.show("cardnum")
-        self.assertExpectedInline(str(t34), """\
+        self.assertExpectedInline(
+            str(t34),
+            """\
 [Val_id cardnum || tstart]
                              tstart
 Val_id cardnum                     
@@ -326,5 +353,5 @@ Val_id cardnum
        4412     2023-01-02 05:34:00
 5 keys hidden
 
-""")
-
+""",
+        )

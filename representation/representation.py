@@ -1,11 +1,24 @@
+import abc
+
 from tables.column import Column
 from tables.bexp import Bexp
 from tables.domain import Domain
 
 
-class RepresentationStep:
+class RepresentationStep(abc.ABC):
     def __init__(self, name):
         self.name = name
+
+    @abc.abstractmethod
+    def __repr__(self):
+        pass
+
+    @abc.abstractmethod
+    def __str__(self):
+        pass
+
+    def invert(self):
+        return self
 
 
 class StartTraversal(RepresentationStep):
@@ -34,7 +47,7 @@ class EndTraversal(RepresentationStep):
 
 
 class Traverse(RepresentationStep):
-    def __init__(self, edge, columns = None):
+    def __init__(self, edge, columns=None):
         super().__init__("TRV")
         self.edge = edge
         self.hidden_keys = edge.get_hidden_keys()
@@ -51,6 +64,13 @@ class Traverse(RepresentationStep):
     def __str__(self):
         return self.__repr__()
 
+    def invert(self):
+        from schema.edge import SchemaEdge
+
+        edge = self.edge
+        rev = SchemaEdge.invert(edge)
+        return Traverse(rev)
+
 
 class Cross(RepresentationStep):
     def __init__(self, node):
@@ -65,25 +85,21 @@ class Cross(RepresentationStep):
 
 
 class Expand(RepresentationStep):
-    def __init__(self, start_node, end_node, indices, hidden_keys=None, columns=None):
+    def __init__(self, start_node, end_node, indices, hidden_keys):
         super().__init__("EXP")
         self.start_node = start_node
         self.end_node = end_node
         self.indices = indices
-        if hidden_keys is None:
-            self.hidden_keys = []
-        else:
-            self.hidden_keys = hidden_keys
-        if columns is None:
-            self.columns = []
-        else:
-            self.columns = columns
+        self.hidden_keys = hidden_keys
 
     def __repr__(self):
-        return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.columns}>"
+        return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}>"
 
     def __str__(self):
         return self.__repr__()
+
+    def invert(self):
+        return Project(self.end_node, self.start_node, self.indices)
 
 
 class Equate(RepresentationStep):
@@ -190,25 +206,25 @@ class Rename(RepresentationStep):
 
 
 class Project(RepresentationStep):
-    def __init__(self, start_node, end_node, indices, hidden_keys=None, columns=None):
+    def __init__(self, start_node, end_node, indices):
         super().__init__("PRJ")
         self.start_node = start_node
         self.end_node = end_node
         self.indices = indices
-        if hidden_keys is None:
-            self.hidden_keys = []
-        else:
-            self.hidden_keys = hidden_keys
-        if columns is None:
-            self.columns = []
-        else:
-            self.columns = columns
 
     def __repr__(self):
-        return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}, {self.columns}>"
+        return f"{self.name} <{self.start_node}, {self.end_node}, {self.indices}>"
 
     def __str__(self):
         return self.__repr__()
+
+    def invert(self):
+        from schema.node import SchemaNode
+
+        nodes = SchemaNode.get_constituents(self.start_node)
+        hidden_keys = [n for (i, n) in enumerate(nodes) if i not in set(self.indices)]
+        return Expand(self.end_node, self.start_node, self.indices, hidden_keys)
+
 
 class Drop(RepresentationStep):
     def __init__(self, columns):
@@ -220,6 +236,7 @@ class Drop(RepresentationStep):
 
     def __str__(self):
         return self.__repr__()
+
 
 class Filter(RepresentationStep):
     def __init__(self, column):

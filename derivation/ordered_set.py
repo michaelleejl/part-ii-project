@@ -4,7 +4,7 @@ from schema.helpers.find_index import find_index
 
 
 class OrderedSet:
-    def __init__(self, items = None):
+    def __init__(self, items=None):
         self.item_list = []
         self.item_set = frozenset([])
         if items is None:
@@ -43,7 +43,7 @@ class OrderedSet:
         if self.find_item_with_idx(item) is not None:
             idx, to_remove = self.find_item_with_idx(item)
             if to_remove is not None:
-                return OrderedSet(self.item_list[:idx] + self.item_list[idx + 1:])
+                return OrderedSet(self.item_list[:idx] + self.item_list[idx + 1 :])
             else:
                 return OrderedSet(self.item_list)
 

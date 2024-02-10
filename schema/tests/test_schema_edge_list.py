@@ -1,17 +1,27 @@
 import expecttest
 
-from schema import AtomicNode, SchemaEdge, Cardinality, SchemaEdgeList, EdgeAlreadyExistsException
+from schema import (
+    AtomicNode,
+    SchemaEdge,
+    Cardinality,
+    SchemaEdgeList,
+    EdgeAlreadyExistsException,
+)
 
 
 class TestSchemaEdgeList(expecttest.TestCase):
-    def test_schemaEdgeList_addingToEdgeListSucceedsIfEdgeDoesNotAlreadyExistAndEdgeListEmpty(self):
+    def test_schemaEdgeList_addingToEdgeListSucceedsIfEdgeDoesNotAlreadyExistAndEdgeListEmpty(
+        self,
+    ):
         u = AtomicNode("name")
         v = AtomicNode("name2")
         u.id = "000"
         v.id = "001"
         e = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
         es = SchemaEdgeList(frozenset([]))
-        self.assertExpectedInline(str(SchemaEdgeList.add_edge(es, e)), """name <000> <--- name2 <001>""")
+        self.assertExpectedInline(
+            str(SchemaEdgeList.add_edge(es, e)), """name <000> <--- name2 <001>"""
+        )
 
     def test_schemaEdgeList_addingToEdgeListDoesNotMutate(self):
         u = AtomicNode("name")
@@ -33,7 +43,11 @@ class TestSchemaEdgeList(expecttest.TestCase):
         e = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
         es = SchemaEdgeList(frozenset([e]))
         e2 = SchemaEdge(u, v, Cardinality.ONE_TO_ONE)
-        self.assertExpectedRaisesInline(EdgeAlreadyExistsException, lambda: SchemaEdgeList.add_edge(es, e2), """Edge between name <000> and name2 <001> already exists. Use `replace` instead.""")
+        self.assertExpectedRaisesInline(
+            EdgeAlreadyExistsException,
+            lambda: SchemaEdgeList.add_edge(es, e2),
+            """Edge between name <000> and name2 <001> already exists. Use `replace` instead.""",
+        )
 
     def test_schemaEdgeList_updatingEdgeListSucceeds(self):
         u = AtomicNode("name")
@@ -43,4 +57,6 @@ class TestSchemaEdgeList(expecttest.TestCase):
         e = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
         es = SchemaEdgeList(frozenset([e]))
         e2 = SchemaEdge(u, v, Cardinality.ONE_TO_ONE)
-        self.assertExpectedInline(str(SchemaEdgeList.replace_edge(es, e2)), """name <000> <--> name2 <001>""")
+        self.assertExpectedInline(
+            str(SchemaEdgeList.replace_edge(es, e2)), """name <000> <--> name2 <001>"""
+        )

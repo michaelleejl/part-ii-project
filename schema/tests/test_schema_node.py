@@ -10,7 +10,9 @@ class TestSchemaNode(expecttest.TestCase):
         u = AtomicNode("name")
         self.assertEqual(u, u)
 
-    def test_schemaNodeEquality_returnsTrue_ifNodesAtomicAndNameEqualButIdNotEqual(self):
+    def test_schemaNodeEquality_returnsTrue_ifNodesAtomicAndNameEqualButIdNotEqual(
+        self,
+    ):
         u = AtomicNode("name")
         v = AtomicNode("name")
         self.assertNotEqual(u, v)
@@ -20,7 +22,9 @@ class TestSchemaNode(expecttest.TestCase):
         v = AtomicNode("name'")
         self.assertNotEqual(u, v)
 
-    def test_schemaNodeEquality_returnsFalse_whenComparingAtomicNodeWithProductNode(self):
+    def test_schemaNodeEquality_returnsFalse_whenComparingAtomicNodeWithProductNode(
+        self,
+    ):
         u = AtomicNode("1")
         v = AtomicNode("2")
         w = SchemaNode.product([u, v])
@@ -72,7 +76,9 @@ class TestSchemaNode(expecttest.TestCase):
         p2 = SchemaNode.product([u, v])
         self.assertTrue(p1 <= p2)
 
-    def test_schemaNodeLTEQ_betweenProductNodes_returnsTrueIfOneNodeSubsetOfAnother(self):
+    def test_schemaNodeLTEQ_betweenProductNodes_returnsTrueIfOneNodeSubsetOfAnother(
+        self,
+    ):
         u = AtomicNode("1")
         v = AtomicNode("2")
         w = AtomicNode("3")
@@ -80,7 +86,9 @@ class TestSchemaNode(expecttest.TestCase):
         p2 = SchemaNode.product([u, v, w])
         self.assertTrue(p1 <= p2)
 
-    def test_schemaNodeLTEQ_betweenProductNodes_returnsFalseIfOneNodeNotSubsetOfAnother(self):
+    def test_schemaNodeLTEQ_betweenProductNodes_returnsFalseIfOneNodeNotSubsetOfAnother(
+        self,
+    ):
         u = AtomicNode("1")
         v = AtomicNode("2")
         w = AtomicNode("3")
@@ -89,7 +97,9 @@ class TestSchemaNode(expecttest.TestCase):
         p2 = SchemaNode.product([u, v, w])
         self.assertFalse(p1 <= p2)
 
-    def test_schemaNodeLT_betweenProductNodes_returnsFalseIfOneNodeNotProperSubsetOfAnother(self):
+    def test_schemaNodeLT_betweenProductNodes_returnsFalseIfOneNodeNotProperSubsetOfAnother(
+        self,
+    ):
         u = AtomicNode("1")
         v = AtomicNode("2")
         w = AtomicNode("3")
@@ -154,6 +164,3 @@ class TestSchemaNode(expecttest.TestCase):
         v = AtomicNode("v")
         p = SchemaNode.product([u, v])
         self.assertFalse(SchemaNode.is_atomic(p))
-
-
-

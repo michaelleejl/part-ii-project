@@ -34,7 +34,6 @@ class Aexp(Exp, abc.ABC):
     def __rtruediv__(self, other):
         return wrap_aexp(other).__rtruediv__(self)
 
-
     def __neg__(self):
         return NegAexp(self)
 
@@ -53,7 +52,11 @@ class ColumnAexp(Aexp):
     def to_closure(self, parameters, aggregated_over):
         idx = find_index(self.column, parameters)
         if idx == -1:
-            return ColumnAexp(len(parameters)), parameters + [self.column], aggregated_over
+            return (
+                ColumnAexp(len(parameters)),
+                parameters + [self.column],
+                aggregated_over,
+            )
         else:
             return ColumnAexp(idx), parameters, aggregated_over
 
@@ -86,8 +89,12 @@ class AddAexp(Aexp):
         return self.__repr__()
 
     def to_closure(self, parameters, aggregated_over):
-        new_lexp, lparams, aggregated_over = self.lexp.to_closure(parameters, aggregated_over)
-        new_rexp, rparams, aggregated_over = self.rexp.to_closure(lparams, aggregated_over)
+        new_lexp, lparams, aggregated_over = self.lexp.to_closure(
+            parameters, aggregated_over
+        )
+        new_rexp, rparams, aggregated_over = self.rexp.to_closure(
+            lparams, aggregated_over
+        )
         return AddAexp(new_lexp, new_rexp), rparams, aggregated_over
 
 
@@ -104,8 +111,12 @@ class SubAexp(Aexp):
         return self.__repr__()
 
     def to_closure(self, parameters, aggregated_over):
-        new_lexp, lparams, aggregated_over = self.lexp.to_closure(parameters, aggregated_over)
-        new_rexp, rparams, aggregated_over = self.rexp.to_closure(lparams, aggregated_over)
+        new_lexp, lparams, aggregated_over = self.lexp.to_closure(
+            parameters, aggregated_over
+        )
+        new_rexp, rparams, aggregated_over = self.rexp.to_closure(
+            lparams, aggregated_over
+        )
         return SubAexp(new_lexp, new_rexp), rparams, aggregated_over
 
 
@@ -122,7 +133,9 @@ class NegAexp(Aexp):
 
     def to_closure(self, parameters, aggregated_over):
         subexp = self.exp
-        new_exp, new_params, aggregated_over = subexp.to_closure(parameters, aggregated_over)
+        new_exp, new_params, aggregated_over = subexp.to_closure(
+            parameters, aggregated_over
+        )
         return NegAexp(new_exp), new_params, aggregated_over
 
 
@@ -140,8 +153,12 @@ class MulAexp(Aexp):
         return self.__repr__()
 
     def to_closure(self, parameters, aggregated_over):
-        new_lexp, lparams, aggregated_over = self.lexp.to_closure(parameters, aggregated_over)
-        new_rexp, rparams, aggregated_over = self.rexp.to_closure(lparams, aggregated_over)
+        new_lexp, lparams, aggregated_over = self.lexp.to_closure(
+            parameters, aggregated_over
+        )
+        new_rexp, rparams, aggregated_over = self.rexp.to_closure(
+            lparams, aggregated_over
+        )
         return MulAexp(new_lexp, new_rexp), rparams, aggregated_over
 
 
@@ -159,8 +176,12 @@ class DivAexp(Aexp):
         return self.__repr__()
 
     def to_closure(self, parameters, aggregated_over):
-        new_lexp, lparams, aggregated_over = self.lexp.to_closure(parameters, aggregated_over)
-        new_rexp, rparams, aggregated_over = self.rexp.to_closure(lparams, aggregated_over)
+        new_lexp, lparams, aggregated_over = self.lexp.to_closure(
+            parameters, aggregated_over
+        )
+        new_rexp, rparams, aggregated_over = self.rexp.to_closure(
+            lparams, aggregated_over
+        )
         return DivAexp(new_lexp, new_rexp), rparams, aggregated_over
 
 
@@ -178,9 +199,15 @@ class SumAexp(Aexp):
         key_idxs = [find_index(key, parameters) for key in self.keys]
         idx = find_index(self.column, parameters)
         aggregated_over = aggregated_over + [self.column]
-        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        key_params, parameters = Exp.convert_agg_exp_variables(
+            parameters, key_idxs, self.keys
+        )
         if idx == -1:
-            return SumAexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
+            return (
+                SumAexp(key_params, len(parameters)),
+                parameters + [self.column],
+                aggregated_over,
+            )
         else:
             return SumAexp(key_params, idx), parameters, aggregated_over
 
@@ -199,9 +226,15 @@ class MaxAexp(Aexp):
         key_idxs = [find_index(key, parameters) for key in self.keys]
         idx = find_index(self.column, parameters)
         aggregated_over = aggregated_over + [self.column]
-        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        key_params, parameters = Exp.convert_agg_exp_variables(
+            parameters, key_idxs, self.keys
+        )
         if idx == -1:
-            return MaxAexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
+            return (
+                MaxAexp(key_params, len(parameters)),
+                parameters + [self.column],
+                aggregated_over,
+            )
         else:
             return MaxAexp(key_params, idx), parameters, aggregated_over
 
@@ -220,11 +253,18 @@ class MinAexp(Aexp):
         key_idxs = [find_index(key, parameters) for key in self.keys]
         idx = find_index(self.column, parameters)
         aggregated_over = aggregated_over + [self.column]
-        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        key_params, parameters = Exp.convert_agg_exp_variables(
+            parameters, key_idxs, self.keys
+        )
         if idx == -1:
-            return MinAexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
+            return (
+                MinAexp(key_params, len(parameters)),
+                parameters + [self.column],
+                aggregated_over,
+            )
         else:
             return MinAexp(key_params, idx), parameters, aggregated_over
+
 
 class CountAexp(Aexp):
 
@@ -240,8 +280,14 @@ class CountAexp(Aexp):
         key_idxs = [find_index(key, parameters) for key in self.keys]
         idx = find_index(self.column, parameters)
         aggregated_over = aggregated_over + [self.column]
-        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        key_params, parameters = Exp.convert_agg_exp_variables(
+            parameters, key_idxs, self.keys
+        )
         if idx == -1:
-            return CountAexp(key_params, len(parameters)), parameters + [self.column], aggregated_over
+            return (
+                CountAexp(key_params, len(parameters)),
+                parameters + [self.column],
+                aggregated_over,
+            )
         else:
             return CountAexp(key_params, idx), parameters, aggregated_over

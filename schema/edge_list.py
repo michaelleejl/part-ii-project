@@ -35,7 +35,9 @@ class SchemaEdgeList(Iterable):
         return SchemaEdgeList(frozenset(edge_list).union([edge]))
 
     @classmethod
-    def replace_edge(cls, edge_list: SchemaEdgeList, edge: SchemaEdge) -> SchemaEdgeList:
+    def replace_edge(
+        cls, edge_list: SchemaEdgeList, edge: SchemaEdge
+    ) -> SchemaEdgeList:
         """
         Replaces an edge in an edge list
 

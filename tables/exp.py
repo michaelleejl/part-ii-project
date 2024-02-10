@@ -43,10 +43,18 @@ class PopExp(Exp):
     def to_closure(self, parameters, aggregated_over):
         key_idxs = [find_index(key, parameters) for key in self.keys]
         idx = find_index(self.column, parameters)
-        aggregated_over = aggregated_over + [self.column] + self.column.get_hidden_keys()
-        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        aggregated_over = (
+            aggregated_over + [self.column] + self.column.get_hidden_keys()
+        )
+        key_params, parameters = Exp.convert_agg_exp_variables(
+            parameters, key_idxs, self.keys
+        )
         if idx == -1:
-            return PopExp(key_params, len(parameters), self.exp_type), parameters + [self.column], aggregated_over
+            return (
+                PopExp(key_params, len(parameters), self.exp_type),
+                parameters + [self.column],
+                aggregated_over,
+            )
         else:
             return PopExp(key_params, idx, self.exp_type), parameters, aggregated_over
 
@@ -66,13 +74,28 @@ class ExtendExp(Exp):
         key_idxs = [find_index(key, parameters) for key in self.keys]
         idx = find_index(self.column, parameters)
         aggregated_over = aggregated_over
-        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        key_params, parameters = Exp.convert_agg_exp_variables(
+            parameters, key_idxs, self.keys
+        )
         if idx == -1:
-            new_fexp, new_params, aggregated_over = self.fexp.to_closure(parameters + [self.column], aggregated_over)
-            return ExtendExp(key_params, len(parameters), self.fexp, self.exp_type), new_params, aggregated_over
+            new_fexp, new_params, aggregated_over = self.fexp.to_closure(
+                parameters + [self.column], aggregated_over
+            )
+            return (
+                ExtendExp(key_params, len(parameters), self.fexp, self.exp_type),
+                new_params,
+                aggregated_over,
+            )
         else:
-            new_fexp, new_params, aggregated_over = self.fexp.to_closure(parameters, aggregated_over)
-            return ExtendExp(key_params, idx, self.fexp, self.exp_type), new_params, aggregated_over
+            new_fexp, new_params, aggregated_over = self.fexp.to_closure(
+                parameters, aggregated_over
+            )
+            return (
+                ExtendExp(key_params, idx, self.fexp, self.exp_type),
+                new_params,
+                aggregated_over,
+            )
+
 
 class MaskExp(Exp):
     def __init__(self, keys, column, bexp, exp_type):
@@ -88,10 +111,24 @@ class MaskExp(Exp):
         key_idxs = [find_index(key, parameters) for key in self.keys]
         idx = find_index(self.column, parameters)
         aggregated_over = aggregated_over
-        key_params, parameters = Exp.convert_agg_exp_variables(parameters, key_idxs, self.keys)
+        key_params, parameters = Exp.convert_agg_exp_variables(
+            parameters, key_idxs, self.keys
+        )
         if idx == -1:
-            new_bexp, new_params, aggregated_over = self.bexp.to_closure(parameters + [self.column], aggregated_over)
-            return MaskExp(key_params, len(parameters), new_bexp, self.exp_type), new_params, aggregated_over
+            new_bexp, new_params, aggregated_over = self.bexp.to_closure(
+                parameters + [self.column], aggregated_over
+            )
+            return (
+                MaskExp(key_params, len(parameters), new_bexp, self.exp_type),
+                new_params,
+                aggregated_over,
+            )
         else:
-            new_bexp, new_params, aggregated_over = self.bexp.to_closure(parameters + [self.column], aggregated_over)
-            return MaskExp(key_params, idx, new_bexp, self.exp_type), new_params, aggregated_over
+            new_bexp, new_params, aggregated_over = self.bexp.to_closure(
+                parameters + [self.column], aggregated_over
+            )
+            return (
+                MaskExp(key_params, idx, new_bexp, self.exp_type),
+                new_params,
+                aggregated_over,
+            )

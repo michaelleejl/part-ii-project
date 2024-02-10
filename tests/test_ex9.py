@@ -29,7 +29,9 @@ class TestEx9(expecttest.TestCase):
         # GOAL 1: [k || v]
         s, l, v, L = self.initialise()
         t1 = s.get([L]).infer(["L"], v["v"]).compose([l["k"]], "L")
-        self.assertExpectedInline(str(t1), """\
+        self.assertExpectedInline(
+            str(t1),
+            """\
 [k || v]
    v
 k   
@@ -37,7 +39,8 @@ A  1
 B  1
 C  2
 
-""")
+""",
+        )
         # Or s.get([l]).compose(k, [l]).infer([k], v)
         # [k || v]
         #  A || 1
@@ -49,7 +52,9 @@ C  2
     def test_ex9_goal2_step1_getAndInfer(self):
         s, l, v, L = self.initialise()
         t11 = s.get([l["k"], L]).infer(["L"], v["v"])
-        self.assertExpectedInline(str(t11), """\
+        self.assertExpectedInline(
+            str(t11),
+            """\
 [k L || v]
      v
 k L   
@@ -63,7 +68,8 @@ A r  3
 B r  3
 C r  3
 
-""")
+""",
+        )
         # [k  l || v]
         #  A  p || 1
         #  A  q || 2
@@ -78,7 +84,9 @@ C r  3
     def test_ex9_goal3_step1_getAndInfer(self):
         s, l, v, L = self.initialise()
         t21 = s.get([l["k"], L]).infer(["k"], v["v"])
-        self.assertExpectedInline(str(t21), """\
+        self.assertExpectedInline(
+            str(t21),
+            """\
 [k L || v]
      v
 k L   
@@ -92,7 +100,8 @@ C p  2
   q  2
   r  2
 
-""")
+""",
+        )
         # [k  l || v]
         #  A  p || 1
         #  A  q || 1
@@ -107,7 +116,9 @@ C p  2
     def test_ex9_goal4_step1_getAndInfer(self):
         s, l, v, L = self.initialise()
         t31 = s.get([l["k"]]).infer(["k"], L)
-        self.assertExpectedInline(str(t31), """\
+        self.assertExpectedInline(
+            str(t31),
+            """\
 [k || L]
    L
 k   
@@ -115,7 +126,8 @@ A  p
 B  p
 C  q
 
-""")
+""",
+        )
         # [k || l]
         #  A || p
         #  B || p
@@ -125,14 +137,17 @@ C  q
         s, l, v, L = self.initialise()
         t31 = s.get([l["k"]]).infer(["k"], L)
         t32 = t31.shift_right()
-        self.assertExpectedInline(str(t32), """\
+        self.assertExpectedInline(
+            str(t32),
+            """\
 [k L || ]
 Empty DataFrame
 Columns: []
 Index: []
 9 keys hidden
 
-""")
+""",
+        )
         # [k l || ]
         #  A p
         #  B p
@@ -143,7 +158,9 @@ Index: []
         t31 = s.get([l["k"]]).infer(["k"], L)
         t32 = t31.shift_right()
         t33 = t32.infer(["L"], v["v"])
-        self.assertExpectedInline(str(t33), """\
+        self.assertExpectedInline(
+            str(t33),
+            """\
 [k L || v]
      v
 k L   
@@ -152,7 +169,8 @@ B p  1
 C q  2
 6 keys hidden
 
-""")
+""",
+        )
         # [k l || v ]
         #  A p || 1
         #  B p || 1

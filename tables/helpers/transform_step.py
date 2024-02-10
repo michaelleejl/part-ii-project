@@ -1,14 +1,17 @@
-from typing import Callable, Any, Tuple, List
+from typing import Callable
 
 from tables.domain import Domain
-from tables.internal_representation import RepresentationStep
+from representation.representation import RepresentationStep
 
 
-def transform_step(namespace, table, start, end, aggregated_over) -> Callable[[RepresentationStep], tuple[RepresentationStep, list[Domain]]]:
+def transform_step(
+    namespace, table, start, end, aggregated_over
+) -> Callable[[RepresentationStep], tuple[RepresentationStep, list[Domain]]]:
     internal_namespace = namespace
 
     def internal(step) -> tuple[RepresentationStep, list[Domain]]:
-        from tables.internal_representation import Traverse, Expand, EndTraversal
+        from representation.representation import Traverse, Expand, EndTraversal
+
         if isinstance(step, Traverse) or isinstance(step, Expand):
             step_hidden_keys = step.hidden_keys
             columns = []
@@ -19,9 +22,20 @@ def transform_step(namespace, table, start, end, aggregated_over) -> Callable[[R
             if isinstance(step, Traverse):
                 return Traverse(step.edge, columns), columns
             else:
-                return Expand(step.start_node, step.end_node, step.indices, step.hidden_keys, columns), columns
+                return (
+                    Expand(
+                        step.start_node,
+                        step.end_node,
+                        step.indices,
+                        step.hidden_keys,
+                    ),
+                    columns,
+                )
         elif isinstance(step, EndTraversal):
-            return EndTraversal([c for c in start if c not in set(aggregated_over)], end), []
+            return (
+                EndTraversal([c for c in start if c not in set(aggregated_over)], end),
+                [],
+            )
         else:
             return step, []
 

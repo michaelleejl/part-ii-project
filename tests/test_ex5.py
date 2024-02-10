@@ -24,21 +24,24 @@ class TestEx5(expecttest.TestCase):
         # SCHEMA:
         # person ---> role <--- task
 
-# GOAL 2
-# [person task || role]
-# Does role depend on person or task - depends on what you call infer on!
+    # GOAL 2
+    # [person task || role]
+    # Does role depend on person or task - depends on what you call infer on!
 
     def test_ex5_step1_get(self):
         s, person, task, Role = self.initialise()
         t1 = s.get([person["person"], task["task"]])
-        self.assertExpectedInline(str(t1), """\
+        self.assertExpectedInline(
+            str(t1),
+            """\
 [person task || ]
 Empty DataFrame
 Columns: []
 Index: []
 28 keys hidden
 
-""")
+""",
+        )
         # [person.person task.task || ]
         # Steve          logistics
         # Steve          manpower
@@ -51,7 +54,9 @@ Index: []
         s, person, task, Role = self.initialise()
         t1 = s.get([person["person"], task["task"]])
         t2 = t1.infer(["task"], Role)
-        self.assertExpectedInline(str(t2), """\
+        self.assertExpectedInline(
+            str(t2),
+            """\
 [person task || Role]
                   Role
 person task           
@@ -84,7 +89,8 @@ Tom    budget      CFO
 Harry  budget      CFO
 Dick   budget      CFO
 
-""")
+""",
+        )
         # [person.person task.task   ||  Role]
         # Steve          logistics   ||  COO
         # Steve          manpower    ||  CEO
@@ -102,7 +108,9 @@ Dick   budget      CFO
         s, person, task, Role = self.initialise()
         t1 = s.get([person["person"], task["task"]])
         t3 = t1.infer(["person"], Role)
-        self.assertExpectedInline(str(t3), """\
+        self.assertExpectedInline(
+            str(t3),
+            """\
 [person task || Role]
                   Role
 person task           
@@ -135,7 +143,8 @@ Dick   logistics   CEO
        investment  CEO
        budget      CEO
 
-""")
+""",
+        )
         # [person.person task.task   ||  Role]
         # Steve          logistics   ||  CFO
         # Steve          manpower    ||  CFO
@@ -153,6 +162,10 @@ Dick   logistics   CEO
         person["person"].id_prefix = 0
         task["task"].id_prefix = 0
         t1 = s.get([person["person"], task["task"]])
-        self.assertExpectedRaisesInline(NoShortestPathBetweenNodesException, lambda: t1.infer(["person", "task"], Role),"""No paths found between nodes person;task and Role.If the path involves a projection that isn't the last edge in the path,The projection will need to be specified as a waypoint.""")
+        self.assertExpectedRaisesInline(
+            NoShortestPathBetweenNodesException,
+            lambda: t1.infer(["person", "task"], Role),
+            """No paths found between nodes person;task and Role.If the path involves a projection that isn't the last edge in the path,The projection will need to be specified as a waypoint.""",
+        )
         # There is no path from person.person x task.task to Role, only Role x Role.
         # This should throw an error

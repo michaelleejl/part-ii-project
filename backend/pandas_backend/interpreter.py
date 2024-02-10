@@ -5,18 +5,18 @@ from functools import reduce
 import numpy as np
 import pandas as pd
 
-from backend.pandas_backend.exp_interpreter import bexp_interpreter
 from schema import SchemaNode, SchemaEdge
-from tables.internal_representation import *
+from representation.representation import *
 
 
 class StackPointer:
-    def __init__(self, idx, prev = None):
+    def __init__(self, idx, prev=None):
         self.idx = idx
         self.prev = prev
 
 
 interp = tuple[list, StackPointer]
+
 
 def cartesian_product(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     return df1.merge(df2, how="cross").drop_duplicates()
@@ -29,12 +29,17 @@ def get(derivation_step: Get, backend, stack, sp) -> interp:
     if len(nodes) == 1:
         df = backend.get_domain_from_atomic_node(nodes[0], names[0])
     else:
-        domains = [backend.get_domain_from_atomic_node(node, name) for node, name in zip(nodes, names)]
+        domains = [
+            backend.get_domain_from_atomic_node(node, name)
+            for node, name in zip(nodes, names)
+        ]
         df = reduce(cartesian_product, domains)
     return stack + [df], sp
 
 
-def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
+def end(
+    derivation_step: End, backend, table: pd.DataFrame
+) -> tuple[pd.DataFrame, int, int]:
     left = derivation_step.left
     keys = derivation_step.left
     hidden = [c.get_hidden_keys() for c in keys if c.is_val_column()]
@@ -49,7 +54,9 @@ def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFram
     values = derivation_step.right
 
     if len(values) == 0:
-        keys_count = reduce(operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in left])
+        keys_count = reduce(
+            operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in left]
+        )
         return pd.DataFrame(), keys_count, 0
     keys_str = [k.get_name() for k in keys]
     vals_str = [v.get_name() for v in values]
@@ -61,7 +68,9 @@ def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFram
     columns_with_hidden_keys = []
 
     for i, val in enumerate(values):
-        hidden_dependencies = [v.name for v in val.get_hidden_keys() if v.name not in set(hidden)]
+        hidden_dependencies = [
+            v.name for v in val.get_hidden_keys() if v.name not in set(hidden)
+        ]
 
         if len(hidden_dependencies) > 0:
             to_add = app[keys_str + [val.get_name()]]
@@ -75,7 +84,10 @@ def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFram
         df = df.loc[df.astype(str).drop_duplicates().index]
 
     df[columns_with_hidden_keys_str] = df[columns_with_hidden_keys_str].map(
-        lambda d: d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else np.nan)
+        lambda d: (
+            d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else np.nan
+        )
+    )
     if len(values) > 0:
         df2 = df.dropna(subset=vals_str, how="all")
     else:
@@ -83,10 +95,15 @@ def end(derivation_step: End, backend, table: pd.DataFrame) -> tuple[pd.DataFram
     df3 = df2.dropna(subset=keys_str, how="any")
 
     df3[columns_with_hidden_keys_str] = df3[columns_with_hidden_keys_str].map(
-        lambda d: d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else [])
+        lambda d: (
+            d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else []
+        )
+    )
 
     df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index(keys_str)
-    keys_count = reduce(operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in keys])
+    keys_count = reduce(
+        operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in keys]
+    )
     dropped_keys_cnt = keys_count - len(df3)
     return df3, dropped_keys_cnt, 0
 
@@ -121,8 +138,18 @@ def trv(derivation_step: Traverse, backend, stack, sp) -> interp:
 
     to_join = list(range(len(start_nodes)))
 
-    df = pd.merge(table, relation, on=to_join, how="right").drop(columns=to_join, axis=1).drop_duplicates()
-    df = df.rename({k: k-len(start_nodes) for k in range(len(start_nodes), len(start_nodes) + len(end_nodes))}, axis=1)
+    df = (
+        pd.merge(table, relation, on=to_join, how="right")
+        .drop(columns=to_join, axis=1)
+        .drop_duplicates()
+    )
+    df = df.rename(
+        {
+            k: k - len(start_nodes)
+            for k in range(len(start_nodes), len(start_nodes) + len(end_nodes))
+        },
+        axis=1,
+    )
     for i, idx in enumerate(idxs):
         df[new_cols[i].name] = df[idx]
 
@@ -141,7 +168,7 @@ def prj(derivation_step: Project, _, stack, sp) -> interp:
     i = 0
     j = 0
     df = table.copy()
-    renaming = {j:i for i, j in enumerate(indices)}
+    renaming = {j: i for i, j in enumerate(indices)}
     while j < len(end_nodes):
         if indices[j] == i:
             renaming |= {i: j}
@@ -203,7 +230,7 @@ def ent(derivation_step: EndTraversal, _, stack, sp) -> interp:
         else:
             res = pd.merge(x, y, how="cross")
     else:
-        res = pd.merge(x, y, on = common, how="outer")
+        res = pd.merge(x, y, on=common, how="outer")
 
     res = res.loc[res.astype(str).drop_duplicates().index]
 
@@ -240,7 +267,7 @@ def pop(step, _, stack, sp) -> interp:
 
 
 def cal(step, _, stack, sp) -> interp:
-    return stack + [stack[-1]], StackPointer(len(stack)-1, sp)
+    return stack + [stack[-1]], StackPointer(len(stack) - 1, sp)
 
 
 def ret(step, _, stack, sp) -> interp:
@@ -328,6 +355,7 @@ def step(next_step: RepresentationStep, backend, stack: list, sp) -> interp:
         case "SRT":
             next_step = typing.cast(Sort, next_step)
             return srt(next_step, backend, stack, sp)
+
 
 def interpret(steps: list[RepresentationStep], backend) -> pd.DataFrame:
     stack = []

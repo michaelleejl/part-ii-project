@@ -32,7 +32,7 @@ class Function:
             for fn in functions:
                 f = fn.function
                 a = len(fn.arguments)
-                vals += [f(*c[i:i + a])]
+                vals += [f(*c[i : i + a])]
                 i += a
             return combinator(*vals)
 
@@ -42,10 +42,13 @@ class Function:
 
     def combine_with(self, other, op):
         from tables.column import Column
+
         if isinstance(other, Function):
             return Function.combine([self, other], op)
         elif isinstance(other, Column):
-            return Function.combine([self, Function.identity(other)], op, Cardinality.MANY_TO_ONE)
+            return Function.combine(
+                [self, Function.identity(other)], op, Cardinality.MANY_TO_ONE
+            )
         else:
             return Function.combine([self, Function.identity(other)], op)
 
@@ -63,7 +66,9 @@ class Function:
 
 
 def create_function(function):
-    return lambda arguments: Function(function, list(arguments), Cardinality.MANY_TO_ONE)
+    return lambda arguments: Function(
+        function, list(arguments), Cardinality.MANY_TO_ONE
+    )
 
 
 def create_bijection(function):

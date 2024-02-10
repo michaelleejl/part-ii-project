@@ -15,5 +15,6 @@ def convert_dtype_to_base_type(dataframe: pd.DataFrame, column_name: str) -> Bas
         return BaseType.BOOL
     return BaseType.OBJECT
 
+
 def determine_base_type_of_columns(dataframe: pd.DataFrame) -> list[BaseType]:
     return [convert_dtype_to_base_type(dataframe, c) for c in dataframe.columns]

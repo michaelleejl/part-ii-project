@@ -6,6 +6,7 @@ def wrap_aexp(exp):
     from tables.aexp import ConstAexp, ColumnAexp
     from tables.exceptions import ColumnTypeException
     from tables.column import Column
+
     if isinstance(exp, float) or isinstance(exp, int):
         return ConstAexp(exp)
     elif isinstance(exp, Column):

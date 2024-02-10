@@ -1,8 +1,17 @@
 import expecttest
 
-from schema import SchemaGraph, AtomicNode, SchemaEdge, AllNodesInClusterMustAlreadyBeInGraphException, \
-    NodeNotInSchemaGraphException, NoShortestPathBetweenNodesException, \
-    MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, SchemaNode, SchemaClass
+from schema import (
+    SchemaGraph,
+    AtomicNode,
+    SchemaEdge,
+    AllNodesInClusterMustAlreadyBeInGraphException,
+    NodeNotInSchemaGraphException,
+    NoShortestPathBetweenNodesException,
+    MultipleShortestPathsBetweenNodesException,
+    CycleDetectedInPathException,
+    SchemaNode,
+    SchemaClass,
+)
 from schema.cardinality import Cardinality
 
 
@@ -15,7 +24,9 @@ class TestSchemaGraph(expecttest.TestCase):
         g.add_node(u)
         u.id_prefix = 0
         self.assertExpectedInline(str([n.name for n in g.schema_nodes]), """['name']""")
-        self.assertExpectedInline(str(g), """\
+        self.assertExpectedInline(
+            str(g),
+            """\
 ADJACENCY LIST 
 ==========================
 
@@ -32,7 +43,8 @@ name
 ==========================
 
 ==========================
-""")
+""",
+        )
 
     def test_schemaGraph_addNodesActsLikeSetUnion(self):
         g = SchemaGraph()
@@ -45,7 +57,9 @@ name
         g.add_nodes([u, v])
         g.add_nodes([v, w])
         self.assertExpectedInline(str(g.schema_nodes), """[name, name2, name3]""")
-        self.assertExpectedInline(str(g), """\
+        self.assertExpectedInline(
+            str(g),
+            """\
 ADJACENCY LIST 
 ==========================
 
@@ -74,7 +88,8 @@ name3
 ==========================
 
 ==========================
-""")
+""",
+        )
 
     def test_schemaGraph_blendNodesMergesEquivalenceClasses(self):
         g = SchemaGraph()
@@ -84,7 +99,9 @@ name3
         v.id_prefix = 0
         g.add_nodes([u, v])
         g.blend_nodes(u, v)
-        self.assertExpectedInline(str(g), """\
+        self.assertExpectedInline(
+            str(g),
+            """\
 ADJACENCY LIST 
 ==========================
 
@@ -102,7 +119,8 @@ name2
 ==========================
 
 ==========================
-""")
+""",
+        )
 
     def test_schemaGraph_areNodesEqual_returnsTrue_ifNodesInSameEquivalenceClass(self):
         g = SchemaGraph()
@@ -112,14 +130,18 @@ name2
         g.blend_nodes(u, v)
         self.assertTrue(g.are_nodes_equal(u, v))
 
-    def test_schemaGraph_areNodesEqual_returnsFalse_ifNodesInDifferentEquivalenceClasses(self):
+    def test_schemaGraph_areNodesEqual_returnsFalse_ifNodesInDifferentEquivalenceClasses(
+        self,
+    ):
         g = SchemaGraph()
         u = AtomicNode("name")
         v = AtomicNode("name2")
         g.add_nodes([u, v])
         self.assertFalse(g.are_nodes_equal(u, v))
 
-    def test_schemaGraph_addFullyConnectedCluster_raisesExceptionIfNodesNotInGraph(self):
+    def test_schemaGraph_addFullyConnectedCluster_raisesExceptionIfNodesNotInGraph(
+        self,
+    ):
         g = SchemaGraph()
         u = AtomicNode("name")
         v = AtomicNode("name2")
@@ -128,9 +150,11 @@ name2
         v.id_prefix = 0
         w.id_prefix = 0
         g.add_nodes([u, v])
-        self.assertExpectedRaisesInline(AllNodesInClusterMustAlreadyBeInGraphException,
-                                        lambda: g.add_cluster([u, v, w], u),
-                                        """When adding a cluster, all nodes in the cluster must already exist in the graph. The following nodes are not in the graph: name3""")
+        self.assertExpectedRaisesInline(
+            AllNodesInClusterMustAlreadyBeInGraphException,
+            lambda: g.add_cluster([u, v, w], u),
+            """When adding a cluster, all nodes in the cluster must already exist in the graph. The following nodes are not in the graph: name3""",
+        )
 
     def test_schemaGraph_addFullyConnectedCluster_succeeds(self):
         g = SchemaGraph()
@@ -140,7 +164,9 @@ name2
         v.id_prefix = 0
         g.add_nodes([u, v])
         g.add_cluster([u, v], u)
-        self.assertExpectedInline(str(g), """\
+        self.assertExpectedInline(
+            str(g),
+            """\
 ADJACENCY LIST 
 ==========================
 
@@ -174,15 +200,19 @@ name2
 ==========================
 
 ==========================
-""")
+""",
+        )
 
     def test_schemaGraph_addEdgeRaisesException_ifFromNodeNotInGraph(self):
         g = SchemaGraph()
         u = AtomicNode("u")
         v = AtomicNode("v")
         u.id = "000"
-        self.assertExpectedRaisesInline(NodeNotInSchemaGraphException, lambda: g.add_edge(u, v),
-                                        """Node u <000> is not in schema graph.""")
+        self.assertExpectedRaisesInline(
+            NodeNotInSchemaGraphException,
+            lambda: g.add_edge(u, v),
+            """Node u <000> is not in schema graph.""",
+        )
 
     def test_schemaGraph_addEdgeRaisesException_ifToNodeNotInGraph(self):
         g = SchemaGraph()
@@ -190,8 +220,11 @@ name2
         v = AtomicNode("v")
         v.id = "001"
         g.add_node(u)
-        self.assertExpectedRaisesInline(NodeNotInSchemaGraphException, lambda: g.add_edge(u, v),
-                                        """Node v <001> is not in schema graph.""")
+        self.assertExpectedRaisesInline(
+            NodeNotInSchemaGraphException,
+            lambda: g.add_edge(u, v),
+            """Node v <001> is not in schema graph.""",
+        )
 
     def test_schemaGraph_addEdgeDoesNothing_ifFromNodeEqualsToNode(self):
         g = SchemaGraph()
@@ -199,7 +232,9 @@ name2
         u.id_prefix = 0
         g.add_node(u)
         g.add_edge(u, u)
-        self.assertExpectedInline(str(g), """\
+        self.assertExpectedInline(
+            str(g),
+            """\
 ADJACENCY LIST 
 ==========================
 
@@ -216,7 +251,8 @@ u
 ==========================
 
 ==========================
-""")
+""",
+        )
 
     def test_schemaGraphAddEdge_successfullyAddsNewEdgeToAdjacencyList(self):
         g = SchemaGraph()
@@ -227,7 +263,9 @@ u
         g.add_node(u)
         g.add_node(v)
         g.add_edge(u, v, Cardinality.ONE_TO_ONE)
-        self.assertExpectedInline(str(g), """\
+        self.assertExpectedInline(
+            str(g),
+            """\
 ADJACENCY LIST 
 ==========================
 
@@ -261,9 +299,12 @@ v
 ==========================
 
 ==========================
-""")
+""",
+        )
 
-    def test_findAllEquivalentNodesSuccessfullyFindsAllEquivalentNodesForAtomicNode(self):
+    def test_findAllEquivalentNodesSuccessfullyFindsAllEquivalentNodesForAtomicNode(
+        self,
+    ):
         g = SchemaGraph()
         u = AtomicNode("u")
         v = AtomicNode("v")
@@ -271,10 +312,14 @@ v
         v.id = "001"
         g.add_nodes([u, v])
         g.blend_nodes(u, v)
-        self.assertExpectedInline(str(list(sorted(g.find_all_equivalent_nodes(u), key=str))),
-                                  """[u <000>, v <001>]""")
+        self.assertExpectedInline(
+            str(list(sorted(g.find_all_equivalent_nodes(u), key=str))),
+            """[u <000>, v <001>]""",
+        )
 
-    def test_findAllEquivalentNodesSuccessfullyFindsAllEquivalentNodesForProductNode(self):
+    def test_findAllEquivalentNodesSuccessfullyFindsAllEquivalentNodesForProductNode(
+        self,
+    ):
         g = SchemaGraph()
         u1 = AtomicNode("u1")
         u1.id_prefix = 0
@@ -295,16 +340,22 @@ v
         g.blend_nodes(v1, v2)
         g.blend_nodes(x, y)
         p = SchemaNode.product([u1, v2, w, x, y])
-        self.assertExpectedInline(str(list(sorted(g.find_all_equivalent_nodes(p), key=str))),
-                                  """[u1;v1;w;x;x, u1;v1;w;x;y, u1;v1;w;y;x, u1;v1;w;y;y, u1;v2;w;x;x, u1;v2;w;x;y, u1;v2;w;y;x, u1;v2;w;y;y, u2;v1;w;x;x, u2;v1;w;x;y, u2;v1;w;y;x, u2;v1;w;y;y, u2;v2;w;x;x, u2;v2;w;x;y, u2;v2;w;y;x, u2;v2;w;y;y]""")
+        self.assertExpectedInline(
+            str(list(sorted(g.find_all_equivalent_nodes(p), key=str))),
+            """[u1;v1;w;x;x, u1;v1;w;x;y, u1;v1;w;y;x, u1;v1;w;y;y, u1;v2;w;x;x, u1;v2;w;x;y, u1;v2;w;y;x, u1;v2;w;y;y, u2;v1;w;x;x, u2;v1;w;x;y, u2;v1;w;y;x, u2;v1;w;y;y, u2;v2;w;x;x, u2;v2;w;x;y, u2;v2;w;y;x, u2;v2;w;y;y]""",
+        )
 
     def test_findAllShortestPathsBetweenNodes_findsShortestPathOfLengthZero(self):
         g = SchemaGraph()
         u = AtomicNode("u")
         g.add_node(u)
-        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, u)), """([], [], [], [])""")
+        self.assertExpectedInline(
+            str(g.find_all_shortest_paths_between_nodes(u, u)), """([], [], [], [])"""
+        )
 
-    def test_findAllShortestPathsBetweenNodes_findsShortestPathUsingEquivalenceClass(self):
+    def test_findAllShortestPathsBetweenNodes_findsShortestPathUsingEquivalenceClass(
+        self,
+    ):
         g = SchemaGraph()
         u = AtomicNode("u")
         u.id = "000"
@@ -312,9 +363,14 @@ v
         v.id = "001"
         g.add_nodes([u, v])
         g.blend_nodes(u, v)
-        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, v)), """([v <001>], [u <000> === v <001>], [EQU <u <000>, v <001>>], [])""")
+        self.assertExpectedInline(
+            str(g.find_all_shortest_paths_between_nodes(u, v)),
+            """([v <001>], [u <000> === v <001>], [EQU <u <000>, v <001>>], [])""",
+        )
 
-    def test_findAllShortestPathsBetweenNodes_findsShortestMultiHopPathUsingEquivalenceClass(self):
+    def test_findAllShortestPathsBetweenNodes_findsShortestMultiHopPathUsingEquivalenceClass(
+        self,
+    ):
         g = SchemaGraph()
         u = AtomicNode("u")
         u.id = "000"
@@ -325,8 +381,10 @@ v
         g.add_nodes([u, v, w])
         g.blend_nodes(u, v)
         g.add_edge(v, w, Cardinality.ONE_TO_ONE)
-        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(u, w)),
-                                  """([v <001>, w <002>], [u <000> === v <001>, v <001> <--> w <002>], [EQU <u <000>, v <001>>, TRV <v <001> <--> w <002>, []>], [])""")
+        self.assertExpectedInline(
+            str(g.find_all_shortest_paths_between_nodes(u, w)),
+            """([v <001>, w <002>], [u <000> === v <001>, v <001> <--> w <002>], [EQU <u <000>, v <001>>, TRV <v <001> <--> w <002>, []>], [])""",
+        )
 
     def test_findAllShortestPathsBetweenNodes_FindsProjectionEdgeIfLastEdgeInPath(self):
         g = SchemaGraph()
@@ -336,7 +394,10 @@ v
         v.id = "001"
         g.add_nodes([u, v])
         p = SchemaNode.product([u, v])
-        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(p, v)), """([v <001>], [u <000>;v <001> ---> v <001>], [PRJ <u <000>;v <001>, v <001>, [], []>], [])""")
+        self.assertExpectedInline(
+            str(g.find_all_shortest_paths_between_nodes(p, v)),
+            """([v <001>], [u <000>;v <001> ---> v <001>], [PRJ <u <000>;v <001>, v <001>, [], []>], [])""",
+        )
 
     def test_findAllShortestPathsBetweenNodes_FindsMultiHopPath(self):
         g = SchemaGraph()
@@ -353,10 +414,14 @@ v
         p = SchemaNode.product([u, v2])
         g.add_edge(p, w)
         start = SchemaNode.product([u, v1])
-        self.assertExpectedInline(str(g.find_all_shortest_paths_between_nodes(start, w)),
-                                  """([u <000>;v2 <002>, w <003>], [u <000>;v1 <001> === u <000>;v2 <002>, u <000>;v2 <002> --- w <003>], [EQU <u <000>;v1 <001>, u <000>;v2 <002>>, TRV <u <000>;v2 <002> --- w <003>, [w <003>]>], [w <003>])""")
+        self.assertExpectedInline(
+            str(g.find_all_shortest_paths_between_nodes(start, w)),
+            """([u <000>;v2 <002>, w <003>], [u <000>;v1 <001> === u <000>;v2 <002>, u <000>;v2 <002> --- w <003>], [EQU <u <000>;v1 <001>, u <000>;v2 <002>>, TRV <u <000>;v2 <002> --- w <003>, [w <003>]>], [w <003>])""",
+        )
 
-    def test_findAllShortestPathsBetweenNodes_DoesNotFindProjectionEdgeIfProjectionNotLastEdgeInPath(self):
+    def test_findAllShortestPathsBetweenNodes_DoesNotFindProjectionEdgeIfProjectionNotLastEdgeInPath(
+        self,
+    ):
         g = SchemaGraph()
         u = AtomicNode("u")
         u.id_prefix = 0
@@ -370,9 +435,12 @@ v
         self.assertExpectedRaisesInline(
             NoShortestPathBetweenNodesException,
             lambda: str(g.find_all_shortest_paths_between_nodes(p, w)),
-            """No paths found between nodes u;v and w.If the path involves a projection that isn't the last edge in the path. The projection will need to be specified as a waypoint.""")
+            """No paths found between nodes u;v and w.If the path involves a projection that isn't the last edge in the path. The projection will need to be specified as a waypoint.""",
+        )
 
-    def test_findAllShortestPathsBetweenNodes_RaisesExceptionIfMultipleShortestPathsFound(self):
+    def test_findAllShortestPathsBetweenNodes_RaisesExceptionIfMultipleShortestPathsFound(
+        self,
+    ):
         g = SchemaGraph()
         u = AtomicNode("u")
         v = AtomicNode("v")
@@ -390,10 +458,12 @@ v
         self.assertExpectedRaisesInline(
             MultipleShortestPathsBetweenNodesException,
             lambda: str(g.find_all_shortest_paths_between_nodes(u, x)),
-            """Multiple shortest paths found between nodes u and x. Shortest paths: [[u --- v, v --- x], [u --- w, w --- x]]"""
+            """Multiple shortest paths found between nodes u and x. Shortest paths: [[u --- v, v --- x], [u --- w, w --- x]]""",
         )
 
-    def test_findAllShortestPathsBetweenNodes_findsShortestPath_ifMultiplePathsExist(self):
+    def test_findAllShortestPathsBetweenNodes_findsShortestPath_ifMultiplePathsExist(
+        self,
+    ):
         g = SchemaGraph()
         u = AtomicNode("u")
         v = AtomicNode("v")
@@ -413,7 +483,7 @@ v
         g.add_edge(x, y)
         self.assertExpectedInline(
             str(g.find_all_shortest_paths_between_nodes(u, y)),
-            """([v, y], [u --- v, v <--- y], [TRV <u --- v, [v]>, TRV <v <--- y, [y]>], [v, y])"""
+            """([v, y], [u --- v, v <--- y], [TRV <u --- v, [v]>, TRV <v <--- y, [y]>], [v, y])""",
         )
 
     def test_findShortestPath_worksIfNoWaypointsSpecified(self):
@@ -436,7 +506,7 @@ v
         g.add_edge(x, y)
         self.assertExpectedInline(
             str(g.find_shortest_path(u, y, [])),
-            """(<Cardinality.MANY_TO_MANY: 4>, [TRV <u --- v, [v]>, TRV <v <--- y, [y]>], [v, y])"""
+            """(<Cardinality.MANY_TO_MANY: 4>, [TRV <u --- v, [v]>, TRV <v <--- y, [y]>], [v, y])""",
         )
 
     def test_findShortestPath_worksIfWaypointsSpecified(self):
@@ -452,7 +522,8 @@ v
         g.add_edge(v, w)
         self.assertExpectedInline(
             str(g.find_shortest_path(p, w, [v])),
-            """(<Cardinality.MANY_TO_MANY: 4>, [PRJ <u;v, v, [], []>, TRV <v --- w, [w]>], [w])""")
+            """(<Cardinality.MANY_TO_MANY: 4>, [PRJ <u;v, v, [], []>, TRV <v --- w, [w]>], [w])""",
+        )
 
     def test_findShortestPath_detectsCycles(self):
         g = SchemaGraph()
@@ -465,7 +536,7 @@ v
         self.assertExpectedRaisesInline(
             CycleDetectedInPathException,
             lambda: str(g.find_shortest_path(u, u, [v])),
-            """Cycle detected in path."""
+            """Cycle detected in path.""",
         )
 
     def test_add_class_succeeds(self):
@@ -477,7 +548,9 @@ v
         schema_class = SchemaClass("class")
         g.add_nodes([u, v])
         g.add_class(schema_class)
-        self.assertExpectedInline(str(g), """\
+        self.assertExpectedInline(
+            str(g),
+            """\
 ADJACENCY LIST 
 ==========================
 
@@ -506,7 +579,8 @@ class
 ==========================
 
 ==========================
-""")
+""",
+        )
 
     def test_findShortestPath_findsMoreDirectPath(self):
         g = SchemaGraph()
@@ -520,7 +594,9 @@ class
         g.add_edge(u, SchemaNode.product([v, w]))
         g.add_edge(u, w)
         path = g.find_shortest_path(u, w, [])
-        self.assertExpectedInline(str(path), """(<Cardinality.MANY_TO_MANY: 4>, [TRV <u --- w, [w]>], [w])""")
+        self.assertExpectedInline(
+            str(path), """(<Cardinality.MANY_TO_MANY: 4>, [TRV <u --- w, [w]>], [w])"""
+        )
 
     def test_get_next_step_correctly_gets_trv(self):
         g = SchemaGraph()

@@ -10,7 +10,9 @@ class TestEx8(expecttest.TestCase):
         s = Schema()
 
         persons_df = pd.read_csv("csv/pets/persons.csv").set_index("person")
-        allergies_df = pd.read_csv("./csv/pets/allergies.csv").set_index(["person", "pet"])
+        allergies_df = pd.read_csv("./csv/pets/allergies.csv").set_index(
+            ["person", "pet"]
+        )
 
         persons = s.insert_dataframe(persons_df)
         allergies = s.insert_dataframe(allergies_df)
@@ -36,8 +38,12 @@ class TestEx8(expecttest.TestCase):
     # GOAL 1: [person pet || age]
     def test_ex8_goal1_step1_getThenInfer(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t1 = s.get([persons["person"], persons["pet"]]).infer(["person"], persons["age"])
-        self.assertExpectedInline(str(t1), """\
+        t1 = s.get([persons["person"], persons["pet"]]).infer(
+            ["person"], persons["age"]
+        )
+        self.assertExpectedInline(
+            str(t1),
+            """\
 [person pet || age]
                age
 person pet        
@@ -58,7 +64,8 @@ Ringo  Pepper   29
        Corky    29
        Buster   29
 
-""")
+""",
+        )
         # [persons.person persons.pet || person.age]
         # John            Pepper      || 27
         # John            Martha      || 27
@@ -68,8 +75,14 @@ Ringo  Pepper   29
 
     def test_ex8_goal2_step1_getThenInfer(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t11 = s.get([persons["person"]]).infer(["person"], persons["pet"]).infer(["person"], persons["age"])
-        self.assertExpectedInline(str(t11), """\
+        t11 = (
+            s.get([persons["person"]])
+            .infer(["person"], persons["pet"])
+            .infer(["person"], persons["age"])
+        )
+        self.assertExpectedInline(
+            str(t11),
+            """\
 [person || pet age]
            pet  age
 person             
@@ -78,7 +91,8 @@ Paul    Martha   25
 George   Corky   23
 Ringo   Buster   29
 
-""")
+""",
+        )
         # [persons.person || persons.pet  persons.age]
         #  John           || Pepper       27
         #  Paul           || Martha       25
@@ -87,9 +101,15 @@ Ringo   Buster   29
 
     def test_ex8_goal2_step2_setKey(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t11 = s.get([persons["person"]]).infer(["person"], persons["pet"]).infer(["person"], persons["age"])
+        t11 = (
+            s.get([persons["person"]])
+            .infer(["person"], persons["pet"])
+            .infer(["person"], persons["age"])
+        )
         t12 = t11.shift_right()
-        self.assertExpectedInline(str(t12), """\
+        self.assertExpectedInline(
+            str(t12),
+            """\
 [person pet || age]
                age
 person pet        
@@ -99,7 +119,8 @@ George Corky    23
 Ringo  Buster   29
 12 keys hidden
 
-""")
+""",
+        )
         # [persons.person persons.pet || persons.age]
         #  John           Pepper      ||  27
         #  Paul           Martha      ||  25
@@ -108,12 +129,16 @@ Ringo  Buster   29
 
         # Note that these methods are semantically different!
 
-# CAN I CONVERT BETWEEN THE TWO?
+    # CAN I CONVERT BETWEEN THE TWO?
     def test_ex8_conversion1_step1_infer(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t1 = s.get([persons["person"], persons["pet"]]).infer(["person"], persons["age"])
+        t1 = s.get([persons["person"], persons["pet"]]).infer(
+            ["person"], persons["age"]
+        )
         t2 = t1.infer(["person"], persons["pet"])
-        self.assertExpectedInline(str(t2), """\
+        self.assertExpectedInline(
+            str(t2),
+            """\
 [person pet || age pet_1]
                age   pet_1
 person pet                
@@ -134,7 +159,8 @@ Ringo  Pepper   29  Buster
        Corky    29  Buster
        Buster   29  Buster
 
-""")
+""",
+        )
         # [persons.person persons.pet || person.age  persons.pet (1)]
         # John            Pepper      || 27          Pepper
         # John            Martha      || 27          Pepper
@@ -145,11 +171,15 @@ Ringo  Pepper   29  Buster
 
     def test_ex8_conversion1_step2_setKey(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t1 = s.get([persons["person"], persons["pet"]]).infer(["person"], persons["age"])
+        t1 = s.get([persons["person"], persons["pet"]]).infer(
+            ["person"], persons["age"]
+        )
         t2 = t1.infer(["person"], persons["pet"])
         t3 = t2.swap("age", "pet_1")
         t4 = t3.shift_right()
-        self.assertExpectedInline(str(t4), """\
+        self.assertExpectedInline(
+            str(t4),
+            """\
 [person pet pet_1 || age]
                       age
 person pet    pet_1      
@@ -171,7 +201,8 @@ Ringo  Pepper Buster   29
        Buster Buster   29
 48 keys hidden
 
-""")
+""",
+        )
         # [persons.person persons.pet  persons.pet (1)  || persons.age]
         # John            Pepper       Pepper           || 27
         # John            Martha       Pepper           || 27
@@ -183,13 +214,17 @@ Ringo  Pepper Buster   29
     # I can equate
     def test_ex8_conversion1_step3_equate(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t1 = s.get([persons["person"], persons["pet"]]).infer(["person"], persons["age"])
+        t1 = s.get([persons["person"], persons["pet"]]).infer(
+            ["person"], persons["age"]
+        )
         t2 = t1.infer(["person"], persons["pet"])
         t3 = t2.swap("age", "pet_1")
         t4 = t3.shift_right()
         t5 = t4.mask("pet", t4["pet"] == t4["pet_1"], "is_own_pet").filter("is_own_pet")
         self.maxDiff = None
-        self.assertExpectedInline(str(t5), """\
+        self.assertExpectedInline(
+            str(t5),
+            """\
 [person pet pet_1 || age is_own_pet]
                       age is_own_pet
 person pet    pet_1                 
@@ -199,7 +234,8 @@ George Corky  Corky    23      Corky
 Ringo  Buster Buster   29     Buster
 60 keys hidden
 
-""")
+""",
+        )
 
         # [persons.person persons.pet || persons.age]
         #  John           Pepper      ||  27
@@ -216,10 +252,16 @@ Ringo  Buster Buster   29     Buster
 
     def test_ex8_conversion2_step1_compose(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t11 = s.get([persons["person"]]).infer(["person"], persons["pet"]).infer(["person"], persons["age"])
+        t11 = (
+            s.get([persons["person"]])
+            .infer(["person"], persons["pet"])
+            .infer(["person"], persons["age"])
+        )
         t12 = t11.shift_right()
         t13 = t12.compose([persons["person"], persons["pet"]], "person")
-        self.assertExpectedInline(str(t13), """\
+        self.assertExpectedInline(
+            str(t13),
+            """\
 [person pet_1 pet || age]
                       age
 person pet_1  pet        
@@ -241,7 +283,8 @@ Ringo  Pepper Buster   29
        Buster Buster   29
 48 keys hidden
 
-""")
+""",
+        )
         # [persons.person persons.pet  persons.pet (1)  || persons.age]
         # John            Pepper       Pepper           || 27
         # John            Martha       Pepper           || 27
@@ -252,11 +295,17 @@ Ringo  Pepper Buster   29
 
     def test_ex8_conversion2_step2_hide(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t11 = s.get([persons["person"]]).infer(["person"], persons["pet"]).infer(["person"], persons["age"])
+        t11 = (
+            s.get([persons["person"]])
+            .infer(["person"], persons["pet"])
+            .infer(["person"], persons["age"])
+        )
         t12 = t11.shift_right()
         t13 = t12.compose([persons["person"], persons["pet"]], "person")
         t14 = t13.forget("pet")
-        self.assertExpectedInline(str(t14), """\
+        self.assertExpectedInline(
+            str(t14),
+            """\
 [person pet_1 || age]
                age
 person pet_1      
@@ -277,21 +326,25 @@ Ringo  Pepper   29
        Corky    29
        Buster   29
 
-""")
+""",
+        )
 
-# GOAL 2: [person pet || age allergy]
+    # GOAL 2: [person pet || age allergy]
     def test_ex8_goal3_step1_get(self):
         s, allergies, persons, Person, Pet = self.initialise()
         t21 = s.get([Person, Pet]).sort(["Person", "Pet"])
         self.maxDiff = None
-        self.assertExpectedInline(str(t21), """\
+        self.assertExpectedInline(
+            str(t21),
+            """\
 [Person Pet || ]
 Empty DataFrame
 Columns: []
 Index: []
 30 keys hidden
 
-""")
+""",
+        )
         # [Person Pet     || ]
         #  John   Pepper
         #  John   Martha
@@ -306,7 +359,9 @@ Index: []
         s, allergies, persons, Person, Pet = self.initialise()
         t21 = s.get([Person, Pet])
         t22 = t21.infer(["Person", "Pet"], allergies["allergy"])
-        self.assertExpectedInline(str(t22), """\
+        self.assertExpectedInline(
+            str(t22),
+            """\
 [Person Pet || allergy]
                       allergy
 Person Pet                   
@@ -316,7 +371,8 @@ Pete   Fido               Hay
 George Corky             Dust
 26 keys hidden
 
-""")
+""",
+        )
         # [Person Pet         || allergies.allergy ]
         #  Paul   Martha      || Sheep
         #  Paul   Strawberry  || Chocolates
@@ -329,7 +385,9 @@ George Corky             Dust
         t22 = t21.infer(["Person", "Pet"], allergies["allergy"])
         t23 = t22.infer(["Person"], persons["age"]).sort(["Person", "Pet"])
         self.maxDiff = None
-        self.assertExpectedInline(str(t23), """\
+        self.assertExpectedInline(
+            str(t23),
+            """\
 [Person Pet || allergy age]
                       allergy   age
 Person Pet                         
@@ -360,7 +418,8 @@ Ringo  Buster             NaN  29.0
        Strawberry         NaN  29.0
 5 keys hidden
 
-""")
+""",
+        )
         # [Person Pet         || allergies.allergy   persons.age]
         #  John   Pepper      || NA                  27
         #  John   Martha      || NA                  27

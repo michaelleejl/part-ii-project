@@ -1,7 +1,8 @@
 from __future__ import annotations
 from collections import deque
 from typing import TypeVar, Generic
-T = TypeVar('T')
+
+T = TypeVar("T")
 
 
 class UnionFindAlreadyContainsItemException(Exception):
@@ -47,11 +48,14 @@ class UnionFind(Generic[T]):
     A UnionFind data structure
     Parameterised on type T
     """
-    def __init__(self,
-                 leaders: dict[UnionFindItem[T], UnionFindItem[T]],
-                 rank: dict[UnionFindItem[T], int],
-                 graph: dict[UnionFindItem[T], frozenset[UnionFindItem[T]]],
-                 classnames: dict[UnionFindItem[T], UnionFindItem[T]]):
+
+    def __init__(
+        self,
+        leaders: dict[UnionFindItem[T], UnionFindItem[T]],
+        rank: dict[UnionFindItem[T], int],
+        graph: dict[UnionFindItem[T], frozenset[UnionFindItem[T]]],
+        classnames: dict[UnionFindItem[T], UnionFindItem[T]],
+    ):
         self.leaders: dict[UnionFindItem[T], UnionFindItem[T]] = leaders
         self.classnames: dict[UnionFindItem[T], UnionFindItem[T]] = classnames
         self.rank: dict[UnionFindItem[T], int] = rank
@@ -68,7 +72,9 @@ class UnionFind(Generic[T]):
         return UnionFind({}, {}, {}, {})
 
     @classmethod
-    def add_singleton(cls, uf: UnionFind[T], v:T, classname: str | None = None) -> UnionFind[T]:
+    def add_singleton(
+        cls, uf: UnionFind[T], v: T, classname: str | None = None
+    ) -> UnionFind[T]:
         """
         Adds a singleton to the UnionFind data structure
 
@@ -86,7 +92,9 @@ class UnionFind(Generic[T]):
         leaders = uf.leaders | {item: item}
         rank = uf.rank | {item: 0}
         graph = uf.graph | {item: frozenset()}
-        classnames = uf.classnames | {item: UnionFindItem(classname) if classname is not None else None}
+        classnames = uf.classnames | {
+            item: UnionFindItem(classname) if classname is not None else None
+        }
         return UnionFind(leaders, rank, graph, classnames)
 
     @classmethod
@@ -147,8 +155,14 @@ class UnionFind(Generic[T]):
         members = self.get_equivalence_class(val)
         for m in members:
             i = UnionFindItem(m)
-            assert i not in self.classnames.keys() or self.classnames[i] is None or self.classnames[i].val == classname
-            self.classnames[i] = UnionFindItem(classname) if classname is not None else None
+            assert (
+                i not in self.classnames.keys()
+                or self.classnames[i] is None
+                or self.classnames[i].val == classname
+            )
+            self.classnames[i] = (
+                UnionFindItem(classname) if classname is not None else None
+            )
         return members
 
     @classmethod
@@ -214,7 +228,11 @@ class UnionFind(Generic[T]):
         """
 
         item = UnionFindItem(val)
-        return self.classnames[item].val if item in self.classnames.keys() and self.classnames[item] is not None else None
+        return (
+            self.classnames[item].val
+            if item in self.classnames.keys() and self.classnames[item] is not None
+            else None
+        )
 
     def get_equivalence_class(self, val: T) -> set[T]:
         """

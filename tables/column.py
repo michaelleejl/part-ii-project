@@ -1,7 +1,27 @@
 from schema import Cardinality, BaseType
-from tables.aexp import ColumnAexp, AddAexp, SubAexp, MulAexp, DivAexp, SumAexp, MaxAexp, CountAexp, MinAexp
+from tables.aexp import (
+    ColumnAexp,
+    AddAexp,
+    SubAexp,
+    MulAexp,
+    DivAexp,
+    SumAexp,
+    MaxAexp,
+    CountAexp,
+    MinAexp,
+)
 from tables.aggregation import AggregationFunction
-from tables.bexp import EqualityBexp, NotBexp, LessThanBexp, NABexp, OrBexp, AndBexp, ColumnBexp, AnyBexp, AllBexp
+from tables.bexp import (
+    EqualityBexp,
+    NotBexp,
+    LessThanBexp,
+    NABexp,
+    OrBexp,
+    AndBexp,
+    ColumnBexp,
+    AnyBexp,
+    AllBexp,
+)
 from tables.exceptions import ColumnTypeException
 from tables.exp import PopExp
 from tables.function import Function, create_function, create_bijection

@@ -1,24 +1,25 @@
 import typing
 
-import numpy as np
 import pandas as pd
 
 from backend.backend import Backend
 from backend.pandas_backend.exp_interpreter import exp_interpreter
-from backend.pandas_backend.helpers import copy_data, get_cols_of_node, determine_cardinality
-from backend.pandas_backend.interpreter import get, interpret, end
-from backend.pandas_backend.relation import Relation, DataRelation
+from backend.pandas_backend.helpers import (
+    copy_data,
+    get_cols_of_node,
+    determine_cardinality,
+)
+from backend.pandas_backend.interpreter import interpret, end
+from backend.pandas_backend.relation import DataRelation
 from schema import SchemaEdge, reverse_cardinality
 from schema.node import SchemaNode, AtomicNode, SchemaClass
-from tables.aggregation import AggregationFunction
-from tables.column import Column
-from tables.internal_representation import RepresentationStep, Get, End
+from representation.representation import RepresentationStep, End
 from tables.exp import Exp
-from tables.function import Function
 
 
 def interpret_function(function: Exp):
     return exp_interpreter(function)
+
 
 class PandasBackend(Backend):
 
@@ -70,8 +71,14 @@ class PandasBackend(Backend):
         df.columns = list(range(len(df.columns)))
         self.edge_data[edge] = copy_data(df)
 
-    def map_edge_to_closure(self, edge, function: Exp, num_args: int, rev_target: SchemaNode = None,
-                            target_idxs: list[int] = None):
+    def map_edge_to_closure(
+        self,
+        edge,
+        function: Exp,
+        num_args: int,
+        rev_target: SchemaNode = None,
+        target_idxs: list[int] = None,
+    ):
         if rev_target is None:
             target = edge.from_node
             idxs = list(range(num_args))
@@ -89,8 +96,11 @@ class PandasBackend(Backend):
             data = copy_data(pd.DataFrame(df))
             self.map_edge_to_data_relation(forward, data[idxs + [num_args]])
             self.map_edge_to_data_relation(rev, data[[num_args] + idxs])
-            self.map_atomic_node_to_domain(edge.to_node, pd.DataFrame(data[num_args]).drop_duplicates())
-            return df[list(range(num_args+1))]
+            self.map_atomic_node_to_domain(
+                edge.to_node, pd.DataFrame(data[num_args]).drop_duplicates()
+            )
+            return df[list(range(num_args + 1))]
+
         #
         # elif isinstance(function, AggregationFunction):
         #     fun = interpret_aggregation_function(function)
@@ -127,15 +137,23 @@ class PandasBackend(Backend):
         elif edge in self.edge_data:
             return copy_data(self.edge_data[edge])
         elif rev in self.edge_funs:
-            return self.edge_funs[rev](table).rename({i: i+n for i in range(m)} | {j: j for j in range(n)}, axis=1)
+            return self.edge_funs[rev](table).rename(
+                {i: i + n for i in range(m)} | {j: j for j in range(n)}, axis=1
+            )
         elif rev in self.edge_data:
-            return copy_data(self.edge_data[rev]).rename({i: i+n for i in range(m)} | {j+m: j for j in range(n)}, axis=1)
+            return copy_data(self.edge_data[rev]).rename(
+                {i: i + n for i in range(m)} | {j + m: j for j in range(n)}, axis=1
+            )
 
     def extend_domain(self, node: AtomicNode, domain_node: SchemaClass):
         domain = self.get_domain_from_atomic_node(domain_node, domain_node.name)
         domain = copy_data(domain)
         domain.columns = self.node_data[node].columns
-        self.node_data[node] = pd.concat([self.node_data[node], domain]).drop_duplicates().reset_index(drop=True)
+        self.node_data[node] = (
+            pd.concat([self.node_data[node], domain])
+            .drop_duplicates()
+            .reset_index(drop=True)
+        )
 
     def get_cardinality(self, edge, start_node):
         mapping = self.edge_data[edge]
@@ -146,7 +164,9 @@ class PandasBackend(Backend):
             val_cols = get_cols_of_node(mapping.data, start_node)
             return determine_cardinality(mapping.data, key_cols, val_cols)
 
-    def execute_query(self, table_id, derived_from, derivation_steps: list[RepresentationStep]):
+    def execute_query(
+        self, table_id, derived_from, derivation_steps: list[RepresentationStep]
+    ):
         # assert len(derivation_steps) >= 1
         # if derived_from is None or derived_from not in self.derived_tables.keys():
         #     first = typing.cast(Get, derivation_steps[0])

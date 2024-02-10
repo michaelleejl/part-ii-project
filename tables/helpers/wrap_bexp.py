@@ -6,6 +6,7 @@ def wrap_bexp(exp):
     from tables.column import Column
     from tables.bexp import ConstBexp, Bexp, ColumnBexp
     from tables.exceptions import ColumnTypeException
+
     if isinstance(exp, bool):
         return ConstBexp(exp)
     elif isinstance(exp, Column):

@@ -7,15 +7,25 @@ from schema.helpers.compose_cardinality import compose_cardinality
 from schema import Cardinality, SchemaEquality
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.edge_list import SchemaEdgeList
-from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, \
-    NodeNotInSchemaGraphException, \
-    MultipleShortestPathsBetweenNodesException, CycleDetectedInPathException, \
-    NoShortestPathBetweenNodesException, NodeAlreadyInSchemaGraphException
+from schema.exceptions import (
+    AllNodesInClusterMustAlreadyBeInGraphException,
+    NodeNotInSchemaGraphException,
+    MultipleShortestPathsBetweenNodesException,
+    CycleDetectedInPathException,
+    NoShortestPathBetweenNodesException,
+    NodeAlreadyInSchemaGraphException,
+)
 from schema.helpers.get_indices_of_sublist import get_indices_of_sublist
 from schema.helpers.is_sublist import is_sublist
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from tables.domain import Domain
-from tables.internal_representation import Traverse, Equate, Project, Expand, RepresentationStep
+from representation.representation import (
+    Traverse,
+    Equate,
+    Project,
+    Expand,
+    RepresentationStep,
+)
 from union_find.union_find import UnionFind
 
 
@@ -31,14 +41,17 @@ def add_edge_to_path(edge: SchemaEdge, path: list) -> list:
 
 
 def is_relational(cardinality):
-    return (cardinality == Cardinality.MANY_TO_MANY or
-            cardinality == Cardinality.ONE_TO_MANY)
+    return (
+        cardinality == Cardinality.MANY_TO_MANY
+        or cardinality == Cardinality.ONE_TO_MANY
+    )
 
 
 class SchemaGraph:
     """
     A graph of schema nodes and edges. The graph is undirected and unweighted.
     """
+
     def __init__(self):
         """Initialises an empty schema graph."""
         self.adjacencyList: dict[SchemaNode, SchemaEdgeList] = {}
@@ -56,7 +69,9 @@ class SchemaGraph:
         """
         if node not in frozenset(self.schema_nodes):
             self.schema_nodes += [node]
-            self.equivalence_class = UnionFind.add_singleton(self.equivalence_class, node)
+            self.equivalence_class = UnionFind.add_singleton(
+                self.equivalence_class, node
+            )
 
     def add_class(self, clss: SchemaClass) -> None:
         """Idempotent add of a class to the graph
@@ -69,7 +84,9 @@ class SchemaGraph:
         """
         if clss not in frozenset(self.schema_nodes):
             self.schema_nodes += [clss]
-            self.equivalence_class = UnionFind.add_singleton(self.equivalence_class, clss)
+            self.equivalence_class = UnionFind.add_singleton(
+                self.equivalence_class, clss
+            )
             self.equivalence_class.attach_classname(clss, clss)
 
     def add_nodes(self, nodes: list[SchemaNode]) -> None:
@@ -84,7 +101,9 @@ class SchemaGraph:
         nodeset = frozenset(self.schema_nodes)
         new_nodes = list(filter(lambda n: n not in nodeset, nodes))
         self.schema_nodes += new_nodes
-        self.equivalence_class = UnionFind.add_singletons(self.equivalence_class, new_nodes)
+        self.equivalence_class = UnionFind.add_singletons(
+            self.equivalence_class, new_nodes
+        )
 
     def blend_nodes(self, node1: AtomicNode, node2: AtomicNode) -> None:
         """
@@ -120,17 +139,17 @@ class SchemaGraph:
 
     def check_node_not_in_graph(self, n: SchemaNode) -> None:
         """
-                Asserts that a node is not in the graph
+        Asserts that a node is not in the graph
 
-                Args:
-                    n (SchemaNode): The node to check
+        Args:
+            n (SchemaNode): The node to check
 
-                Returns:
-                    None
+        Returns:
+            None
 
-                Raises:
-                    NodeAlreadyInSchemaGraphException: If the node is in the graph
-                """
+        Raises:
+            NodeAlreadyInSchemaGraphException: If the node is in the graph
+        """
         ns = SchemaNode.get_constituents(n)
         for n in ns:
             if n in self.schema_nodes:
@@ -182,13 +201,30 @@ class SchemaGraph:
         if len(constituents) == 1:
             return list(self.equivalence_class.get_equivalence_class(node))
         else:
-            ls = list((sorted([SchemaNode.product(list(x)) for x in
-                               (itertools.product(*[self.find_all_equivalent_nodes(c) for c in constituents]))],
-                              key=str)))
+            ls = list(
+                (
+                    sorted(
+                        [
+                            SchemaNode.product(list(x))
+                            for x in (
+                                itertools.product(
+                                    *[
+                                        self.find_all_equivalent_nodes(c)
+                                        for c in constituents
+                                    ]
+                                )
+                            )
+                        ],
+                        key=str,
+                    )
+                )
+            )
             tr = []
             lss = set()
             for l in ls:
-                if l not in lss and len(SchemaNode.get_constituents(l)) == len(constituents):
+                if l not in lss and len(SchemaNode.get_constituents(l)) == len(
+                    constituents
+                ):
                     tr += [l]
                     lss.add(l)
             return tr
@@ -206,7 +242,12 @@ class SchemaGraph:
         for node in nodes:
             self.check_node_in_graph(node)
 
-    def add_edge(self, from_node: SchemaNode, to_node: SchemaNode, cardinality: Cardinality = Cardinality.MANY_TO_MANY) -> None:
+    def add_edge(
+        self,
+        from_node: SchemaNode,
+        to_node: SchemaNode,
+        cardinality: Cardinality = Cardinality.MANY_TO_MANY,
+    ) -> None:
         """
         Adds an edge to the graph. If the nodes are not in the graph, an exception is raised.
 
@@ -232,10 +273,16 @@ class SchemaGraph:
 
         edge = SchemaEdge(from_node, to_node, cardinality)
 
-        self.adjacencyList[from_node] = SchemaEdgeList.add_edge(self.adjacencyList[from_node], edge)
-        self.adjacencyList[to_node] = SchemaEdgeList.add_edge(self.adjacencyList[to_node], SchemaEdge.invert(edge))
+        self.adjacencyList[from_node] = SchemaEdgeList.add_edge(
+            self.adjacencyList[from_node], edge
+        )
+        self.adjacencyList[to_node] = SchemaEdgeList.add_edge(
+            self.adjacencyList[to_node], SchemaEdge.invert(edge)
+        )
 
-    def get_all_neighbours_of_node(self, node: SchemaNode) -> set[tuple[SchemaNode, Cardinality]]:
+    def get_all_neighbours_of_node(
+        self, node: SchemaNode
+    ) -> set[tuple[SchemaNode, Cardinality]]:
         """
         Returns all neighbours of a node in the graph, as well as the cardinality of the edge between the node and its neighbour
 
@@ -249,19 +296,27 @@ class SchemaGraph:
         # if the node is in the adjacency list, then do a lookup
         if node in self.adjacencyList.keys():
             neighbours = SchemaEdgeList.get_edge_list(self.adjacencyList[node])
-            neighbours = set([(edge.from_node, reverse_cardinality(edge.cardinality))
-                              if edge.from_node != node
-                              else (edge.to_node, edge.cardinality) for edge in neighbours])
-        # if I can project it out
+            neighbours = set(
+                [
+                    (
+                        (edge.from_node, reverse_cardinality(edge.cardinality))
+                        if edge.from_node != node
+                        else (edge.to_node, edge.cardinality)
+                    )
+                    for edge in neighbours
+                ]
+            )
+        # if I can do an expansion / cross product
         for key in self.adjacencyList.keys():
-            if is_sublist(SchemaNode.get_constituents(node), SchemaNode.get_constituents(key)):
+            if is_sublist(
+                SchemaNode.get_constituents(node), SchemaNode.get_constituents(key)
+            ):
                 neighbours.add((key, Cardinality.ONE_TO_MANY))
         return neighbours
 
-    def find_shortest_path(self,
-                           node1: SchemaNode,
-                           node2: SchemaNode,
-                           via: list[SchemaNode] | None) -> tuple[Cardinality, list[RepresentationStep], list[Domain]]:
+    def find_shortest_path(
+        self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] | None
+    ) -> tuple[Cardinality, list[RepresentationStep], list[Domain]]:
         """
         Finds the shortest path between two nodes in the graph.
         If waypoints are specified, the path will find the shortest path between the two nodes that
@@ -295,7 +350,9 @@ class SchemaGraph:
                 current_leg_end = node2
             else:
                 current_leg_end = waypoints[i]
-            nodes, edges, cmds, hks = self.find_all_shortest_paths_between_nodes(current_leg_start, current_leg_end)
+            nodes, edges, cmds, hks = self.find_all_shortest_paths_between_nodes(
+                current_leg_start, current_leg_end
+            )
             if len(set(nodes).intersection(visited)) > 0:
                 raise CycleDetectedInPathException()
             else:
@@ -306,12 +363,9 @@ class SchemaGraph:
                 current_leg_start = current_leg_end
         return compute_cardinality_of_path(edge_path), commands, hidden_keys
 
-    def find_all_shortest_paths_between_nodes(self,
-                                              node1: SchemaNode,
-                                              node2: SchemaNode) -> (list[SchemaNode],
-                                                                     list[SchemaEdge],
-                                                                     list[RepresentationStep],
-                                                                     list[Domain]):
+    def find_all_shortest_paths_between_nodes(
+        self, node1: SchemaNode, node2: SchemaNode
+    ) -> (list[SchemaNode], list[SchemaEdge], list[RepresentationStep], list[Domain]):
         """
         Finds the shortest path between two nodes in the graph
 
@@ -363,7 +417,9 @@ class SchemaGraph:
                     if c < shortest_path_length:
                         shortest_paths = []
                     shortest_path_length = c
-                    shortest_paths += [path + [SchemaEquality(u, e)]] if e != u else [path]
+                    shortest_paths += (
+                        [path + [SchemaEquality(u, e)]] if e != u else [path]
+                    )
                     nodes += [node_path + [e]] if e != u else [node_path]
                     derivation += [deriv + [Equate(u, e)]] if e != u else [deriv]
                     hidden_keys += [hks]
@@ -377,36 +433,64 @@ class SchemaGraph:
                         c2 = SchemaNode.get_constituents(node2)
                         indices = get_indices_of_sublist(c2, c1)
                         if u == e:
-                            new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), path)
+                            new_path = add_edge_to_path(
+                                SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), path
+                            )
                             new_deriv = [Project(e, node2, indices)]
                             new_nodes = [node2]
                         else:
                             new_path = add_edge_to_path(SchemaEquality(u, e), path)
-                            new_path = add_edge_to_path(SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), new_path)
+                            new_path = add_edge_to_path(
+                                SchemaEdge(e, node2, Cardinality.MANY_TO_ONE), new_path
+                            )
                             new_deriv = [Equate(u, e), Project(e, node2, indices)]
                             new_nodes = [e, node2]
                         to_explore.append(
-                            (node2, node_path + new_nodes, new_path, deriv + new_deriv, hks, count + len(new_nodes)))
+                            (
+                                node2,
+                                node_path + new_nodes,
+                                new_path,
+                                deriv + new_deriv,
+                                hks,
+                                count + len(new_nodes),
+                            )
+                        )
 
             neighbours = [(e, self.get_all_neighbours_of_node(e)) for e in equivs]
-            for (e, ns) in neighbours:
-                for (n, c) in ns:
+            for e, ns in neighbours:
+                for n, c in ns:
                     if n not in visited:
                         next_step = self.get_next_step(SchemaEdge(e, n, c))
                         if e == u:
                             new_path = add_edge_to_path(SchemaEdge(e, n, c), path)
                             to_explore.append(
-                                (n, node_path + [n], new_path, deriv + [next_step],
-                                 hks + next_step.hidden_keys, count + 1))
+                                (
+                                    n,
+                                    node_path + [n],
+                                    new_path,
+                                    deriv + [next_step],
+                                    hks + next_step.hidden_keys,
+                                    count + 1,
+                                )
+                            )
                         else:
                             new_path = add_edge_to_path(SchemaEquality(u, e), path)
                             new_path = add_edge_to_path(SchemaEdge(e, n, c), new_path)
                             to_explore.append(
-                                (n, node_path + [e, n], new_path, deriv + [Equate(u, e), next_step],
-                                 hks + next_step.hidden_keys, count + 2))
+                                (
+                                    n,
+                                    node_path + [e, n],
+                                    new_path,
+                                    deriv + [Equate(u, e), next_step],
+                                    hks + next_step.hidden_keys,
+                                    count + 2,
+                                )
+                            )
 
         if len(shortest_paths) > 1:
-            raise MultipleShortestPathsBetweenNodesException(node1, node2, shortest_paths)
+            raise MultipleShortestPathsBetweenNodesException(
+                node1, node2, shortest_paths
+            )
 
         if len(shortest_paths) == 0:
             raise NoShortestPathBetweenNodesException(node1, node2)
@@ -428,16 +512,13 @@ class SchemaGraph:
         end = edge.to_node
         start_keys = SchemaNode.get_constituents(start)
         end_keys = SchemaNode.get_constituents(end)
-        if is_relational(cardinality):
+        if not edge.is_functional():
             from schema.helpers.list_difference import list_difference
+
             if is_sublist(start_keys, end_keys):
-                hidden_keys = list_difference(start_keys, end_keys)
+                hidden_keys = list_difference(end_keys, start_keys)
                 indices = get_indices_of_sublist(start_keys, end_keys)
                 return Expand(start, end, indices, hidden_keys)
-            if is_sublist(end_keys, start_keys):
-                hidden_keys = list_difference(end_keys, start_keys)
-                indices = get_indices_of_sublist(end_keys, start_keys)
-                return Project(start, end, indices, hidden_keys)
             else:
                 return Traverse(edge)
         else:
@@ -452,10 +533,19 @@ class SchemaGraph:
     def __repr__(self):
         divider = "==========================\n"
         small_divider = "--------------------------\n"
-        adjacency_list = [divider + str(k) + "\n" + small_divider + str(v) + "\n" + divider for k, v in
-                          self.adjacencyList.items()]
+        adjacency_list = [
+            divider + str(k) + "\n" + small_divider + str(v) + "\n" + divider
+            for k, v in self.adjacencyList.items()
+        ]
 
-        adjacency_list_str = "ADJACENCY LIST \n" + divider + "\n" + "\n".join(adjacency_list) + "\n" + divider
+        adjacency_list_str = (
+            "ADJACENCY LIST \n"
+            + divider
+            + "\n"
+            + "\n".join(adjacency_list)
+            + "\n"
+            + divider
+        )
 
         ns = deque(self.schema_nodes)
         visited = frozenset()
@@ -473,10 +563,24 @@ class SchemaGraph:
                 visited = visited.union(clss)
                 i += 1
 
-        clsses = [divider + f"Class {k}" + "\n" + small_divider + "\n".join([str(x) for x in v]) + "\n" + divider for
-                  k, v in
-                  equiv_class.items()]
-        clsses_str = "EQUIVALENCE CLASSES \n" + divider + "\n" + "\n".join(clsses) + "\n" + divider
+        clsses = [
+            divider
+            + f"Class {k}"
+            + "\n"
+            + small_divider
+            + "\n".join([str(x) for x in v])
+            + "\n"
+            + divider
+            for k, v in equiv_class.items()
+        ]
+        clsses_str = (
+            "EQUIVALENCE CLASSES \n"
+            + divider
+            + "\n"
+            + "\n".join(clsses)
+            + "\n"
+            + divider
+        )
 
         return adjacency_list_str + "\n" + clsses_str
 
