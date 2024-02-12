@@ -1,11 +1,9 @@
-from schema import BaseType
-
-
 def wrap_bexp(exp):
-    from tables.exp import Exp
-    from tables.column import Column
-    from tables.bexp import ConstBexp, Bexp, ColumnBexp
-    from tables.exceptions import ColumnTypeException
+    from exp.exp import Exp
+    from frontend.tables.column import Column
+    from exp.bexp import ConstBexp, ColumnBexp
+    from frontend.tables.exceptions import ColumnTypeException
+    from schema.base_types import BaseType
 
     if isinstance(exp, bool):
         return ConstBexp(exp)

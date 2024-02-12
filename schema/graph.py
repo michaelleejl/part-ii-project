@@ -18,7 +18,7 @@ from schema.exceptions import (
 from schema.helpers.get_indices_of_sublist import get_indices_of_sublist
 from schema.helpers.is_sublist import is_sublist
 from schema.node import SchemaNode, AtomicNode, SchemaClass
-from tables.domain import Domain
+from frontend.domain import Domain
 from representation.representation import (
     Traverse,
     Equate,
@@ -280,6 +280,25 @@ class SchemaGraph:
             self.adjacencyList[to_node], SchemaEdge.invert(edge)
         )
 
+    def find_edge(self, from_node: SchemaNode, to_node: SchemaNode) -> SchemaEdge | None:
+        """
+        Finds an edge between two nodes in the graph
+
+        Args:
+            from_node (SchemaNode): The node the edge is from
+            to_node (SchemaNode): The node the edge is to
+
+        Returns:
+            SchemaEdge | None: The edge between the two nodes, or None if no such edge exists
+        """
+        self.check_nodes_in_graph([from_node, to_node])
+        if from_node in self.adjacencyList:
+            edges = SchemaEdgeList.get_edge_list(self.adjacencyList[from_node])
+            for edge in edges:
+                if edge.to_node == to_node:
+                    return edge
+        return None
+
     def get_all_neighbours_of_node(
         self, node: SchemaNode
     ) -> set[tuple[SchemaNode, Cardinality]]:
@@ -469,7 +488,7 @@ class SchemaGraph:
                                     node_path + [n],
                                     new_path,
                                     deriv + [next_step],
-                                    hks + next_step.hidden_keys,
+                                    hks + next_step.get_hidden_keys(),
                                     count + 1,
                                 )
                             )
@@ -482,7 +501,7 @@ class SchemaGraph:
                                     node_path + [e, n],
                                     new_path,
                                     deriv + [Equate(u, e), next_step],
-                                    hks + next_step.hidden_keys,
+                                    hks + next_step.get_hidden_keys(),
                                     count + 2,
                                 )
                             )
@@ -518,7 +537,7 @@ class SchemaGraph:
             if is_sublist(start_keys, end_keys):
                 hidden_keys = list_difference(end_keys, start_keys)
                 indices = get_indices_of_sublist(start_keys, end_keys)
-                return Expand(start, end, indices, hidden_keys)
+                return Expand(start, end, indices, [Domain(node.name, node) for node in hidden_keys])
             else:
                 return Traverse(edge)
         else:
@@ -527,7 +546,7 @@ class SchemaGraph:
                 return Expand(start, end, indices, [])
             if is_sublist(end_keys, start_keys):
                 indices = get_indices_of_sublist(end_keys, start_keys)
-                return Project(start, end, indices, [])
+                return Project(start, end, indices)
             return Traverse(edge)
 
     def __repr__(self):

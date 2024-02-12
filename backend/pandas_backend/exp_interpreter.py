@@ -3,10 +3,10 @@ import typing
 import numpy as np
 import pandas as pd
 
-from tables.aexp import *
-from tables.bexp import *
-from tables.exp import *
-from tables.sexp import *
+from exp.aexp import *
+from exp.bexp import *
+from exp.exp import *
+from exp.sexp import *
 
 
 def aggregate(t, keys, col, op):

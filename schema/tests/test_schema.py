@@ -4,7 +4,7 @@ import pandas as pd
 
 from schema.exceptions import *
 from schema.schema import Schema
-from tables.domain import Domain
+from frontend.domain import Domain
 
 
 class TestSchema(expecttest.TestCase):

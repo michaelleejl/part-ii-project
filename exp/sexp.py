@@ -2,7 +2,7 @@ from abc import ABC
 
 from schema import BaseType
 from schema.helpers.find_index import find_index
-from tables.exp import Exp
+from exp.exp import Exp
 
 
 class Sexp(Exp, ABC):

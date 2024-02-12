@@ -1,11 +1,9 @@
-from schema import BaseType
-
-
 def wrap_aexp(exp):
-    from tables.exp import Exp
-    from tables.aexp import ConstAexp, ColumnAexp
-    from tables.exceptions import ColumnTypeException
-    from tables.column import Column
+    from exp.exp import Exp
+    from exp.aexp import ConstAexp, ColumnAexp
+    from frontend.tables.exceptions import ColumnTypeException
+    from frontend.tables.column import Column
+    from schema.base_types import BaseType
 
     if isinstance(exp, float) or isinstance(exp, int):
         return ConstAexp(exp)

@@ -9,7 +9,7 @@ from representation.representation import (
     Project,
     Equate,
 )
-from tables.domain import Domain, ColumnType
+from frontend.domain import Domain, ColumnType
 
 
 class TestInterpreter(expecttest.TestCase):

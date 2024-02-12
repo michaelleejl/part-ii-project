@@ -1,6 +1,6 @@
 from typing import Callable
 
-from tables.domain import Domain
+from frontend.domain import Domain
 from representation.representation import RepresentationStep
 
 
@@ -9,6 +9,7 @@ def transform_step(
 ) -> Callable[[RepresentationStep], tuple[RepresentationStep, list[Domain]]]:
     internal_namespace = namespace
 
+    from frontend.tables import new_domain_from_schema_node
     def internal(step) -> tuple[RepresentationStep, list[Domain]]:
         from representation.representation import Traverse, Expand, EndTraversal
 
@@ -16,7 +17,7 @@ def transform_step(
             step_hidden_keys = step.hidden_keys
             columns = []
             for hk in step_hidden_keys:
-                col = table.new_col_from_node(internal_namespace, hk)
+                col = new_domain_from_schema_node(internal_namespace, hk)
                 internal_namespace.add(col.name)
                 columns += [col]
             if isinstance(step, Traverse):
@@ -33,7 +34,7 @@ def transform_step(
                 )
         elif isinstance(step, EndTraversal):
             return (
-                EndTraversal([c for c in start if c not in set(aggregated_over)], end),
+                EndTraversal(end),
                 [],
             )
         else:

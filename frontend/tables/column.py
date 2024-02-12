@@ -1,5 +1,5 @@
-from schema import Cardinality, BaseType
-from tables.aexp import (
+from schema import BaseType
+from exp.aexp import (
     ColumnAexp,
     AddAexp,
     SubAexp,
@@ -10,8 +10,7 @@ from tables.aexp import (
     CountAexp,
     MinAexp,
 )
-from tables.aggregation import AggregationFunction
-from tables.bexp import (
+from exp.bexp import (
     EqualityBexp,
     NotBexp,
     LessThanBexp,
@@ -22,12 +21,11 @@ from tables.bexp import (
     AnyBexp,
     AllBexp,
 )
-from tables.exceptions import ColumnTypeException
-from tables.exp import PopExp
-from tables.function import Function, create_function, create_bijection
-from tables.helpers.wrap_aexp import wrap_aexp
-from tables.helpers.wrap_bexp import wrap_bexp
-from tables.helpers.wrap_sexp import wrap_sexp
+from frontend.tables.exceptions import ColumnTypeException
+from exp.exp import PopExp
+from exp.helpers.wrap_aexp import wrap_aexp
+from exp.helpers.wrap_bexp import wrap_bexp
+from exp.helpers.wrap_sexp import wrap_sexp
 
 
 def get_arguments_for_binary_aexp(x, y):
@@ -159,12 +157,6 @@ class Column:
     def __hash__(self):
         return self.node.__hash__()
 
-    def create_function(self, other, op):
-        if isinstance(other, Column):
-            return Function(op, [self, other], Cardinality.MANY_TO_ONE)
-        else:
-            return Function(op, [self, other], Cardinality.ONE_TO_ONE)
-
     def __add__(self, other):
         data_type = self.get_type()
         if data_type != BaseType.FLOAT:
@@ -247,12 +239,3 @@ class Column:
 
     def get_hidden_keys(self):
         return self.node.get_hidden_keys()
-
-    def aggregate(self, function):
-        return AggregationFunction(function, self)
-
-    def apply(self, function, cardinality=Cardinality.MANY_TO_ONE):
-        if cardinality == Cardinality.MANY_TO_ONE:
-            return create_function(lambda c: c.apply(function))([self])
-        else:
-            return create_bijection(lambda c: c.apply(function))([self])

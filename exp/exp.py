@@ -9,7 +9,7 @@ class Exp(abc.ABC):
         self.exp_type = exp_type
 
     @classmethod
-    def convert_exp(cls, exp) -> tuple[any, list, list]:
+    def convert_exp(cls, exp) -> tuple[any, dict, list]:
         return exp.to_closure([], [])
 
     @classmethod
@@ -26,7 +26,7 @@ class Exp(abc.ABC):
         return key_params, parameters
 
     @abc.abstractmethod
-    def to_closure(self, parameters, aggregated_over):
+    def to_closure(self, parameters: list, aggregated_over: dict) -> tuple[any, dict, list]:
         raise NotImplemented()
 
 

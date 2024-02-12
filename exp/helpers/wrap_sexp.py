@@ -1,11 +1,9 @@
-from schema import BaseType
-
-
 def wrap_sexp(exp):
-    from tables.exp import Exp
-    from tables.column import Column
-    from tables.sexp import ConstSexp, ColumnSexp
-    from tables.exceptions import ColumnTypeException
+    from exp.exp import Exp
+    from frontend.tables.column import Column
+    from exp.sexp import ConstSexp, ColumnSexp
+    from frontend.tables.exceptions import ColumnTypeException
+    from schema.base_types import BaseType
 
     if isinstance(exp, str):
         return ConstSexp(exp)

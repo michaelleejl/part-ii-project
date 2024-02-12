@@ -122,7 +122,7 @@ class TestSchemaHelpers(expecttest.TestCase):
 
     def test_invert_representation_steps_successfullyInvertsSeriesOfSteps(self):
         from representation.representation import Traverse, StartTraversal, EndTraversal
-        from tables.domain import Domain
+        from frontend.domain import Domain
 
         u = AtomicNode("u")
         u.id_prefix = 0
@@ -139,7 +139,7 @@ class TestSchemaHelpers(expecttest.TestCase):
         stt = StartTraversal(start_columns)
         trv1 = Traverse(e1)
         trv2 = Traverse(e2)
-        ent = EndTraversal(start_columns, end_columns)
+        ent = EndTraversal(end_columns)
         self.assertExpectedInline(
             str(invert_representation([stt, trv1, trv2, ent])),
             """[STT <[end]>, TRV <w <--- v, [v]>, TRV <v <--- u, [u]>, ENT <[end], [start]>]"""

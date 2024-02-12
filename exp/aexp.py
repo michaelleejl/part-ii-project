@@ -2,8 +2,8 @@ import abc
 
 from schema import BaseType
 from schema.helpers.find_index import find_index
-from tables.exp import Exp
-from tables.helpers.wrap_aexp import wrap_aexp
+from exp.exp import Exp
+from exp.helpers.wrap_aexp import wrap_aexp
 
 
 class Aexp(Exp, abc.ABC):

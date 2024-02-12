@@ -3,18 +3,18 @@ import operator
 
 import numpy as np
 
-from tables.helpers.compose_cardinality import compose_cardinality
+from frontend.tables.helpers.compose_cardinality import compose_cardinality
 from schema import SchemaNode, is_sublist, Cardinality
 from schema.helpers.find_index import find_index
 from schema.helpers.invert_representation import invert_representation
-from derivation.column_type import ColumnType, Key, Val
-from derivation.ordered_set import OrderedSet
-from tables.helpers.rename_column_in_representation import (
+from frontend.tables.column_type import ColumnType, Key, Val
+from frontend.derivation.ordered_set import OrderedSet
+from frontend.tables.helpers.rename_column_in_representation import (
     rename_column_in_representation,
 )
-from tables.helpers.transform_step import transform_step
+from frontend.tables.helpers.transform_step import transform_step
 from representation.representation import *
-from tables.domain import Domain
+from frontend.domain import Domain
 
 
 def create_value(domain: Domain, repr, hidden_keys: list[Domain], cardinality):
@@ -328,8 +328,8 @@ class DerivationNode:
                     indices = [i for i in range(len(old_columns)) if i != idx]
                     intermediate_representation = [
                         StartTraversal(new_columns),
-                        Expand(start_node, end_node, indices, [column], old_columns),
-                        EndTraversal(new_columns, old_columns),
+                        Expand(start_node, end_node, indices, [column]),
+                        EndTraversal(old_columns),
                     ]
                 if intermediate_node is None:
                     intermediate_node = DerivationNode(
@@ -433,7 +433,7 @@ class DerivationNode:
                     ir = [
                         StartTraversal(new_node.domains),
                         Project(start_node, end_node, [idx1]),
-                        EndTraversal(self.domains, [key2]),
+                        EndTraversal([key2]),
                     ]
                     intermediate = IntermediateNode(self.domains, ir, parent=new_node)
                     intermediate = intermediate.add_children(
@@ -463,7 +463,7 @@ class DerivationNode:
                     ir = [
                         StartTraversal(new_node.domains),
                         Project(start_node, end_node, [to_insert]),
-                        EndTraversal(self.domains, [key2]),
+                        EndTraversal([key2]),
                     ]
                     intermediate = IntermediateNode(self.domains, ir, parent=new_node)
                     intermediate = intermediate.add_children(
@@ -621,14 +621,14 @@ class RootNode(DerivationNode):
 
         stt = StartTraversal(keys)
         prj = Project(start_node, None, [])
-        ent = EndTraversal([], [])
+        ent = EndTraversal([])
         unit_node = DerivationNode([], [stt, prj, ent], [])
         self.children = self.children.append(unit_node)
 
         for i, key in enumerate(keys):
             stt = StartTraversal(keys)
             prj = Project(start_node, key.node, [i])
-            ent = EndTraversal(keys, [key])
+            ent = EndTraversal([key])
             key_node = ColumnNode(key, Key(), [stt, prj, ent], parent=self)
             self.children = self.children.append(key_node)
 
@@ -836,7 +836,7 @@ class RootNode(DerivationNode):
             prj = Project(
                 start_node, SchemaNode.product([d.node for d in domains]), indices
             )
-            ent = EndTraversal(domains, domains)
+            ent = EndTraversal(domains)
             node = DerivationNode(domains, [stt, prj, ent], [])
             new_root = self.copy()
             new_root.children = OrderedSet(

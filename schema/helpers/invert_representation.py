@@ -25,7 +25,7 @@ def invert_representation(
         elif isinstance(command, EndTraversal):
             assert STT is not None
             start = StartTraversal(command.end_columns)
-            end = EndTraversal(command.end_columns, command.start_columns)
+            end = EndTraversal(STT.start_columns)
             result += [start] + stack + [end]
             stack = []
         else:

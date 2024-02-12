@@ -16,7 +16,7 @@ def carry_keys_through_representation(
                 Project(start_node, end_node, indices),
             ]
         elif isinstance(command, EndTraversal):
-            result += [EndTraversal(command.start_columns + keys, command.end_columns)]
+            result += [EndTraversal(command.end_columns)]
         else:
             result += [command]
     return result

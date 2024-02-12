@@ -28,10 +28,7 @@ def rename_column_in_step(step: RepresentationStep, old_name: str, new_name: str
             return StartTraversal(renaming_function(step.start_columns))
         case "ENT":
             assert isinstance(step, EndTraversal)
-            return EndTraversal(
-                renaming_function(step.start_columns),
-                renaming_function(step.end_columns),
-            )
+            return EndTraversal(renaming_function(step.end_columns))
         case "TRV":
             assert isinstance(step, Traverse)
             return Traverse(step.edge, renaming_function(step.columns))
@@ -42,7 +39,6 @@ def rename_column_in_step(step: RepresentationStep, old_name: str, new_name: str
                 step.end_node,
                 step.indices,
                 renaming_function(step.hidden_keys),
-                renaming_function(step.columns),
             )
         case "PRJ":
             assert isinstance(step, Project)
@@ -50,8 +46,6 @@ def rename_column_in_step(step: RepresentationStep, old_name: str, new_name: str
                 step.start_node,
                 step.end_node,
                 step.indices,
-                renaming_function(step.hidden_keys),
-                renaming_function(step.columns),
             )
         case "DRP":
             assert isinstance(step, Drop)

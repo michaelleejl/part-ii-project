@@ -21,7 +21,7 @@ def hide_key_in_intermediate_representation(
                 steps += [
                     StartTraversal(start_columns),
                     Expand(start_node, end_node, indices, [key]),
-                    EndTraversal(start_columns, end_columns),
+                    EndTraversal(end_columns),
                 ]
         steps += [step]
     return steps

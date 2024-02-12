@@ -35,7 +35,7 @@ class SchemaNode(abc.ABC):
             return ProductNode(constituents)
 
     @classmethod
-    def get_constituents(cls, node: SchemaNode) -> list[SchemaNode]:
+    def get_constituents(cls, node: SchemaNode) -> list[AtomicNode | SchemaClass]:
         """
         Returns the constituents of a node. If the node is atomic, returns the node itself.
         If the node is a product, returns its constituent atomic nodes

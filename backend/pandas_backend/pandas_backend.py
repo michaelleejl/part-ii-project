@@ -14,7 +14,7 @@ from backend.pandas_backend.relation import DataRelation
 from schema import SchemaEdge, reverse_cardinality
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from representation.representation import RepresentationStep, End
-from tables.exp import Exp
+from exp.exp import Exp
 
 
 def interpret_function(function: Exp):

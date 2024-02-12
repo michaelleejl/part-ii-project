@@ -50,3 +50,8 @@ class ColumnTypeException(Exception):
         super().__init__(
             f"Expected column of type {expected_type}. Got column of type {got_type}"
         )
+
+
+class ColumnWithNameAlreadyExistsInTable(Exception):
+    def __init__(self, name):
+        super().__init__(f"Column with name {name} already exists in table")

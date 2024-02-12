@@ -5,6 +5,7 @@ from backend.pandas_backend.determine_base_type_of_columns import (
 )
 from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.pandas_backend import PandasBackend
+from exp.exp import Exp
 from schema import Cardinality
 from schema.edge import SchemaEdge
 from schema.exceptions import (
@@ -19,9 +20,8 @@ from schema.exceptions import (
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from representation.representation import StartTraversal, EndTraversal
-from tables.function import Function
-from tables.domain import Domain
-from tables.table import Table
+from frontend.domain import Domain
+from frontend.tables.table import Table
 
 
 def check_for_duplicate_keys(keys):
@@ -135,7 +135,7 @@ class Schema:
     def map_edge_to_closure(
         self,
         edge: SchemaEdge,
-        closure: Function,
+        closure: Exp,
         num_args: int,
         data_relation_source: SchemaNode = None,
         data_relation_source_idxs: list[int] = None,
@@ -279,13 +279,16 @@ class Schema:
             with_names = [k.name for k in keys]
         key_node = SchemaNode.product(keys)
         key_nodes = SchemaNode.get_constituents(key_node)
-        columns = list(zip(key_nodes, with_names))
+        columns = [Domain(name, node) for name, node in zip(with_names, key_nodes)]
         return Table.construct(columns, self)
 
     def __find_shortest_path_in_graph(
         self, node1: SchemaNode, node2: SchemaNode, via: list[SchemaNode] = None
     ):
         return self.schema_graph.find_shortest_path(node1, node2, via)
+
+    def does_edge_exist_in_graph(self, node1: SchemaNode, node2: SchemaNode) -> bool:
+        return self.schema_graph.find_edge(node1, node2) is not None
 
     def find_shortest_path(
         self,
@@ -314,7 +317,7 @@ class Schema:
             node1, node2, via
         )
         first = StartTraversal(from_columns)
-        last = EndTraversal(from_columns, to_columns)
+        last = EndTraversal(to_columns)
         if len(commands) > 0:
             return cardinality, [first] + commands + [last], hidden_keys
         else:

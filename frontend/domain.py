@@ -1,10 +1,19 @@
-from schema import Cardinality, AtomicNode
-
-from enum import Enum
+from schema import SchemaNode
 
 
 class Domain:
-    def __init__(self, name: str, node: AtomicNode):
+    """
+    A domain is a named alias for a node in the schema
+    """
+
+    def __init__(self, name: str, node: SchemaNode):
+        """
+        Initialises a domain
+        Args:
+             name(str): The name of the domain
+             node(SchemaNode): The node in the schema
+        """
+        assert len(SchemaNode.get_constituents(node)) == 1
         self.name = name
         self.node = node
 
