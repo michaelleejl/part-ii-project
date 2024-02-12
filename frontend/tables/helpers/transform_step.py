@@ -10,6 +10,7 @@ def transform_step(
     internal_namespace = namespace
 
     from frontend.tables import new_domain_from_schema_node
+
     def internal(step) -> tuple[RepresentationStep, list[Domain]]:
         from representation.representation import Traverse, Expand, EndTraversal
 
@@ -17,7 +18,7 @@ def transform_step(
             step_hidden_keys = step.hidden_keys
             columns = []
             for hk in step_hidden_keys:
-                col = new_domain_from_schema_node(internal_namespace, hk)
+                col = new_domain_from_schema_node(internal_namespace, hk.node)
                 internal_namespace.add(col.name)
                 columns += [col]
             if isinstance(step, Traverse):

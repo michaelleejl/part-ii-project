@@ -33,6 +33,7 @@ class RepresentationStep(abc.ABC):
         return self
 
     from schema.node import SchemaNode
+
     def get_hidden_keys(self) -> list[Domain]:
         return []
 
@@ -91,6 +92,7 @@ class Traverse(RepresentationStep):
     Then return a table of the form A, H, 0, ..., m, where m is the number of atomic nodes in Y
     and H are the hidden keys required to traverse the edge
     """
+
     from schema.edge import SchemaEdge
     from schema.node import SchemaNode
 
@@ -121,7 +123,6 @@ class Traverse(RepresentationStep):
 
     def __str__(self):
         return self.__repr__()
-
 
     def invert(self) -> Traverse:
         """

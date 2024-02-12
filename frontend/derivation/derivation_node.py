@@ -7,7 +7,7 @@ from frontend.tables.helpers.compose_cardinality import compose_cardinality
 from schema import SchemaNode, is_sublist, Cardinality
 from schema.helpers.find_index import find_index
 from schema.helpers.invert_representation import invert_representation
-from frontend.tables.column_type import ColumnType, Key, Val
+from frontend.tables.column_type import ColumnType, Key, Val, HiddenKey
 from frontend.derivation.ordered_set import OrderedSet
 from frontend.tables.helpers.rename_column_in_representation import (
     rename_column_in_representation,
@@ -308,11 +308,11 @@ class DerivationNode:
 
             if (
                 len(new_node.domains) == 0
-                and new_node.is_key_column()
-                or new_node.is_val_column()
             ):
-                new_node = new_node.to_derivation_node()
-
+                if new_node.is_key_column():
+                    new_node = new_node.to_hidden_key_column()
+                if new_node.is_val_column():
+                    new_node = new_node.to_hidden_key_column()
             new_node.children = OrderedSet([])
 
             for child in self.children:
@@ -320,17 +320,18 @@ class DerivationNode:
                 new_child.parent = new_node
                 old_columns = self.domains
                 intermediate_node = new_node.find_node_with_domains(old_columns)
-                if len(new_columns) == 0:
-                    intermediate_representation = [Pop(), Get(old_columns)]
-                else:
-                    start_node = SchemaNode.product([d.node for d in new_columns])
-                    end_node = SchemaNode.product([d.node for d in old_columns])
-                    indices = [i for i in range(len(old_columns)) if i != idx]
-                    intermediate_representation = [
-                        StartTraversal(new_columns),
-                        Expand(start_node, end_node, indices, [column]),
-                        EndTraversal(old_columns),
-                    ]
+                # if len(new_columns) == 0:
+                #     intermediate_representation = [Pop(), Get(old_columns)]
+                #
+                # else:
+                start_node = SchemaNode.product([d.node for d in new_columns])
+                end_node = SchemaNode.product([d.node for d in old_columns])
+                indices = [i for i in range(len(old_columns)) if i != idx]
+                intermediate_representation = [
+                    StartTraversal(new_columns),
+                    Expand(start_node, end_node, indices, [column]),
+                    EndTraversal(old_columns),
+                ]
                 if intermediate_node is None:
                     intermediate_node = DerivationNode(
                         old_columns, intermediate_representation, [column]
@@ -523,6 +524,9 @@ class DerivationNode:
     def is_key_column(self):
         return False
 
+    def is_hidden_key_column(self):
+        return False
+
     def is_val_column(self):
         return False
 
@@ -562,6 +566,14 @@ class DerivationNode:
     def to_key_column(self):
         copy = ColumnNode(
             self.domains[0], Key(), self.intermediate_representation, self.hidden_keys
+        )
+        copy.parent = self.parent
+        copy = copy.add_children(copy, self.children)
+        return copy
+
+    def to_hidden_key_column(self):
+        copy = ColumnNode(
+            self.domains[0], HiddenKey(), self.intermediate_representation, self.hidden_keys
         )
         copy.parent = self.parent
         copy = copy.add_children(copy, self.children)
@@ -694,6 +706,7 @@ class RootNode(DerivationNode):
             set(strong_keys)
         )
         new_root = self.insert_key(strong_keys)
+        new_root = new_root.add_hidden_keys(new_hids)
         key_node = new_root.find_node_with_domains(strong_keys)
         val_node = create_value(value, repr, new_hids, cardinality)
         j = 0
@@ -809,13 +822,16 @@ class RootNode(DerivationNode):
         values = self.get_values()
         return keys + values
 
-    def find_hidden(self, name: str):
-        hidden_keys = self.get_all_hidden_keys_in_subtree()
-        idx = find_index(name, [d.name for d in hidden_keys])
-        return hidden_keys[idx]
+    def find_hidden(self):
+        res = []
+        if self.is_val_column():
+            res += [self]
+        for child in self.children:
+            res += child.find_values()
+        return res
 
     def get_hidden(self):
-        return self.get_all_hidden_keys_in_subtree().to_list()
+        return self.find_hidden()
 
     def get_hidden_keys_for_val(self):
         return OrderedSet([])
@@ -844,6 +860,27 @@ class RootNode(DerivationNode):
             )
             new_root.children = new_root.children.append(node.set_parent(new_root))
             return new_root
+
+    def add_hidden_key(self, hidden_key: Domain):
+        new_root = self.copy()
+        new_root.children = OrderedSet(
+            [c.set_parent(new_root) for c in self.children]
+        )
+        unit_key = new_root.find_node_with_domains([])
+        hidden_key_node = ColumnNode(hidden_key, HiddenKey(), [Get([hidden_key])], parent=new_root)
+        new_root = new_root.add_child(unit_key, hidden_key_node)
+        return new_root
+
+    def add_hidden_keys(self, hidden_keys: list[Domain]):
+        new_root = self.copy()
+        new_root.children = OrderedSet(
+            [c.set_parent(new_root) for c in self.children]
+        )
+        unit_key = new_root.find_node_with_domains([])
+        for hidden_key in hidden_keys:
+            hidden_key_node = ColumnNode(hidden_key, HiddenKey(), [Get([hidden_key])], parent=new_root)
+            new_root = new_root.add_child(unit_key, hidden_key_node)
+        return new_root
 
     def add_child(self, parent, child):
         clone = self.copy()

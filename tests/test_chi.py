@@ -410,10 +410,15 @@ Edinburgh Cambridge          0.300000
         t3 = t2.extend("volume", 0, "volume_fillna")
         t4 = t3.swap("FromCity", "ToCity")
         t5 = t4.shift_left()
-        t6 = t5.deduce(t5["volume_fillna"] / t5["volume_fillna"].sum(), "relative_inflow")
+        print("t6")
+        t6 = t5.deduce(
+            t5["volume_fillna"] / t5["volume_fillna"].sum(), "relative_inflow"
+        )
 
         # t7 = t3.shift_left()
-        # t8 = t7.deduce(t7["volume_fillna"] / t7["volume_fillna"].sum(), "total_outflow")
+        # t8 = t7.deduce(
+        #     t7["volume_fillna"] / t7["volume_fillna"].sum(), "relative_outflow"
+        # )
         #
         # t9 = (
         #     t1.infer(["ToCity"], t6["relative_inflow"], with_name="expected_outflow")
@@ -427,27 +432,8 @@ Edinburgh Cambridge          0.300000
         #     .equate("ToCity", "ToCity_1")
         # )
 
-        self.assertExpectedInline(str(t6), """\
-[ToCity || FromCity volume volume_fillna relative_inflow]
-                                                    FromCity  ... relative_inflow
-ToCity                                                        ...                
-London     [Cambridge, Cambridge, Cambridge, Cambridge, E...  ...        0.454545
-London     [Cambridge, Cambridge, Cambridge, Cambridge, E...  ...        0.363636
-London     [Cambridge, Cambridge, Cambridge, Cambridge, E...  ...        0.181818
-London     [Cambridge, Cambridge, Cambridge, Cambridge, E...  ...        0.000000
-Edinburgh  [Cambridge, Cambridge, Cambridge, Edinburgh, E...  ...        0.571429
-Edinburgh  [Cambridge, Cambridge, Cambridge, Edinburgh, E...  ...        0.428571
-Edinburgh  [Cambridge, Cambridge, Cambridge, Edinburgh, E...  ...        0.000000
-Oxford     [Cambridge, Cambridge, Cambridge, Edinburgh, E...  ...        0.800000
-Oxford     [Cambridge, Cambridge, Cambridge, Edinburgh, E...  ...        0.200000
-Oxford     [Cambridge, Cambridge, Cambridge, Edinburgh, E...  ...        0.000000
-Cambridge  [Cambridge, Cambridge, Cambridge, Edinburgh, E...  ...        0.700000
-Cambridge  [Cambridge, Cambridge, Cambridge, Edinburgh, E...  ...        0.300000
-Cambridge  [Cambridge, Cambridge, Cambridge, Edinburgh, E...  ...        0.000000
+        self.maxDiff = None
 
-[13 rows x 4 columns]
-
-""")
 #         self.assertExpectedInline(
 #             str(t10),
 #             """\

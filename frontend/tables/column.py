@@ -7,7 +7,6 @@ from exp.aexp import (
     DivAexp,
     SumAexp,
     MaxAexp,
-    CountAexp,
     MinAexp,
 )
 from exp.bexp import (
@@ -22,7 +21,7 @@ from exp.bexp import (
     AllBexp,
 )
 from frontend.tables.exceptions import ColumnTypeException
-from exp.exp import PopExp
+from exp.exp import PopExp, CountExp
 from exp.helpers.wrap_aexp import wrap_aexp
 from exp.helpers.wrap_bexp import wrap_bexp
 from exp.helpers.wrap_sexp import wrap_sexp
@@ -79,7 +78,7 @@ class Column:
         return EqualityBexp(lexp, rexp)
 
     def __ne__(self, other) -> NotBexp:
-        return NotBexp(self.get_domain().name == other)
+        return NotBexp(self == other)
 
     def __lt__(self, other) -> LessThanBexp:
         data_type = self.get_type()
@@ -128,22 +127,24 @@ class Column:
         data_type = self.get_type()
         if data_type != BaseType.BOOL:
             raise ColumnTypeException("bool", str(data_type))
-        keys = self.node.get_strong_keys()
-        return AnyBexp(keys, self)
+        keys = self.get_strong_keys()
+        hids = self.get_hidden_keys()
+        return AnyBexp(keys, hids, self.get_domain())
 
     def all(self):
         data_type = self.get_type()
         if data_type != BaseType.BOOL:
             raise ColumnTypeException("bool", str(data_type))
-        keys = self.node.get_strong_keys()
-        return AllBexp(keys, self)
+        keys = self.get_strong_keys()
+        hids = self.get_hidden_keys()
+        return AllBexp(keys, hids, self.get_domain())
 
     def isnull(self) -> NABexp:
         data_type = self.get_type()
         if data_type == BaseType.FLOAT:
-            exp = ColumnAexp(self.node.domains[0])
+            exp = ColumnAexp(self.get_domain())
         elif data_type == BaseType.BOOL:
-            exp = ColumnBexp(self.node.domains[0])
+            exp = ColumnBexp(self.get_domain())
         else:
             raise NotImplemented()
         return NABexp(exp)
@@ -210,31 +211,36 @@ class Column:
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
         keys = self.node.get_strong_keys()
-        return SumAexp(keys, self.node.domains[0])
+        hids = self.get_hidden_keys()
+        return SumAexp(keys, hids, self.get_domain())
 
     def max(self):
         data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
-        keys = self.node.get_strong_keys()
-        return MaxAexp(keys, self.node.domains[0])
+        keys = self.get_strong_keys()
+        hids = self.get_hidden_keys()
+        return MaxAexp(keys, hids, self.get_domain())
 
     def min(self):
         data_type = self.get_type()
         if data_type != BaseType.FLOAT:
             raise ColumnTypeException("float", str(data_type))
-        keys = self.node.get_strong_keys()
-        return MinAexp(keys, self.node.domains[0])
+        keys = self.get_strong_keys()
+        hids = self.get_hidden_keys()
+        return MinAexp(keys, hids, self.get_domain())
 
     def count(self):
-        keys = self.node.get_strong_keys()
-        return CountAexp(keys, self.node.domains[0])
+        keys = self.get_strong_keys()
+        hids = self.get_hidden_keys()
+        return CountExp(keys, hids, self.get_domain(), self.node.exp_type)
 
     def pop(self):
         keys = self.node.get_strong_keys()
-        return PopExp(keys, self, self.get_type())
+        hids = self.get_hidden_keys()
+        return PopExp(keys, hids, self.get_domain(), self.get_type())
 
-    def get_explicit_keys(self):
+    def get_strong_keys(self):
         return self.node.get_strong_keys()
 
     def get_hidden_keys(self):

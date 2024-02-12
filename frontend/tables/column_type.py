@@ -12,6 +12,10 @@ class ColumnType(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def is_hidden_key_column(self):
+        pass
+
+    @abc.abstractmethod
     def get_strong_keys(self, node):
         pass
 
@@ -27,6 +31,30 @@ class ColumnType(abc.ABC):
 class Key(ColumnType):
 
     def is_key_column(self):
+        return True
+
+    def is_hidden_key_column(self):
+        return False
+
+    def is_val_column(self):
+        return False
+
+    def get_strong_keys(self, node):
+        return []
+
+    def get_hidden_keys(self, node):
+        return []
+
+    def get_derivation(self, node):
+        return [], []
+
+
+class HiddenKey(ColumnType):
+
+    def is_key_column(self):
+        return False
+
+    def is_hidden_key_column(self):
         return True
 
     def is_val_column(self):
@@ -45,6 +73,9 @@ class Key(ColumnType):
 class Val(ColumnType):
 
     def is_key_column(self):
+        return False
+
+    def is_hidden_key_column(self):
         return False
 
     def is_val_column(self):

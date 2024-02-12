@@ -26,7 +26,8 @@ from frontend.tables.exceptions import (
     ColumnsNeedToBeInTableAndVisibleException,
     ColumnsNeedToBeKeysException,
     ColumnsNeedToBeInTableException,
-    ColumnsNeedToBeValuesException, ColumnWithNameAlreadyExistsInTable,
+    ColumnsNeedToBeValuesException,
+    ColumnWithNameAlreadyExistsInTable,
 )
 from exp.exp import Exp, ExtendExp, MaskExp
 from frontend.tables.helpers.carry_keys_through_path import (
@@ -51,7 +52,9 @@ existing_column = str | Column | ColumnNode
 new_column = AtomicNode | SchemaClass | Column | ColumnNode
 
 
-def classify_groups(keys: list[DerivationNode], to_invert: list[Domain]) -> dict[int, list[DerivationNode]]:
+def classify_groups(
+    keys: list[DerivationNode], to_invert: list[Domain]
+) -> dict[int, list[DerivationNode]]:
     """
     Classifies the keys of a derivation tree into groups based on their domains and the domains to invert
     The groups are:
@@ -144,7 +147,7 @@ def get_fresh_name(name: str, namespace: set[str]) -> str:
 
 
 def new_domain_from_schema_node(
-        namespace: set[str], node: AtomicNode, name: str = None
+    namespace: set[str], node: AtomicNode, name: str = None
 ):
     """
     Creates a new domain from a schema node, such that the name of the domain is not already in the namespace
@@ -191,12 +194,12 @@ class Table:
         IS_UNIQUE = 8
 
     def __init__(
-            self,
-            table_id,
-            derivation: RootNode | None,
-            intermediate_representation: list[RepresentationStep],
-            schema,
-            derived_from=None,
+        self,
+        table_id,
+        derivation: RootNode | None,
+        intermediate_representation: list[RepresentationStep],
+        schema,
+        derived_from=None,
     ):
         self.table_id = table_id
         self.derived_from = derived_from
@@ -301,7 +304,7 @@ class Table:
         return columns
 
     def execute(
-            self, with_new_representation: list[RepresentationStep] | None = None
+        self, with_new_representation: list[RepresentationStep] | None = None
     ) -> None:
         """
         Executes the intermediate representation to populate the table
@@ -316,7 +319,7 @@ class Table:
         )
         if len(self.intermediate_representation) > 0:
             self.intermediate_representation = (
-                    self.intermediate_representation + with_new_representation
+                self.intermediate_representation + with_new_representation
             )
         else:
             self.intermediate_representation = with_new_representation
@@ -329,7 +332,7 @@ class Table:
         )
 
     def verify_columns(
-            self, columns: list[ColumnNode], requirements: set[ColumnRequirements]
+        self, columns: list[ColumnNode], requirements: set[ColumnRequirements]
     ):
         """
         Verifies that a list of columns satisfies a set of requirements
@@ -350,27 +353,27 @@ class Table:
         vals = set(self.derivation.get_values())
         hids = set(self.derivation.get_hidden())
         if Table.ColumnRequirements.IS_UNIQUE in requirements and len(
-                set(columns)
+            set(columns)
         ) != len(columns):
             raise ColumnsNeedToBeUniqueException()
         if Table.ColumnRequirements.IS_KEY_OR_VAL_OR_HIDDEN in requirements and not set(
-                columns
+            columns
         ).issubset(keys | vals | hids):
             raise ColumnsNeedToBeInTableException()
         if Table.ColumnRequirements.IS_KEY_OR_VAL in requirements and not set(
-                columns
+            columns
         ).issubset(keys | vals):
             raise ColumnsNeedToBeInTableAndVisibleException()
         if Table.ColumnRequirements.IS_KEY in requirements and not set(
-                columns
+            columns
         ).issubset(keys):
             raise ColumnsNeedToBeKeysException()
         if Table.ColumnRequirements.IS_VAL in requirements and not set(
-                columns
+            columns
         ).issubset(vals):
             raise ColumnsNeedToBeValuesException()
         if Table.ColumnRequirements.IS_UNIQUE in requirements and not len(
-                set(columns)
+            set(columns)
         ) == len(columns):
             raise ColumnsNeedToBeUniqueException()
 
@@ -387,7 +390,7 @@ class Table:
         return self.derivation.find_column_with_name(name)
 
     def get_columns_as_lists(
-            self,
+        self,
     ) -> tuple[list[ColumnNode], list[Domain], list[ColumnNode]]:
         """
         Gets the columns in the table as lists
@@ -406,7 +409,7 @@ class Table:
             )
         )
         left = visible[: self.marker]
-        right = visible[self.marker:]
+        right = visible[self.marker :]
         hids = self.derivation.get_hidden()
         return left, hids, right
 
@@ -444,7 +447,7 @@ class Table:
         )
 
     def find_hidden_keys_for_column(
-            self, columns: list[ColumnNode], aggregated_over: set[ColumnNode]
+        self, columns: list[ColumnNode], aggregated_over: set[ColumnNode]
     ) -> list[Domain]:
         """
         Finds the hidden keys for a list of columns
@@ -483,12 +486,12 @@ class Table:
             [
                 d.name
                 for d in self.derivation.get_keys_and_values()
-                         + self.derivation.get_hidden()
+                + self.derivation.get_hidden()
             ]
         )
 
     def get_representation(
-            self, start: list[Domain], end: list[Domain], via, aggregated_over, namespace
+        self, start: list[Domain], end: list[Domain], via, aggregated_over, namespace
     ):
         shortest_p = self.schema.find_shortest_path(start, end, via)
         cardinality, repr, hidden_keys = shortest_p
@@ -502,10 +505,10 @@ class Table:
         return cardinality, new_repr, hidden_columns
 
     def compose(
-            self,
-            from_keys: list[new_column],
-            to_key: existing_column,
-            via: list[str] = None,
+        self,
+        from_keys: list[new_column],
+        to_key: existing_column,
+        via: list[str] = None,
     ):
         from_keys_names, from_keys_nodes = get_names_and_nodes(from_keys)
         self.verify_columns(from_keys_names, {Table.ColumnRequirements.IS_UNIQUE})
@@ -533,7 +536,7 @@ class Table:
         t.set_displayed_columns(
             self.displayed_columns[:key_idx]
             + [str(c) for c in cols_to_add]
-            + self.displayed_columns[key_idx + 1:]
+            + self.displayed_columns[key_idx + 1 :]
         )
         # 2b. Update the marker
         t.marker = self.marker + len(from_keys) - 1
@@ -566,7 +569,7 @@ class Table:
 
     def deduce(self, function: Exp, with_name: str):
         t = Table.create_from_table(self)
-        exp, start_columns, aggregated_over = Exp.convert_exp(function)
+        exp, start_columns, aggregated_over, usages = Exp.convert_exp(function)
         nodes = [c.node for c in start_columns]
         start_columns = [c for c in start_columns]
         start_node = SchemaNode.product(nodes)
@@ -577,17 +580,27 @@ class Table:
         modified_start_cols = None
         if len(aggregated_over) > 0:
             modified_start_cols = [
-                i for i, c in enumerate(start_columns) if c not in aggregated_over
+                i
+                for i, c in enumerate(start_columns)
+                if c.name in t.displayed_columns
+                and i in aggregated_over
+                and i in usages
+                and aggregated_over[i] != usages[i]
             ]
-            modified_start_node = SchemaNode.product(
-                [start_columns[i].node for i in modified_start_cols]
-            )
             if len(modified_start_cols) > 0:
-                if not self.schema.does_edge_exist_in_graph(modified_start_node, end_node):
+                modified_start_node = SchemaNode.product(
+                    [start_columns[i].node for i in modified_start_cols]
+                )
+
+                if not self.schema.does_edge_exist_in_graph(
+                    modified_start_node, end_node
+                ):
                     self.schema.add_edge(
                         modified_start_node, end_node, Cardinality.MANY_TO_ONE
                     )
-                if not self.schema.does_edge_exist_in_graph(end_node, modified_start_node):
+                if not self.schema.does_edge_exist_in_graph(
+                    end_node, modified_start_node
+                ):
                     self.schema.add_edge(
                         end_node, modified_start_node, Cardinality.ONE_TO_MANY
                     )
@@ -599,13 +612,13 @@ class Table:
             [col.name for col in start_columns],
             end_node,
             with_name=with_name,
-            aggregated_over=aggregated_over,
+            aggregated_over=[start_columns[i] for i in aggregated_over.keys() if start_columns[i].name in t.displayed_columns],
         )
         t_new = t_new.forget(with_name)
-        if modified_start_cols is None:
-            modified_start_cols = start_columns
+        if modified_start_cols is None or len(modified_start_cols) == 0:
+            modified_start_cols = [col for col in start_columns if col.name in t.displayed_columns]
         else:
-            modified_start_cols = [start_columns[i] for i in modified_start_cols]
+            modified_start_cols = [start_columns[i] for i in modified_start_cols if start_columns[i].name in t.displayed_columns]
         t_new = t_new.infer(
             [c.name for c in modified_start_cols], end_node, with_name=with_name
         )
@@ -647,28 +660,38 @@ class Table:
         return self.deduce(function, with_name)
 
     def infer(
-            self,
-            from_columns: list[existing_column],
-            to_column: new_column,
-            via: list[SchemaNode] = None,
-            with_name: str = None,
+        self,
+        from_columns: list[existing_column],
+        to_column: new_column,
+        via: list[SchemaNode] = None,
+        with_name: str = None,
     ):
-        return self.infer_internal(from_columns, to_column, via, with_name)
+
+        assumption_columns = self.__get_existing_columns(from_columns)
+
+        self.verify_columns(
+            assumption_columns,
+            {
+                Table.ColumnRequirements.IS_KEY_OR_VAL,
+                Table.ColumnRequirements.IS_UNIQUE,
+            },
+        )
+        return self.infer_internal(assumption_columns, to_column, via, with_name)
 
     def infer_internal(
-            self,
-            from_columns: list[existing_column],
-            to_column: new_column,
-            via: list[SchemaNode] = None,
-            with_name: str = None,
-            aggregated_over: list[Domain] = None,
+        self,
+        from_columns: list[existing_column],
+        to_column: new_column,
+        via: list[SchemaNode] = None,
+        with_name: str = None,
+        aggregated_over: list[Domain] = None,
     ):
         # An inference from a set of assumption columns to a conclusion column
         assumption_columns = self.__get_existing_columns(from_columns)
         self.verify_columns(
             assumption_columns,
             {
-                Table.ColumnRequirements.IS_KEY_OR_VAL,
+                Table.ColumnRequirements.IS_KEY_OR_VAL_OR_HIDDEN,
                 Table.ColumnRequirements.IS_UNIQUE,
             },
         )
@@ -710,7 +733,7 @@ class Table:
             parent = key_node
             for child in path[1:]:
                 if child.is_val_column() and child.get_domain().name not in set(
-                        t.displayed_columns
+                    t.displayed_columns
                 ):
                     child = child.to_intermediate_node()
                 child.children = OrderedSet([])
@@ -792,7 +815,7 @@ class Table:
         if idx < t.marker:
             t.marker -= 1
         t.set_displayed_columns(
-            t.displayed_columns[:idx] + t.displayed_columns[idx + 1:]
+            t.displayed_columns[:idx] + t.displayed_columns[idx + 1 :]
         )
         t.derivation = self.derivation.hide(column)
         t.execute()
@@ -806,7 +829,7 @@ class Table:
         if idx < t.marker:
             t.marker -= 1
         t.set_displayed_columns(
-            t.displayed_columns[:idx] + t.displayed_columns[idx + 1:]
+            t.displayed_columns[:idx] + t.displayed_columns[idx + 1 :]
         )
         t.derivation = self.derivation.forget(column)
         t.execute()
@@ -821,9 +844,9 @@ class Table:
         else:
             name = column.name
         t = Table.create_from_table(self)
-        col = t.derivation.find_hidden(name)
+        col = t.derivation.find_column_with_name(name).get_domain()
         t.set_displayed_columns(
-            t.displayed_columns[: t.marker] + [column] + t.displayed_columns[t.marker:]
+            t.displayed_columns[: t.marker] + [column] + t.displayed_columns[t.marker :]
         )
         t.marker += 1
         t.derivation = self.derivation.show(col)
@@ -876,7 +899,7 @@ class Table:
             find_index(v.name, t.displayed_columns) for v in vals
         ]
         visible_indices_to_replace = (
-                visible_key_indices_to_replace + visible_val_indices_to_replace
+            visible_key_indices_to_replace + visible_val_indices_to_replace
         )
         visible_idx = visible_indices_to_replace[0]
         filtered_displayed_columns = [
@@ -885,10 +908,10 @@ class Table:
             if i not in set(visible_indices_to_replace)
         ]
         t.displayed_columns = (
-                filtered_displayed_columns[:visible_idx]
-                + [v.name for v in val_doms]
-                + filtered_displayed_columns[visible_idx:]
-                + [k.name for k in key_doms]
+            filtered_displayed_columns[:visible_idx]
+            + [v.name for v in val_doms]
+            + filtered_displayed_columns[visible_idx:]
+            + [k.name for k in key_doms]
         )
         t.marker += len(val_doms) - np.sum(
             np.array(visible_key_indices_to_replace) < t.marker
@@ -1014,9 +1037,9 @@ class Table:
             t = t.rename(col.name, new_name).rename(temp_name, col.name)
             t = t.hide(new_name)
             t.displayed_columns = (
-                    t.displayed_columns[: t.marker]
-                    + [col.name]
-                    + t.displayed_columns[t.marker: -1]
+                t.displayed_columns[: t.marker]
+                + [col.name]
+                + t.displayed_columns[t.marker : -1]
             )
         else:
             t.marker -= 1
@@ -1069,9 +1092,9 @@ class Table:
         # TODO: check that left not strong key for right
         # TODO: modify derivation tree if both keys
         t.displayed_columns = (
-                t.displayed_columns[:i]
-                + [t.displayed_columns[j], t.displayed_columns[i]]
-                + t.displayed_columns[j + 1:]
+            t.displayed_columns[:i]
+            + [t.displayed_columns[j], t.displayed_columns[i]]
+            + t.displayed_columns[j + 1 :]
         )
         t.execute()
         return t
@@ -1107,7 +1130,7 @@ class Table:
             raise ColumnsNeedToBeInTableException()
         t.derivation = self.derivation.rename(column, new_name)
         t.displayed_columns = (
-                t.displayed_columns[:idx] + [new_name] + t.displayed_columns[idx + 1:]
+            t.displayed_columns[:idx] + [new_name] + t.displayed_columns[idx + 1 :]
         )
         t.execute()
         return t

@@ -1,13 +1,29 @@
+from __future__ import annotations
+
+import abc
 from abc import ABC
 
+from exp.helpers.convert_key_to_idx_and_update_parameters import (
+    convert_key_to_idx_and_update_parameters,
+)
+from exp.helpers.count_usage import count_usages
+from frontend.domain import Domain
 from schema import BaseType
-from schema.helpers.find_index import find_index
 from exp.exp import Exp
 
 
 class Sexp(Exp, ABC):
     def __init__(self, code):
         super().__init__(code, BaseType.STRING)
+
+    @abc.abstractmethod
+    def to_closure(
+        self,
+        parameters: list[Domain],
+        aggregated_over: dict[int, int],
+        usages: dict[int, int],
+    ) -> tuple[Sexp, list[Domain], dict[int, int], dict[int, int]]:
+        raise NotImplemented()
 
 
 class ColumnSexp(Sexp):
@@ -21,16 +37,17 @@ class ColumnSexp(Sexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters, aggregated_over):
-        idx = find_index(self.column, parameters)
-        if idx == -1:
-            return (
-                ColumnSexp(len(parameters)),
-                parameters + [self.column],
-                aggregated_over,
-            )
-        else:
-            return ColumnSexp(idx), parameters, aggregated_over
+    def to_closure(
+        self,
+        parameters: list[Domain],
+        aggregated_over: dict[int, int],
+        usages: dict[int, int],
+    ) -> tuple[ColumnSexp, list[Domain], dict[int, int], dict[int, int]]:
+        idx, parameters = convert_key_to_idx_and_update_parameters(
+            self.column, parameters
+        )
+        usages = count_usages(idx, usages)
+        return ColumnSexp(idx), parameters, aggregated_over, usages
 
 
 class ConstSexp(Sexp):
@@ -44,5 +61,10 @@ class ConstSexp(Sexp):
     def __str__(self):
         return self.__repr__()
 
-    def to_closure(self, parameters, aggregated_over):
-        return self, parameters, aggregated_over
+    def to_closure(
+        self,
+        parameters: list[Domain],
+        aggregated_over: dict[int, int],
+        usages: dict[int, int],
+    ) -> tuple[ConstSexp, list[Domain], dict[int, int], dict[int, int]]:
+        return self, parameters, aggregated_over, usages

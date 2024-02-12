@@ -280,7 +280,9 @@ class SchemaGraph:
             self.adjacencyList[to_node], SchemaEdge.invert(edge)
         )
 
-    def find_edge(self, from_node: SchemaNode, to_node: SchemaNode) -> SchemaEdge | None:
+    def find_edge(
+        self, from_node: SchemaNode, to_node: SchemaNode
+    ) -> SchemaEdge | None:
         """
         Finds an edge between two nodes in the graph
 
@@ -537,7 +539,12 @@ class SchemaGraph:
             if is_sublist(start_keys, end_keys):
                 hidden_keys = list_difference(end_keys, start_keys)
                 indices = get_indices_of_sublist(start_keys, end_keys)
-                return Expand(start, end, indices, [Domain(node.name, node) for node in hidden_keys])
+                return Expand(
+                    start,
+                    end,
+                    indices,
+                    [Domain(node.name, node) for node in hidden_keys],
+                )
             else:
                 return Traverse(edge)
         else:
