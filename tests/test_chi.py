@@ -410,29 +410,29 @@ Edinburgh Cambridge          0.300000
         t3 = t2.extend("volume", 0, "volume_fillna")
         t4 = t3.swap("FromCity", "ToCity")
         t5 = t4.shift_left()
-        print("t6")
         t6 = t5.deduce(
             t5["volume_fillna"] / t5["volume_fillna"].sum(), "relative_inflow"
         )
 
-        # t7 = t3.shift_left()
-        # t8 = t7.deduce(
-        #     t7["volume_fillna"] / t7["volume_fillna"].sum(), "relative_outflow"
-        # )
-        #
-        # t9 = (
-        #     t1.infer(["ToCity"], t6["relative_inflow"], with_name="expected_outflow")
-        #     # .show("FromCity_1")
-        #     # .equate("FromCity", "FromCity_1")
-        # )
+        t7 = t3.shift_left()
+        t8 = t7.deduce(
+            t7["volume_fillna"] / t7["volume_fillna"].sum(), "relative_outflow"
+        )
 
-        # t10 = (
-        #     t9.infer(["FromCity"], t8["relative_outflow"])
-        #     .show("ToCity_1")
-        #     .equate("ToCity", "ToCity_1")
-        # )
+        t9 = (
+            t1.infer(["ToCity"], t6["relative_inflow"], with_name="expected_outflow")
+            .show("FromCity_1")
+            .equate("FromCity", "FromCity_1")
+        )
+
+        t10 = (
+            t9.infer(["FromCity"], t8["relative_outflow"])
+            .show("ToCity_1")
+            .equate("ToCity", "ToCity_1")
+        )
 
         self.maxDiff = None
+        print(t10)
 
 #         self.assertExpectedInline(
 #             str(t10),

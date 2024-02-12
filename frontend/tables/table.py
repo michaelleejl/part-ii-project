@@ -325,6 +325,7 @@ class Table:
             self.intermediate_representation = with_new_representation
         left, hids, right = self.get_columns_as_lists()
         self.intermediate_representation += [End(left, hids, right)]
+        print(self.derivation)
         self.df, self.dropped_keys_count, self.dropped_vals_count, self.schema = (
             self.schema.execute_query(
                 self.table_id, self.derived_from, self.intermediate_representation
@@ -435,8 +436,8 @@ class Table:
         strong_keys = set()
         for column in columns:
             strong_keys_of_column = column.get_strong_keys()
-            if len(strong_keys_of_column) == 0:
-                strong_keys = strong_keys.union(column.domains)
+            if column.is_key_column():
+                strong_keys = strong_keys.union([column.get_domain()])
             else:
                 strong_keys = strong_keys.union(strong_keys_of_column)
 
@@ -471,7 +472,7 @@ class Table:
                 hidden_keys = hidden_keys.union(hidden_keys_of_column)
         return list(
             sorted(
-                hidden_keys, key=lambda x: find_index(x, self.derivation.get_hidden())
+                hidden_keys, key=lambda x: find_index(x, [c.get_domain() for c in self.derivation.get_hidden()])
             )
         )
 
@@ -583,9 +584,9 @@ class Table:
                 i
                 for i, c in enumerate(start_columns)
                 if c.name in t.displayed_columns
-                and i in aggregated_over
-                and i in usages
-                and aggregated_over[i] != usages[i]
+                and (i not in aggregated_over
+                     or i not in usages
+                     or aggregated_over[i] != usages[i])
             ]
             if len(modified_start_cols) > 0:
                 modified_start_node = SchemaNode.product(
@@ -728,8 +729,9 @@ class Table:
             )
             path = key_node.path_to_value(val_node)
 
-            # todo: cleanup hidden keys etc
+            hidden_keys = col.get_hidden_keys()
             new_root = t.derivation.insert_key(strong_keys)
+            new_root = new_root.add_hidden_keys(hidden_keys)
             parent = key_node
             for child in path[1:]:
                 if child.is_val_column() and child.get_domain().name not in set(

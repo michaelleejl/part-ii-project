@@ -18,7 +18,7 @@ def transform_step(
             step_hidden_keys = step.hidden_keys
             columns = []
             for hk in step_hidden_keys:
-                col = new_domain_from_schema_node(internal_namespace, hk.node)
+                col = new_domain_from_schema_node(internal_namespace, hk)
                 internal_namespace.add(col.name)
                 columns += [col]
             if isinstance(step, Traverse):

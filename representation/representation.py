@@ -107,7 +107,7 @@ class Traverse(RepresentationStep):
         """
         super().__init__("TRV")
         self.edge = edge
-        self.hidden_keys = [Domain(node.name, node) for node in edge.get_hidden_keys()]
+        self.hidden_keys = edge.get_hidden_keys()
         self.start_node = edge.from_node
         self.end_node = edge.to_node
         if columns is None:
@@ -116,7 +116,9 @@ class Traverse(RepresentationStep):
             self.columns = columns
 
     def get_hidden_keys(self) -> list[Domain]:
-        return self.hidden_keys
+        if len(self.columns) == len(self.edge.get_hidden_keys()):
+            return self.columns
+        return [Domain(node.name, node) for node in self.edge.get_hidden_keys()]
 
     def __repr__(self):
         return f"{self.name} <{self.edge}, {self.hidden_keys}>"
