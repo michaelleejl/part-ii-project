@@ -9,7 +9,7 @@ def transform_step(
 ) -> Callable[[RepresentationStep], tuple[RepresentationStep, list[Domain]]]:
     internal_namespace = namespace
 
-    from frontend.tables import new_domain_from_schema_node
+    from frontend.tables.table import new_domain_from_schema_node
 
     def internal(step) -> tuple[RepresentationStep, list[Domain]]:
         from representation.representation import Traverse, Expand, EndTraversal

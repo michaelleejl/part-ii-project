@@ -4,7 +4,8 @@ import itertools
 from collections import deque
 
 from schema.helpers.compose_cardinality import compose_cardinality
-from schema import Cardinality, SchemaEquality
+from schema.cardinality import Cardinality
+from schema.equality import SchemaEquality
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.edge_list import SchemaEdgeList
 from schema.exceptions import (

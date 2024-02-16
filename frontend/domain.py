@@ -1,4 +1,4 @@
-from schema import SchemaNode
+from schema.node import SchemaNode
 
 
 class Domain:

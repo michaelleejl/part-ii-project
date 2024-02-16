@@ -11,7 +11,7 @@ from backend.pandas_backend.helpers import (
 )
 from backend.pandas_backend.interpreter import interpret, end
 from backend.pandas_backend.relation import DataRelation
-from schema import SchemaEdge, reverse_cardinality
+from schema.edge import SchemaEdge, reverse_cardinality
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from representation.representation import RepresentationStep, End
 from exp.exp import Exp

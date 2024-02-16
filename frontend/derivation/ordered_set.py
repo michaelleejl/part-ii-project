@@ -1,9 +1,11 @@
 import copy
+from typing import TypeVar, Generic
 
 from schema.helpers.find_index import find_index
 
+T = TypeVar("T")
 
-class OrderedSet:
+class OrderedSet(Generic[T]):
     def __init__(self, items=None):
         self.item_list = []
         self.item_set = frozenset([])

@@ -1,7 +1,8 @@
 import pandas as pd
 
 from backend.pandas_backend.exceptions import UpdatingDataShouldPreserveColumnsException
-from schema import Cardinality, SchemaNode
+from schema.cardinality import Cardinality
+from schema.node import SchemaNode
 
 
 def determine_cardinality(df: pd.DataFrame, keys, values) -> Cardinality:

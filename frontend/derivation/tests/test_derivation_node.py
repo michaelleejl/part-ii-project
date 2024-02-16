@@ -1,0 +1,1077 @@
+import expecttest
+from frontend.derivation.derivation_node import DerivationNode, ColumnNode
+from frontend.derivation.ordered_set import OrderedSet
+from frontend.derivation.exceptions import *
+from frontend.domain import Domain
+from frontend.tables.column_type import Val, Key
+from schema.cardinality import Cardinality
+from schema.edge import SchemaEdge
+from schema.node import AtomicNode, SchemaNode
+from representation.representation import StartTraversal, Traverse, EndTraversal, Get
+
+
+class TestDerivationNode(expecttest.TestCase):
+
+    def test_create_root(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        root = DerivationNode.create_root([a, b, c])
+
+        self.assertExpectedInline(
+            str(root),
+            """\
+[a, b, c] // hidden: []
+	[] // hidden: []
+	[a] // hidden: []
+	[b] // hidden: []
+	[c] // hidden: []""",
+        )
+
+    def test_create_root_raisesExceptionIfDomainsNotUnique(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("a", w)
+
+        self.assertExpectedRaisesInline(
+            KeysMustBeUniqueException,
+            lambda: DerivationNode.create_root([a, b, c]),
+            """Keys [a, b, a] are not unique""",
+        )
+
+    def test_is_node_in_tree_returnsTrueIfNodeInTree(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        root = DerivationNode.create_root([a, b, c])
+        node_a = root.children[1]
+
+        self.assertTrue(root.is_node_in_tree(node_a))
+
+    def test_is_node_in_tree_returnsFalseIfNodeNotInTree(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        z = Domain("z", w)
+        not_in_tree = DerivationNode([z], [])
+        root = DerivationNode.create_root([a, b, c])
+
+        self.assertFalse(root.is_node_in_tree(not_in_tree))
+
+    def test_set_parent_successfullySetsParentOfNode(self):
+        u = AtomicNode("u")
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+        new_c = c_node.set_parent(p_node)
+        self.assertExpectedInline(str(new_c.parent), """[p] // hidden: []""")
+
+    def test_set_parent_doesNotMutate(self):
+        u = AtomicNode("u")
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+        new_c = c_node.set_parent(p_node)
+        self.assertExpectedInline(str(c_node.parent), """None""")
+
+    def test_set_parent_setsParentOfEntireSubtree(self):
+        u = AtomicNode("u")
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+
+        gc1_domain = Domain("gc1", u)
+        gc1_node = DerivationNode([gc1_domain], [])
+
+        gc2_domain = Domain("gc2", u)
+        gc2_node = DerivationNode([gc2_domain], [])
+
+        gc3_domain = Domain("gc3", u)
+        gc3_node = DerivationNode([gc3_domain], [])
+
+        c_node.children = OrderedSet([gc1_node, gc2_node, gc3_node])
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+        new_c = c_node.set_parent(p_node)
+        self.assertExpectedInline(
+            str(new_c),
+            """\
+[c] // hidden: []
+	[gc1] // hidden: []
+	[gc2] // hidden: []
+	[gc3] // hidden: []""",
+        )
+
+    def test_add_child_addsChildToNode(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+
+        p_new = p_node.add_child(p_node, c_node)
+        self.assertExpectedInline(
+            str(p_new),
+            """\
+[p] // hidden: []
+	[c] // hidden: []""",
+        )
+
+    def test_add_child_doesNotMutate(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+
+        p_new = c_node.add_child(p_node, c_node)
+        self.assertTrue(len(p_node.children) == 0)
+
+    def test_add_child_setsParentOfChild(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+
+        p_new = p_node.add_child(p_node, c_node)
+        self.assertExpectedInline(
+            str(p_new.children[0].parent),
+            """\
+[p] // hidden: []
+	[c] // hidden: []""",
+        )
+
+    def test_add_child_addsChildToNodeWithExistingChildren(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_node.children = OrderedSet([c1_node])
+
+        p_new = p_node.add_child(p_node, c2_node)
+        self.assertExpectedInline(
+            str(p_new),
+            """\
+[p] // hidden: []
+	[c1] // hidden: []
+	[c2] // hidden: []""",
+        )
+
+    def test_add_child_addsChildToNodeDeeperInTree(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+
+        gc_domain = Domain("gc", u)
+        gc_node = DerivationNode([gc_domain], [])
+
+        p_node.children = OrderedSet([c_node])
+        p_new = p_node.add_child(c_node, gc_node)
+        self.assertExpectedInline(
+            str(p_new),
+            """\
+[p] // hidden: []
+	[c] // hidden: []
+		[gc] // hidden: []""",
+        )
+
+    def test_add_child_raisesExceptionIfChildAlreadyInTree(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+
+        p_node.children = OrderedSet([c_node])
+
+        self.assertExpectedRaisesInline(
+            NodeIsAlreadyChildOfParentException,
+            lambda: p_node.add_child(p_node, c_node),
+            """Node c is already a child of p""" "",
+        )
+
+    def test_add_children_successfullyAddsChildrenToNode(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_new = p_node.add_children(p_node, [c1_node, c2_node])
+        self.assertExpectedInline(
+            str(p_new),
+            """\
+[p] // hidden: []
+	[c1] // hidden: []
+	[c2] // hidden: []""",
+        )
+
+    def test_add_children_doesNotMutate(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_new = p_node.add_children(p_node, [c1_node, c2_node])
+
+        self.assertTrue(len(p_node.children) == 0)
+
+    def test_add_children_setsParentOfChildren(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_new = p_node.add_children(p_node, [c1_node, c2_node])
+        self.assertExpectedInline(
+            str(p_new.children[0].parent),
+            """\
+[p] // hidden: []
+	[c1] // hidden: []
+	[c2] // hidden: []""",
+        )
+
+    def test_add_children_addsChildrenToNodeWithExistingChildren(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_node.children = OrderedSet([c1_node])
+
+        p_new = p_node.add_children(p_node, [c2_node])
+        self.assertExpectedInline(
+            str(p_new),
+            """\
+[p] // hidden: []
+	[c1] // hidden: []
+	[c2] // hidden: []""",
+        )
+
+    def test_add_children_addsChildrenToNodeDeeperInTree(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+
+        gc1_domain = Domain("gc1", u)
+        gc1_node = DerivationNode([gc1_domain], [])
+
+        gc2_domain = Domain("gc2", u)
+        gc2_node = DerivationNode([gc2_domain], [])
+
+        p_node.children = OrderedSet([c_node])
+        p_new = p_node.add_children(c_node, [gc1_node, gc2_node])
+        self.assertExpectedInline(
+            str(p_new),
+            """\
+[p] // hidden: []
+	[c] // hidden: []
+		[gc1] // hidden: []
+		[gc2] // hidden: []""",
+        )
+
+    def test_add_children_raisesExceptionIfChildAlreadyInTree(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_node.children = OrderedSet([c1_node])
+
+        self.assertExpectedRaisesInline(
+            NodeIsAlreadyChildOfParentException,
+            lambda: p_node.add_children(p_node, [c1_node, c2_node]),
+            """Node c1 is already a child of p""" "",
+        )
+
+    def test_merge_subtree_mergesSubtreeIntoNode(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        p_node = p_node.set_children([c1_node])
+
+        p_double_node = DerivationNode([p_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_double_node = p_double_node.set_children([c2_node])
+        p_new = p_node.merge_subtree(p_double_node)
+
+        self.assertExpectedInline(str(p_new), """\
+[p] // hidden: []
+	[c1] // hidden: []
+	[c2] // hidden: []""")
+
+    def test_merge_subtree_doesNotMutate(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        p_node = p_node.set_children([c1_node])
+
+        p_double_node = DerivationNode([p_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_double_node = p_double_node.set_children([c2_node])
+        p_new = p_node.merge_subtree(p_double_node)
+
+        self.assertExpectedInline(str(p_node), """\
+[p] // hidden: []
+	[c1] // hidden: []""")
+
+    def test_remove_child_removesChildFromNode(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+
+        p_node.children = OrderedSet([c_node])
+
+        p_new = p_node.remove_child(c_node)
+        self.assertExpectedInline(str(p_new), """[p] // hidden: []""")
+
+    def test_remove_child_doesNotMutate(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c_domain = Domain("c", u)
+        c_node = DerivationNode([c_domain], [])
+
+        p_node.children = OrderedSet([c_node])
+
+        p_new = p_node.remove_child(c_node)
+        self.assertTrue(len(p_node.children) == 1)
+
+    def test_remove_children_removesChildrenFromNode(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_node.children = OrderedSet([c1_node, c2_node])
+
+        p_new = p_node.remove_children([c1_node, c2_node])
+        self.assertExpectedInline(str(p_new), """[p] // hidden: []""")
+
+    def test_remove_children_doesNotMutate(self):
+        u = AtomicNode("u")
+
+        p_domain = Domain("p", u)
+        p_node = DerivationNode([p_domain], [])
+
+        c1_domain = Domain("c1", u)
+        c1_node = DerivationNode([c1_domain], [])
+
+        c2_domain = Domain("c2", u)
+        c2_node = DerivationNode([c2_domain], [])
+
+        p_node.children = OrderedSet([c1_node, c2_node])
+
+        p_new = p_node.remove_children([c1_node, c2_node])
+        self.assertTrue(len(p_node.children) == 2)
+
+    def test_find_node_with_domains_returnsNodeIfNodeInTree(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        root = DerivationNode.create_root([a, b, c])
+        node_a = root.children[1]
+
+        self.assertEqual(root.find_node_with_domains([a]), node_a)
+
+    def test_find_node_with_domains_returnsNoneIfNodeNotInTree(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        root = DerivationNode.create_root([a, b, c])
+        z = Domain("z", w)
+
+        self.assertEqual(root.find_node_with_domains([z]), None)
+
+    def test_find_root_of_tree_successfullyFindsRootOfTree(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        root = DerivationNode.create_root([a, b, c])
+        node_a = root.children[1]
+
+        self.assertEqual(node_a.find_root_of_tree(), root)
+
+    def test_to_intermediate_representation_returnsCorrectRepresentationWhenNodeHasNoChildren(
+        self,
+    ):
+        u = AtomicNode("u")
+        a = Domain("a", u)
+        root = DerivationNode.create_root([a])
+
+        self.assertExpectedInline(
+            str(root.children[1].to_intermediate_representation()), """[GET <[a]>]"""
+        )
+
+    def test_to_intermediate_representation_returnsCorrectRepresentationWhenNodeHasOneChild(
+        self,
+    ):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+
+        e = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(e), EndTraversal([b])]
+        )
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node)
+
+        self.assertExpectedInline(
+            str(root.children[1].to_intermediate_representation()),
+            """[GET <[a]>, CAL, STT <[a]>, TRV <u ---> v, []>, ENT <[b]>, RET]""",
+        )
+
+    def test_to_intermediate_representation_returnsCorrectRepresentationWhenNodeHasMultipleChildren(
+        self,
+    ):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        e_u_to_v = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e_u_to_w = SchemaEdge(u, w, Cardinality.MANY_TO_ONE)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])]
+        )
+        c = Domain("c", w)
+        c_node = DerivationNode(
+            [c], [StartTraversal([a]), Traverse(e_u_to_w), EndTraversal([c])]
+        )
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_children(a_node, [b_node, c_node])
+        a_node = root.children[1]
+
+        self.assertExpectedInline(
+            str(a_node.to_intermediate_representation()),
+            """[GET <[a]>, CAL, STT <[a]>, TRV <u ---> v, []>, ENT <[b]>, RST, STT <[a]>, TRV <u ---> w, []>, ENT <[c]>, MER, RET]""",
+        )
+
+    def test_to_intermediate_representation_returnsCorrectRepresentationWhenNodeHasGrandchildren(
+        self,
+    ):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        e_u_to_v = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e_v_to_w = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(e_v_to_w), EndTraversal([c])]
+        )
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node)
+        root = root.add_child(b_node, c_node)
+        a_node = root.children[1]
+
+        self.assertExpectedInline(
+            str(a_node.to_intermediate_representation()),
+            """[GET <[a]>, CAL, STT <[a]>, TRV <u ---> v, []>, ENT <[b]>, CAL, STT <[b]>, TRV <v ---> w, []>, ENT <[c]>, RET, RET]""",
+        )
+
+    def test_to_intermediate_representation_returnsCorrectRepresentationWhenRootHasMultipleKeys(
+        self,
+    ):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        x = AtomicNode("x")
+        y = AtomicNode("y")
+
+        uv = SchemaNode.product([u, v])
+        u.id_prefix = 0
+        v.id_prefix = 0
+        x.id_prefix = 0
+        y.id_prefix = 0
+
+        e_uv_to_x = SchemaEdge(uv, x, Cardinality.MANY_TO_ONE)
+        e_u_to_y = SchemaEdge(u, y, Cardinality.MANY_TO_ONE)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", x)
+        d = Domain("d", y)
+
+        c_node = DerivationNode(
+            [c], [StartTraversal([a, b]), Traverse(e_uv_to_x), EndTraversal([c])]
+        )
+        d_node = DerivationNode(
+            [d], [StartTraversal([a]), Traverse(e_u_to_y), EndTraversal([d])]
+        )
+
+        root = DerivationNode.create_root([a, b])
+        root = root.insert_key([a, b])
+        a_node = root.children[1]
+        ab_node = root.children[3]
+
+        root = root.add_child(ab_node, c_node)
+        root = root.add_child(a_node, d_node)
+
+        self.assertExpectedInline(
+            str(root.to_intermediate_representation()),
+            """[GET <[]>, GET <[a]>, CAL, STT <[a]>, TRV <u ---> y, []>, ENT <[d]>, RET, MER, GET <[b]>, MER, GET <[a, b]>, CAL, STT <[a, b]>, TRV <u;v ---> x, []>, ENT <[c]>, RET, MER]""",
+        )
+
+    def test_to_intermediate_representation_returnsCorrectRepresentationWhenTreeHasHiddenKeys(
+        self,
+    ):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        e_u_to_v = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        b1 = Domain("b1", v)
+
+        b_node = DerivationNode(
+            [b],
+            [StartTraversal([a]), Traverse(e_u_to_v, [b1]), EndTraversal([b])],
+            [b1],
+        )
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node)
+        a_node = root.children[1]
+
+        self.assertExpectedInline(
+            str(a_node.to_intermediate_representation()),
+            """[GET <[a]>, CAL, STT <[a]>, TRV <u <--- v, [v]>, ENT <[b]>, RET]""",
+        )
+
+    def test_hideSuccessfullyHidesColumnForDerivationNode(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        uv = SchemaNode.product([u, v])
+
+        e_u_to_v = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e_uv_to_w = SchemaEdge(uv, w, Cardinality.MANY_TO_ONE)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        ab_node = DerivationNode(
+            [a, b], [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])]
+        )
+
+        c_node = DerivationNode([c], [StartTraversal([a, b]), Traverse(e_uv_to_w), EndTraversal([c])])
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, ab_node).add_child(ab_node, c_node)
+        a_node = root.children[1]
+        ab_node = a_node.children[0]
+
+        hidden = ab_node.hide(a)
+        self.assertExpectedInline(str(hidden), """\
+[b] // hidden: []
+	[a, b] // hidden: [a]
+		[c] // hidden: []""")
+
+    def test_hide_doesNotMutate(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        uv = SchemaNode.product([u, v])
+
+        e_u_to_v = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e_uv_to_w = SchemaEdge(uv, w, Cardinality.MANY_TO_ONE)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        ab_node = DerivationNode(
+            [a, b], [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])]
+        )
+
+        c_node = DerivationNode([c], [StartTraversal([a, b]), Traverse(e_uv_to_w), EndTraversal([c])])
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, ab_node).add_child(ab_node, c_node)
+        a_node = root.children[1]
+        ab_node = a_node.children[0]
+
+        hidden = ab_node.hide(a)
+        self.assertExpectedInline(str(ab_node), """\
+[a, b] // hidden: []
+	[c] // hidden: []""")
+
+    def test_hide_successfullyTurnsKeysIntoHiddenKeys(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        uv = SchemaNode.product([u, v])
+
+        e_u_to_v = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e_uv_to_w = SchemaEdge(uv, w, Cardinality.MANY_TO_ONE)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        ab_node = DerivationNode(
+            [a, b], [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])]
+        )
+
+        c_node = DerivationNode([c], [StartTraversal([a, b]), Traverse(e_uv_to_w), EndTraversal([c])])
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, ab_node).add_child(ab_node, c_node)
+        a_node = root.children[1]
+
+        hidden = a_node.hide(a)
+        self.assertExpectedInline(str(hidden), """\
+[] // hidden: []
+	[a] // hidden: [a]
+		[b] // hidden: []
+			[a, b] // hidden: [a]
+				[c] // hidden: []""")
+        self.assertTrue(hidden.children[0].is_hidden_key_column())
+
+    def test_hide_successfullyTurnsValueColumnIntoDerivationNode(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        e_u_to_v = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e_v_to_w = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        b_node = ColumnNode(b, Val(), [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])])
+        c_node = ColumnNode(c, Val(),[StartTraversal([b]), Traverse(e_v_to_w), EndTraversal([c])])
+        root = root.add_child(a_node, b_node).add_child(b_node, c_node)
+        a_node = root.children[1]
+        b_node = a_node.children[0]
+
+        hidden = b_node.hide(b)
+        self.assertExpectedInline(str(hidden), """\
+[b] // hidden: []
+	[c] // hidden: []""")
+        self.assertFalse(hidden.is_val_column())
+
+    def test_hide_key_createsHiddenKeyIfOneDoesNotExist(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        root = DerivationNode.create_root([a, b])
+        a_node = root.children[1]
+        hidden = root.hide(a_node)
+
+        self.assertExpectedInline(str(hidden), """\
+[b] // hidden: []
+	[] // hidden: []
+		[a] // hidden: [a]
+	[b] // hidden: []""")
+
+    def test_hide_mergesSubtrees(self):
+        u = AtomicNode("u")  # a
+        v = AtomicNode("v")  # b
+        w = AtomicNode("w")  # c
+        x = AtomicNode("x")  # d
+
+        uv = SchemaNode.product([u, v])
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        e_u_to_w = SchemaEdge(u, w, Cardinality.MANY_TO_ONE)
+        e_uv_to_x= SchemaEdge(uv, x, Cardinality.MANY_TO_ONE)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", x)
+
+        c_node = ColumnNode(c, Val(), [StartTraversal([a]), Traverse(e_u_to_w), EndTraversal([c])])
+        d_node = ColumnNode(d, Val(), [StartTraversal([a, b]), Traverse(e_uv_to_x), EndTraversal([d])])
+        root = DerivationNode.create_root([a, b])
+        a_node = root.children[1]
+        b_node = root.children[2]
+        root = root.insert_key([a, b])
+        ab_node = root.children[3]
+        root = root.add_child(a_node, c_node).add_child(ab_node, d_node)
+        
+        hidden = root.hide(b_node)
+
+        self.assertExpectedInline(str(hidden), """\
+[a] // hidden: []
+	[] // hidden: []
+		[b] // hidden: [b]
+	[a] // hidden: []
+		[c] // hidden: []
+		[a, b] // hidden: [b]
+			[d] // hidden: []""")
+
+    def test_show_key_splitsSubtreesIntoWithAndWithoutKey(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        x = AtomicNode("x")
+
+        h = AtomicNode("h")
+        hid = Domain("hid", h)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", x)
+
+        b_node = DerivationNode([b], [])
+        c_node = DerivationNode([c], [])
+        d_node = DerivationNode([d], [], [hid])
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node).add_child(b_node, c_node).add_child(b_node, d_node)
+        a_node = root.children[1]
+        b_node = a_node.children[0]
+
+        with_hk, without_hk = b_node.show_key(hid)
+        self.assertExpectedInline(str(with_hk), """\
+[b, hid] // hidden: []
+	[d] // hidden: []""")
+        self.assertExpectedInline(str(without_hk), """\
+[b] // hidden: []
+	[c] // hidden: []""")
+
+    def test_show_key_doesNotMutate(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        x = AtomicNode("x")
+
+        h = AtomicNode("h")
+        hid = Domain("hid", h)
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", x)
+
+        b_node = DerivationNode([b], [])
+        c_node = DerivationNode([c], [])
+        d_node = DerivationNode([d], [], [hid])
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node).add_child(b_node, c_node).add_child(b_node, d_node)
+        a_node = root.children[1]
+        b_node = a_node.children[0]
+
+        _ = b_node.show_key(hid)
+
+        self.assertExpectedInline(str(b_node), """\
+[b] // hidden: []
+	[c] // hidden: []
+	[d] // hidden: [hid]""")
+
+    def test_show_val_convertsDerivationNodeIntoVal(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        b_node = DerivationNode([b], [])
+        c_node = DerivationNode([c], [])
+        root = root.add_child(a_node, b_node).add_child(b_node, c_node)
+        a_node = root.children[1]
+        b_node = a_node.children[0]
+
+        val = b_node.show_val(c)
+        self.assertExpectedInline(str(val), """\
+[b] // hidden: []
+	[c] // hidden: []""")
+        self.assertTrue(val.children[0].is_val_column())
+
+    def test_equate_internal_doesNothingIfNeitherKeyAppearsInNode(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        a1 = Domain("a1", u)
+        a2 = Domain("a2", u)
+
+        b = Domain("b", v)
+        b_node = DerivationNode([b], [])
+
+        c = Domain("c", w)
+        c_node = DerivationNode([c], [])
+
+        root = DerivationNode.create_root([a1, a2])
+        a1_node = root.children[1]
+        root = root.add_child(a1_node, b_node).add_child(b_node, c_node)
+        a1_node = root.children[1]
+        b_node = a1_node.children[0]
+        
+        equated = b_node.equate_internal(a1, a2, [a1, a2])
+        self.assertExpectedInline(str(equated), """\
+[b] // hidden: []
+	[c] // hidden: []""")
+
+    def test_equate_internal_performsSubstitutionIfOnlySecondKeyAppearsInNode(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        a1 = Domain("a1", u)
+        a2 = Domain("a2", u)
+
+        b = Domain("b", v)
+        a2b_node = DerivationNode([a2, b], [])
+
+        c = Domain("c", w)
+        c_node = DerivationNode([c], [])
+
+        root = DerivationNode.create_root([a1, a2])
+        a2_node = root.children[2]
+        root = root.add_child(a2_node, a2b_node).add_child(a2b_node, c_node)
+        a2_node = root.children[2]
+        a2b_node = a2_node.children[0]
+
+        equated = a2b_node.equate_internal(a1, a2, [a1, a2])
+        self.assertExpectedInline(str(equated), """\
+[a1, b] // hidden: []
+	[a2, b] // hidden: []
+		[c] // hidden: []""")
+
+    def test_equate_internal_eliminatesSecondKeyIfBothFirstAndSecondKeyAppearInNode(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        a1 = Domain("a1", u)
+        a2 = Domain("a2", u)
+
+        b = Domain("b", v)
+        a1a2b_node = DerivationNode([a1, a2, b], [])
+
+        c = Domain("c", w)
+        c_node = DerivationNode([c], [])
+
+        root = DerivationNode.create_root([a1, a2])
+        root = root.insert_key([a1, a2])
+
+        a1a2_node = root.children[3]
+        root = root.add_child(a1a2_node, a1a2b_node).add_child(a1a2b_node, c_node)
+        a1a2_node = root.children[3]
+        a1a2b_node = a1a2_node.children[0]
+
+        equated = a1a2b_node.equate_internal(a1, a2, [a1, a2])
+        self.assertExpectedInline(str(equated), """\
+[a1, b] // hidden: []
+	[a1, a2, b] // hidden: []
+		[c] // hidden: []""")
+
+    def test_equate_doesNotMutate(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        a1 = Domain("a1", u)
+        a2 = Domain("a2", u)
+
+        b = Domain("b", v)
+        a1a2b_node = DerivationNode([a1, a2, b], [])
+
+        c = Domain("c", w)
+        c_node = DerivationNode([c], [])
+
+        root = DerivationNode.create_root([a1, a2])
+        root = root.insert_key([a1, a2])
+
+        a1a2_node = root.children[3]
+        root = root.add_child(a1a2_node, a1a2b_node).add_child(a1a2b_node, c_node)
+        a1a2_node = root.children[3]
+        a1a2b_node = a1a2_node.children[0]
+
+        equated = a1a2b_node.equate_internal(a1, a2, [a1, a2])
+        self.assertExpectedInline(str(a1a2b_node), """\
+[a1, a2, b] // hidden: []
+	[c] // hidden: []""")
+

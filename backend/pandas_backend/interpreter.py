@@ -5,7 +5,8 @@ from functools import reduce
 import numpy as np
 import pandas as pd
 
-from schema import SchemaNode, SchemaEdge
+from schema.node import SchemaNode
+from schema.edge import SchemaEdge
 from representation.representation import *
 
 
@@ -26,7 +27,9 @@ def get(derivation_step: Get, backend, stack, sp) -> interp:
     columns = derivation_step.columns
     nodes = [c.node for c in columns]
     names = [c.name for c in columns]
-    if len(nodes) == 1:
+    if len(nodes) == 0:
+        df = pd.DataFrame()
+    elif len(nodes) == 1:
         df = backend.get_domain_from_atomic_node(nodes[0], names[0])
     else:
         domains = [

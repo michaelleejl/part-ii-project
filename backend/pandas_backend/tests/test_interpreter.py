@@ -9,7 +9,8 @@ from representation.representation import (
     Project,
     Equate,
 )
-from frontend.domain import Domain, ColumnType
+from frontend.domain import Domain
+from frontend.tables.column_type import ColumnType
 
 
 class TestInterpreter(expecttest.TestCase):
@@ -57,9 +58,9 @@ class TestInterpreter(expecttest.TestCase):
         ).set_index(["trilogy", "episode"])
 
         s = Schema()
-        s.insert_dataframe(characters_df, "characters")
-        s.insert_dataframe(sectors_df, "sectors")
-        s.insert_dataframe(trilogies_df, "trilogies")
+        characters = s.insert_dataframe(characters_df)
+        sectors = s.insert_dataframe(sectors_df)
+        trilogies = s.insert_dataframe(trilogies_df)
         s.blend(
             SchemaNode("homeworld", cluster="characters"),
             SchemaNode("world", cluster="sectors"),

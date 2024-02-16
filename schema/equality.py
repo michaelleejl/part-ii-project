@@ -1,4 +1,4 @@
-from schema import Cardinality
+from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge
 from schema.node import SchemaNode
 

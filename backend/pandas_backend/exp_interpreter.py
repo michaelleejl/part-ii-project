@@ -11,7 +11,7 @@ from exp.sexp import *
 
 def aggregate(t: pd.DataFrame, keys, hids, col, op):
     if len(keys) > 0:
-        df = t.drop_duplicates(keys+hids)
+        df = t.drop_duplicates(keys + hids)
         return pd.merge(
             t[[c for c in t.columns if c != col]],
             df.groupby(keys)[col].agg(list).apply(op).reset_index(),

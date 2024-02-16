@@ -1,7 +1,7 @@
 import expecttest
 import pandas as pd
 
-from schema import Schema, SchemaNode
+from schema.schema import Schema
 
 
 class TestEx1(expecttest.TestCase):
@@ -473,8 +473,6 @@ val_id
         s, cardnum, person = self.initialise()
         t41 = s.get(cardnum=person["cardnum"]).infer(["cardnum"], person["person"])
         t42 = t41.compose([cardnum["val_id"]], "cardnum")
-        print("T42 DERIVATION")
-        print(t42.derivation)
         t43 = t42.invert(["val_id"], ["person"])
         self.assertExpectedInline(
             str(t43),

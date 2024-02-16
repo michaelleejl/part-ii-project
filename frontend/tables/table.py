@@ -9,11 +9,13 @@ import pandas as pd
 
 from frontend.tables.helpers.flatten import flatten
 from schema.helpers.compose_cardinality import compose_cardinality
-from schema import Cardinality, BaseType, is_sublist
+from schema.cardinality import Cardinality
+from schema.base_types import BaseType
+from schema.helpers.is_sublist import is_sublist
 from schema.helpers.find_index import find_index
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from frontend.tables.column import Column
-from frontend.derivation import (
+from frontend.derivation.derivation_node import (
     DerivationNode,
     ColumnNode,
     IntermediateNode,
@@ -472,7 +474,10 @@ class Table:
                 hidden_keys = hidden_keys.union(hidden_keys_of_column)
         return list(
             sorted(
-                hidden_keys, key=lambda x: find_index(x, [c.get_domain() for c in self.derivation.get_hidden()])
+                hidden_keys,
+                key=lambda x: find_index(
+                    x, [c.get_domain() for c in self.derivation.get_hidden()]
+                ),
             )
         )
 
@@ -584,9 +589,11 @@ class Table:
                 i
                 for i, c in enumerate(start_columns)
                 if c.name in t.displayed_columns
-                and (i not in aggregated_over
-                     or i not in usages
-                     or aggregated_over[i] != usages[i])
+                and (
+                    i not in aggregated_over
+                    or i not in usages
+                    or aggregated_over[i] != usages[i]
+                )
             ]
             if len(modified_start_cols) > 0:
                 modified_start_node = SchemaNode.product(
@@ -609,17 +616,27 @@ class Table:
         self.schema.map_edge_to_closure(
             edge, exp, len(start_columns), modified_start_node, modified_start_cols
         )
-        t_new = t.infer_internal(
+        _ = t.infer_internal(
             [col.name for col in start_columns],
             end_node,
             with_name=with_name,
-            aggregated_over=[start_columns[i] for i in aggregated_over.keys() if start_columns[i].name in t.displayed_columns],
+            aggregated_over=[
+                start_columns[i]
+                for i in aggregated_over.keys()
+                if start_columns[i].name in t.displayed_columns
+            ],
         )
-        t_new = t_new.forget(with_name)
+        t_new = self
         if modified_start_cols is None or len(modified_start_cols) == 0:
-            modified_start_cols = [col for col in start_columns if col.name in t.displayed_columns]
+            modified_start_cols = [
+                col for col in start_columns if col.name in t.displayed_columns
+            ]
         else:
-            modified_start_cols = [start_columns[i] for i in modified_start_cols if start_columns[i].name in t.displayed_columns]
+            modified_start_cols = [
+                start_columns[i]
+                for i in modified_start_cols
+                if start_columns[i].name in t.displayed_columns
+            ]
         t_new = t_new.infer(
             [c.name for c in modified_start_cols], end_node, with_name=with_name
         )
@@ -820,20 +837,6 @@ class Table:
             t.displayed_columns[:idx] + t.displayed_columns[idx + 1 :]
         )
         t.derivation = self.derivation.hide(column)
-        t.execute()
-        return t
-
-    def forget(self, column: existing_column):
-        column = self.__get_existing_column(column)
-        self.verify_columns([column], {Table.ColumnRequirements.IS_VAL})
-        t = Table.create_from_table(self)
-        idx = find_index(column.name, self.displayed_columns)
-        if idx < t.marker:
-            t.marker -= 1
-        t.set_displayed_columns(
-            t.displayed_columns[:idx] + t.displayed_columns[idx + 1 :]
-        )
-        t.derivation = self.derivation.forget(column)
         t.execute()
         return t
 

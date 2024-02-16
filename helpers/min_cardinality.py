@@ -1,4 +1,4 @@
-from schema import Cardinality
+from schema.cardinality import Cardinality
 
 
 def min_cardinality(c1: Cardinality, c2: Cardinality):

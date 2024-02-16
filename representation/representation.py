@@ -32,8 +32,6 @@ class RepresentationStep(abc.ABC):
         """
         return self
 
-    from schema.node import SchemaNode
-
     def get_hidden_keys(self) -> list[Domain]:
         return []
 
@@ -94,7 +92,6 @@ class Traverse(RepresentationStep):
     """
 
     from schema.edge import SchemaEdge
-    from schema.node import SchemaNode
 
     def __init__(self, edge: SchemaEdge, columns=None):
         """

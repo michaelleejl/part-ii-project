@@ -6,7 +6,7 @@ from backend.pandas_backend.determine_base_type_of_columns import (
 from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.pandas_backend import PandasBackend
 from exp.exp import Exp
-from schema import Cardinality
+from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge
 from schema.exceptions import (
     NodesDoNotExistInGraphException,

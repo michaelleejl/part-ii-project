@@ -1,4 +1,4 @@
-from schema import SchemaNode
+from schema.node import SchemaNode
 from schema.helpers.find_index import find_index
 from representation.representation import *
 

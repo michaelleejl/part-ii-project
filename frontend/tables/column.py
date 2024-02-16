@@ -1,4 +1,4 @@
-from schema import BaseType
+from schema.base_types import BaseType
 from exp.aexp import (
     ColumnAexp,
     AddAexp,

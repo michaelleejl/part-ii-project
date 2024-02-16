@@ -1,7 +1,7 @@
 import expecttest
 import pandas as pd
 
-from schema import Schema
+from schema.schema import Schema
 
 
 def initialise():
@@ -433,6 +433,7 @@ Edinburgh Cambridge          0.300000
 
         self.maxDiff = None
         print(t10)
+
 
 #         self.assertExpectedInline(
 #             str(t10),
