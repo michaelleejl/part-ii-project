@@ -5,7 +5,7 @@ from representation.representation import RepresentationStep
 
 
 def transform_step(
-    namespace, table, start, end, aggregated_over
+    namespace
 ) -> Callable[[RepresentationStep], tuple[RepresentationStep, list[Domain]]]:
     internal_namespace = namespace
 
@@ -18,11 +18,17 @@ def transform_step(
             step_hidden_keys = step.hidden_keys
             columns = []
             for hk in step_hidden_keys:
-                col = new_domain_from_schema_node(internal_namespace, hk)
+                col = new_domain_from_schema_node(internal_namespace, hk.node, hk.name)
                 internal_namespace.add(col.name)
                 columns += [col]
+
             if isinstance(step, Traverse):
-                return Traverse(step.edge, columns), columns
+                return (
+                    Traverse(
+                        step.edge,
+                        columns
+                    ),
+                    columns)
             else:
                 return (
                     Expand(
@@ -33,11 +39,6 @@ def transform_step(
                     ),
                     columns,
                 )
-        elif isinstance(step, EndTraversal):
-            return (
-                EndTraversal(end),
-                [],
-            )
         else:
             return step, []
 

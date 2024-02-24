@@ -26,6 +26,132 @@ def create_value(domain: Domain, repr, hidden_keys: list[Domain], cardinality):
     return ColumnNode(domain, Val(), repr, hidden_keys, cardinality=cardinality)
 
 
+def intermediate_representation_for_path(path: list[DerivationNode]) -> list[RepresentationStep]:
+    """
+    Computes the intermediate representation for a path from keys
+
+    Args:
+        path (list[DerivationNode]): The path
+        keys (list[Domain]): The keys of the path
+        hids (list[Domain]): The hidden keys of the path
+    """
+
+    intermediate_representation = []
+
+    for node in path:
+        intermediate_representation += node.intermediate_representation
+
+    return intermediate_representation
+
+
+def invert_derivation_path(path: list[DerivationNode], namespace: set[str]) -> DerivationNode:
+    """
+    Inverts a derivation path
+
+    Args:
+        path (list[DerivationNode]): The path to be inverted
+        namespace (set[str]): The namespace of the table with the path to be inverted removed
+
+    Returns:
+        DerivationNode: The inverted path
+    """
+    start: DerivationNode = path[-1]
+
+    curr: DerivationNode = path[-2].copy()
+
+    intermediate_representation = invert_representation(start.intermediate_representation)
+
+    start = start.set_parent(None)
+    start = start.set_intermediate_representation([Get(start.domains)])
+
+    new_path = start
+    parent = start
+
+    for i in range(len(path) - 2, -1, -1):
+        child = None
+        if i > 0:
+            child = path[i - 1]
+        curr = curr.set_children([c for c in curr.children if c != parent])
+
+        inverted = invert_representation(curr.intermediate_representation)
+        curr.intermediate_representation = intermediate_representation
+        intermediate_representation = inverted
+
+        if curr.is_key_column():
+            curr = curr.to_value_column(Cardinality.MANY_TO_MANY)
+
+        new_path = new_path.add_child(parent, curr)
+        parent = curr
+        curr = child
+        i -= 1
+
+    new_path = set_hidden_keys_along_path(path[::-1], new_path, namespace)
+    return new_path
+
+
+def set_hidden_keys_along_path(path: list[DerivationNode], entry: DerivationNode,
+                               namespace: set[str]) -> DerivationNode:
+    """
+    Names and sets the hidden keys along a path
+
+    Args:
+        path (list[DerivationNode]): The path
+        entry (DerivationNode): The entry node
+        namespace (set[str]): The namespace of the table, excluding the path
+
+    Returns:
+        DerivationNode: The entry node to the path, where the hidden keys have been named and set
+    """
+    path = path[1:]
+
+    get_next_step = transform_step(namespace)
+    representation = entry.intermediate_representation
+    new_representation = []
+    hidden_keys = []
+
+    new_namespace = namespace | set([d.name for d in entry.domains])
+    for step in representation:
+        next_step, cols = get_next_step(step)
+        new_representation += [next_step]
+        hidden_keys += cols
+        new_namespace |= set([d.name for d in cols])
+
+    node = entry.set_intermediate_representation(new_representation)
+    node = node.set_hidden_keys(hidden_keys)
+
+    if len(path) == 0:
+        return node
+
+    child = path[0]
+    child = node.find_node_with_domains(child.domains)
+    new_child = set_hidden_keys_along_path(path, child, new_namespace)
+
+    node = node.remove_child(child).add_child(node, new_child)
+    return node
+
+
+def find_splice_point(node: DerivationNode, path: list[DerivationNode], idx: int = 0) -> int:
+    """
+    Finds the splice point of a path in a tree
+
+    Args:
+        node (DerivationNode): The node to search for the splice point
+        path (list[DerivationNode]): The to be spliced in at the splice point
+        idx (int): Internal - the index in the list
+    Returns:
+        int: The point to splice in the path
+    """
+    if len(path) < 2:
+        raise PathShouldDivergeException()
+
+    # If I can find a child with the same domains as the first node in the path, then I should continue
+    if path[1] in set(node.children):
+        child = node.find_node_with_domains(path[1].domains)
+        return find_splice_point(child, path[1:], idx + 1)
+    else:
+        return idx
+
+
 class DerivationNode:
     def __init__(
             self,
@@ -86,7 +212,7 @@ class DerivationNode:
                 operator.or_, [c.is_node_in_tree(node) for c in self.children], False
             )
 
-    def set_parent(self, parent: DerivationNode) -> DerivationNode:
+    def set_parent(self, parent: DerivationNode | None) -> DerivationNode:
         """
         Sets the parent of the node
 
@@ -203,7 +329,8 @@ class DerivationNode:
             new_children = []
             for c in self.children:
                 if c in subtree.children:
-                    new_children += [c.merge_subtree(subtree.children[c])]
+                    to_merge = subtree.find_node_with_domains(c.domains)
+                    new_children += [c.merge_subtree(to_merge)]
                 else:
                     new_children += [c]
             for c in subtree.children:
@@ -258,6 +385,28 @@ class DerivationNode:
                 new_children += [c.remove_children(children)]
         parent = parent.set_children(new_children)
         return parent
+
+    def set_hidden_keys(self, hidden_keys: list[Domain] | OrderedSet[Domain]) -> DerivationNode:
+        """
+        Sets the hidden keys of the node
+
+        Args:
+            hidden_keys (list[Domain] | OrderedSet[Domain]): The hidden keys to be set
+
+        Returns:
+            DerivationNode: A new node with the hidden keys set
+        """
+        if isinstance(hidden_keys, OrderedSet):
+            hidden_keys = hidden_keys.to_list()
+
+        clone = self.copy()
+        clone.hidden_keys = OrderedSet(hidden_keys)
+        return clone
+
+    def set_intermediate_representation(self, intermediate_representation: list[RepresentationStep]):
+        clone = self.copy()
+        clone.intermediate_representation = intermediate_representation
+        return clone
 
     def find_node_with_domains(self, domains: list[Domain]) -> DerivationNode | None:
         """
@@ -440,18 +589,43 @@ class DerivationNode:
 
     def show_val(self, column: Domain):
         if len(self.domains) == 1 and self.domains[0] == column:
-            if len(self.get_hidden_keys_for_val()) > 0:
+            if len(self.find_hidden_keys()) > 0:
                 return self.to_value_column(Cardinality.MANY_TO_MANY)
             return self.to_value_column(Cardinality.MANY_TO_ONE)
         else:
             clone = self.copy()
             return clone.set_children([c.show_val(column) for c in self.children])
 
+    def append_to_intermediate_representation(self,
+                                              intermediate_representation: list[RepresentationStep]) -> DerivationNode:
+        """
+        Appends to the intermediate representation of the subtree
+
+        Args:
+            intermediate_representation (list[RepresentationStep]): The intermediate representation to be appended
+        """
+        clone = self.copy()
+        clone.intermediate_representation += intermediate_representation
+        return clone
+
+    def prepend_to_intermediate_representation(self,
+                                               intermediate_representation: list[RepresentationStep]) -> DerivationNode:
+        """
+        Prepends to the intermediate representation of the subtree
+
+        Args:
+            intermediate_representation (list[RepresentationStep]): The intermediate representation to be prepended
+        """
+        clone = self.copy()
+        clone.intermediate_representation = intermediate_representation + clone.intermediate_representation
+        return clone
+
     def equate_internal(self, key1: Domain, key2: Domain, root_keys: list[Domain]) -> DerivationNode:
         idx1 = find_index(key1, self.domains)
         idx2 = find_index(key2, self.domains)
 
         new_node = self.copy()
+        new_node = new_node.set_children([c.equate_internal(key1, key2, root_keys) for c in self.children])
 
         if idx2 >= 0:
             if idx1 >= 0:
@@ -463,8 +637,9 @@ class DerivationNode:
                     Project(start_node, end_node, [idx1]),
                     EndTraversal([key2]),
                 ]
-                intermediate = IntermediateNode(self.domains, ir, parent=new_node)
-                intermediate = intermediate.set_children(self.children)
+                new_node = new_node.set_children(
+                    [c.prepend_to_intermediate_representation(ir).append_to_intermediate_representation([Drop([key2])])
+                     for c in self.children])
             else:
                 filtered = self.domains[:idx2] + self.domains[idx2 + 1:]
                 idxs = [(i, find_index(d, root_keys)) for i, d in enumerate(filtered)]
@@ -488,15 +663,9 @@ class DerivationNode:
                     Project(start_node, end_node, [to_insert]),
                     EndTraversal([key2]),
                 ]
-                intermediate = IntermediateNode(self.domains, ir, parent=new_node)
-                intermediate = intermediate.set_children(self.children)
-
-            if len(self.children) > 0:
-                new_node = new_node.set_children([intermediate])
-            else:
-                new_node = new_node.set_children([])
-        # else:
-        #     new_node = new_node.set_children(self.children)
+                new_node = new_node.set_children(
+                    [c.prepend_to_intermediate_representation(ir).append_to_intermediate_representation([Drop([key2])])
+                     for c in self.children])
 
         return new_node
 
@@ -524,12 +693,123 @@ class DerivationNode:
         new_node.intermediate_representation = rename_column_in_representation(
             self.intermediate_representation, old_name, new_name
         )
-        new_node.children = OrderedSet(
-            [c.set_parent(new_node).rename(old_name, new_name) for c in self.children]
-        )
+        new_node = new_node.set_children([c.rename(old_name, new_name) for c in self.children])
         return new_node
 
-    def check_if_value(self):
+    def path_to_value(self, value: DerivationNode) -> list[DerivationNode] | None:
+        """
+        Finds the path from the node to a value column
+
+        Args:
+            value (DerivationNode): The value column to find the path to
+
+        Returns:
+            list[DerivationNode] | None: The path from the node to the value column, or None if it does not exist
+        """
+        if self == value:
+            if self.is_value_or_set_of_values():
+                return [self]
+            else:
+                return None
+        else:
+            for child in self.children:
+                suffix = child.path_to_value(value)
+                if suffix is not None:
+                    return [self] + suffix
+            return None
+
+    def find_column_with_name(self, name: str) -> ColumnNode | None:
+        """
+        Finds a column with a given name in the subtree
+
+        Args:
+            name (str): The name of the column to find
+
+        Returns:
+            ColumnNode | None: The column with the given name, or None if it does not exist
+        """
+        if isinstance(self, ColumnNode):
+            if self.domains[0].name == name:
+                return self
+        for child in self.children:
+            found = child.find_column_with_name(name)
+            if found is not None:
+                return found
+
+    def find_all_keys_in_tree(self) -> list[Domain]:
+        """
+        Finds all key columns in the subtree
+
+        Returns:
+            list[Domain]: The key columns in the subtree
+        """
+        res = []
+        if self.is_key_column():
+            res += [self]
+        for child in self.children:
+            res += child.find_all_keys_in_tree()
+        return res
+
+    def find_all_values_in_tree(self) -> list[Domain]:
+        """
+        Finds all value columns in the subtree
+
+        Returns:
+            list[Domain]: The value columns in the subtree
+        """
+        res = []
+        if self.is_val_column():
+            res += [self]
+        for child in self.children:
+            res += child.find_all_values_in_tree()
+        return res
+
+    def find_all_hidden_keys_in_tree(self):
+        """
+        Finds all hidden key columns in the subtree
+
+        Returns:
+            list[Domain]: The hidden key columns in the subtree
+        """
+        res = []
+        if self.is_hidden_key_column():
+            res += [self]
+        for child in self.children:
+            res += child.find_all_hidden_keys_in_tree()
+        return res
+
+    def find_strong_keys(self) -> list[Domain]:
+        if self.parent.is_root():
+            return self.domains
+        else:
+            return self.parent.find_strong_keys()
+
+    def find_hidden_keys(self) -> OrderedSet:
+        return self.parent.find_hidden_keys().union(self.hidden_keys)
+
+    def is_root(self) -> bool:
+        return False
+
+    def is_key_column(self) -> bool:
+        return False
+
+    def is_hidden_key_column(self) -> bool:
+        return False
+
+    def is_val_column(self) -> bool:
+        return False
+
+    def is_intermediate_node(self) -> bool:
+        return False
+
+    def is_value_or_set_of_values(self) -> bool:
+        """
+        Checks if the node is a value column or a set of value columns
+        A node represents a set of value columns when it is of the form A x B x C x ... where A, B, C, ... are value columns
+
+        Returns:
+            bool: True if the node is a value column or a set of value columns, False otherwise
+        """
         if self.is_val_column():
             return True
         count = 0
@@ -543,169 +823,18 @@ class DerivationNode:
             count += 1
         return count == len(self.children)
 
-    def path_to_value(self, value):
-        if self == value:
-            if self.check_if_value():
-                return [self]
-            else:
-                return None
-        else:
-            for child in self.children:
-                suffix = child.path_to_value(value)
-                if suffix is not None:
-                    return [self] + suffix
-            return None
+    def is_key_or_set_of_keys(self) -> bool:
+        """
+        Checks if the node is a key column or a set of key columns
+        A node represents a set of key columns when it is of the form A x B x C x ... where A, B, C, ... are key columns
 
-    def intermediate_representation_for_path(self, path, keys, hids):
-        intermediate_representation = []
-        for node in path:
-            if not node.is_key_column():
-                intermediate_representation += node.intermediate_representation
-        ents = [
-            step
-            for step in intermediate_representation
-            if isinstance(step, EndTraversal)
-        ]
-        to_add = functools.reduce(
-            lambda x, y: x.union(y), [step.end_columns for step in ents[:-1]], set()
-        )
-        to_remove = set(ents[-1].end_columns)
-        return intermediate_representation + [
-            Drop(
-                list(
-                    to_add.difference(to_remove).difference(set(keys).union(set(hids)))
-                )
-            )
-        ]
+        Returns:
+            bool: True if the node is a key column or a set of key columns, False otherwise
+        """
 
-    @classmethod
-    def invert_path(cls, path: list, table):
-        start: DerivationNode = path[-1]
-        end: DerivationNode = path[0]
-        parent = end.parent
+        return self.is_key_column() or self.parent.is_root()
 
-        assert parent is None
-
-        namespace = table.get_namespace()
-
-        curr: DerivationNode = path[-2].copy()
-
-        start_inverted = invert_representation(start.intermediate_representation)
-        new_start_ir = []
-        start_hidden_cols = []
-        namespace |= set([d.name for d in start.domains + curr.domains])
-        get_next_step = transform_step(
-            namespace, table, start.domains, curr.domains, []
-        )
-        for step in start_inverted:
-            next_step, cols = get_next_step(step)
-            new_start_ir += [next_step]
-            start_hidden_cols += cols
-        intermediate_representation = new_start_ir
-        hidden_keys = start_hidden_cols
-
-        i = len(path) - 2
-        start = start.set_parent(None)
-        new_path = start
-        parent = start
-
-        path_representation = [new_start_ir]
-
-        while i >= 0:
-            child = None
-            child_domains = []
-            if i > 0:
-                child = path[i - 1]
-                child_domains = child.domains
-            curr.children = OrderedSet([c for c in curr.children if c != parent])
-
-            inverted = invert_representation(curr.intermediate_representation)
-            hidden_columns = []
-            new_ir = []
-            namespace |= set([d.name for d in curr.domains + child_domains])
-            get_next_step = transform_step(
-                namespace, table, curr.domains, child_domains, []
-            )
-            for step in inverted:
-                next_step, cols = get_next_step(step)
-                new_ir += [next_step]
-                hidden_columns += cols
-
-            curr.intermediate_representation = intermediate_representation
-            path_representation = [intermediate_representation] + path_representation
-            curr.hidden_keys = OrderedSet(hidden_keys)
-
-            intermediate_representation = new_ir
-            hidden_keys = hidden_columns
-
-            if curr.is_key_column():
-                curr = curr.to_value_column(Cardinality.MANY_TO_MANY)
-
-            new_path = new_path.add_child(parent, curr)
-            parent = curr
-            curr = child
-            i -= 1
-        assert len(new_path.children) == 1
-        return new_path.children[0], path_representation
-
-    def find_column_with_name(self, name: str):
-        if isinstance(self, ColumnNode):
-            if self.domains[0].name == name:
-                return self
-        for child in self.children:
-            found = child.find_column_with_name(name)
-            if found is not None:
-                return found
-
-    def get_hidden_keys_for_val(self) -> OrderedSet:
-        return self.parent.get_hidden_keys_for_val().union(self.hidden_keys)
-
-    def is_root(self):
-        return False
-
-    def is_key_column(self):
-        return False
-
-    def is_hidden_key_column(self):
-        return False
-
-    def is_val_column(self):
-        return False
-
-    def is_intermediate_node(self):
-        return False
-
-    def find_values(self):
-        res = []
-        if self.is_val_column():
-            res += [self]
-        for child in self.children:
-            res += child.find_values()
-        return res
-
-    def find_keys(self):
-        res = []
-        if self.is_key_column():
-            res += [self]
-        for child in self.children:
-            res += child.find_keys()
-        return res
-
-    def find_hidden(self):
-        res = []
-        if self.is_hidden_key_column():
-            res += [self]
-        for child in self.children:
-            res += child.find_hidden()
-        return res
-
-    def find_strong_keys(self):
-        if self.parent.is_root():
-            return self.domains
-        else:
-            return self.parent.find_strong_keys()
-
-    def to_derivation_node(self):
+    def to_derivation_node(self) -> DerivationNode:
         copy = DerivationNode(
             self.domains, self.intermediate_representation, self.hidden_keys
         )
@@ -713,7 +842,7 @@ class DerivationNode:
         copy = copy.add_children(copy, self.children)
         return copy
 
-    def to_key_column(self):
+    def to_key_column(self) -> ColumnNode:
         copy = ColumnNode(
             self.domains[0], Key(), self.intermediate_representation, self.hidden_keys
         )
@@ -721,7 +850,7 @@ class DerivationNode:
         copy = copy.add_children(copy, self.children)
         return copy
 
-    def to_hidden_key_column(self):
+    def to_hidden_key_column(self) -> ColumnNode:
         copy = ColumnNode(
             self.domains[0],
             HiddenKey(),
@@ -732,7 +861,7 @@ class DerivationNode:
         copy = copy.add_children(copy, self.children)
         return copy
 
-    def to_value_column(self, cardinality):
+    def to_value_column(self, cardinality) -> ColumnNode:
         copy = ColumnNode(
             self.domains[0],
             Val(),
@@ -744,7 +873,7 @@ class DerivationNode:
         copy = copy.add_children(copy, self.children)
         return copy
 
-    def to_intermediate_node(self):
+    def to_intermediate_node(self) -> IntermediateNode:
         intermediate = IntermediateNode(
             self.domains, self.intermediate_representation, self.hidden_keys
         )
@@ -769,7 +898,7 @@ class DerivationNode:
     def __str__(self):
         return self.__repr__()
 
-    def copy(self):
+    def copy(self) -> DerivationNode:
         copy = DerivationNode(
             self.domains, self.intermediate_representation, self.hidden_keys
         )
@@ -778,50 +907,46 @@ class DerivationNode:
         return copy
 
 
+def compress_path_representation(path: list[DerivationNode]) -> list[RepresentationStep]:
+    """
+    Compresses the intermediate representation of a path
+
+    Args:
+        path (list[DerivationNode]): The path to be compressed
+
+    Returns:
+        list[RepresentationStep]: The compressed intermediate representation
+    """
+    val_node = path[-1]
+    keys = val_node.find_strong_keys()
+    hidden_keys = val_node.find_hidden_keys()
+
+    intermediate_repr = intermediate_representation_for_path(path)
+
+    ents = [
+        step
+        for step in intermediate_repr
+        if isinstance(step, EndTraversal)
+    ]
+    to_drop = functools.reduce(
+        lambda x, y: x.union(y), [step.end_columns for step in ents[:-1]], set()
+    )
+    to_keep = set(ents[-1].end_columns).union(set(hidden_keys)).union(set(keys))
+
+    return intermediate_repr + [Drop(list(to_drop.difference(to_keep)))]
+
+
 class RootNode(DerivationNode):
 
     def __init__(self, keys: list[Domain]):
         super().__init__(keys, [])
-        start_node = SchemaNode.product([k.node for k in keys])
 
-        stt = StartTraversal(keys)
-        prj = Project(start_node, None, [])
-        ent = EndTraversal([])
         unit_node = DerivationNode([], [Get([])], [])
         self.children = self.children.append(unit_node)
 
         for i, key in enumerate(keys):
-            stt = StartTraversal(keys)
-            prj = Project(start_node, key.node, [i])
-            ent = EndTraversal([key])
             key_node = ColumnNode(key, Key(), [Get([key])], parent=self)
             self.children = self.children.append(key_node)
-
-    def is_root(self):
-        return True
-
-    def to_intermediate_representation(self):
-        ir = self.intermediate_representation.copy()  # push a frame onto the stack
-        for i, child in enumerate(self.children):
-            if i == 0:
-                ir += child.to_intermediate_representation()
-            else:
-                ir += child.to_intermediate_representation() + [Merge()]  # outer merge
-        return ir
-
-    # inner product
-    def equate(self, key1, key2):
-        key1 = key1.get_domain()
-        key2 = key2.get_domain()
-        idx = find_index(key2, self.domains)
-        new_keys = self.domains[:idx] + self.domains[idx + 1:]
-        new_root = RootNode(new_keys)
-        for child in self.children:
-            new_child = child.equate_internal(key1, key2, new_keys)
-            new_root = new_root.insert_key(new_child.domains)
-            key_node = new_root.find_node_with_domains(new_child.domains)
-            new_root = new_root.add_children(key_node, new_child.children)
-        return new_root
 
     def merge_subtree(
             self, subtree: DerivationNode
@@ -833,6 +958,33 @@ class RootNode(DerivationNode):
             else:
                 new_children += [child]
         return self.set_children(new_children)
+
+    def get_representation_of_values_from_keys(self, keys: list[Domain], values: list[Domain]) -> list[RepresentationStep]:
+        """
+        Returns the intermediate representation -- a list of imperative commands -- for a path from keys to values
+
+        Args:
+            keys (list[Domain]): The keys
+            values (list[Domain]): The values
+
+        Returns:
+            list[RepresentationStep]: The intermediate representation
+        """
+        key_node = self.find_node_with_domains(keys)
+        if key_node is None:
+            raise KeysNotFoundException(keys)
+
+        val_node = self.find_node_with_domains(values)
+        if val_node is None:
+            raise ValuesNotFoundException(values)
+
+        path = key_node.path_to_value(val_node)
+        if path is None:
+            raise PathNotFoundException(keys, values)
+
+        path = path[1:]
+
+        return compress_path_representation(path)
 
     def hide(self, column: ColumnNode) -> RootNode:
         # assert column.is_key_column()
@@ -860,7 +1012,7 @@ class RootNode(DerivationNode):
     def show_key(self, column: Domain) -> RootNode:
         new_root = RootNode(self.domains + [column])
         for child in self.children:
-            new_children = child.show(column)
+            new_children = child.show_key(column)
             for new_child in new_children:
                 new_root = new_root.insert_key(new_child.domains)
                 key_node = new_root.find_node_with_domains(new_child.domains)
@@ -870,6 +1022,34 @@ class RootNode(DerivationNode):
     def show_val(self, column: Domain) -> RootNode:
         return self.set_children([c.show_val(column) for c in self.children])
 
+    # inner product
+    def equate(self, key1, key2):
+        key1 = key1.get_domain()
+        key2 = key2.get_domain()
+        idx = find_index(key2, self.domains)
+        new_keys = self.domains[:idx] + self.domains[idx + 1:]
+        new_root = RootNode(new_keys)
+        for child in self.children:
+            new_child = child.equate_internal(key1, key2, new_keys)
+            new_root = new_root.insert_key(new_child.domains)
+            key_node = new_root.find_node_with_domains(new_child.domains)
+            new_root = new_root.add_children(key_node, new_child.children)
+        return new_root
+
+    def splice(self, path: list[DerivationNode], namespace: set[str]):
+        root = self.insert_key(path[0].domains)
+        key_node = root.find_node_with_domains(path[0].domains)
+        splice_point_idx = find_splice_point(key_node, path)
+        splice_point = root.find_node_with_domains(path[splice_point_idx].domains)
+
+        # intermediate_representation = compress_path_representation(path[splice_point_idx+1:])
+        # target = target.set_intermediate_representation(intermediate_representation)
+        to_splice_in = set_hidden_keys_along_path(path[splice_point_idx+1:], path[splice_point_idx+1], namespace)
+        target = to_splice_in.find_node_with_domains(path[-1].domains)
+        hidden_keys = target.find_hidden_keys()
+        root = root.add_hidden_keys(hidden_keys)
+        root = root.add_child(splice_point, to_splice_in)
+        return root
 
     def infer(
             self,
@@ -881,7 +1061,6 @@ class RootNode(DerivationNode):
             cardinality,
             repr: list[RepresentationStep],
     ):
-        assert self.parent is None
         to_prepend = []
         filtered = set([i.domains[0] for i in intermediates]).difference(
             set(strong_keys)
@@ -895,17 +1074,13 @@ class RootNode(DerivationNode):
             for i, intermediate in enumerate(intermediates):
                 if intermediate.is_val_column():
                     i_keys = intermediate.get_strong_keys()
-                    hid_keys = intermediate.get_hidden_keys_for_val()
                     key_node = self.find_node_with_domains(i_keys)
-                    path = key_node.path_to_value(intermediate)
-                    intermediate_steps = self.intermediate_representation_for_path(
-                        path, strong_keys, hid_keys
-                    )
-                    j += 1
+                    intermediate_steps = self.get_representation_of_values_from_keys(i_keys, intermediate.domains)
                     if j == 0:
                         to_prepend += intermediate_steps
                     else:
                         to_prepend += [Reset()] + intermediate_steps + [Merge()]
+                    j += 1
             intermediate_node = new_root.find_node_with_domains(
                 [i.domains[0] for i in intermediates]
             )
@@ -917,7 +1092,7 @@ class RootNode(DerivationNode):
                     [i.domains[0] for i in intermediates],
                     to_prepend,
                     old_hids,
-                    intermediate_cardinality,
+                    cardinality=intermediate_cardinality,
                 )
                 new_root = new_root.add_child(key_node, intermediate_node)
             new_root = new_root.add_child(intermediate_node, val_node)
@@ -994,10 +1169,10 @@ class RootNode(DerivationNode):
         )
 
     def get_values(self):
-        return self.find_values()
+        return self.find_all_values_in_tree()
 
     def get_keys(self):
-        return self.find_keys()
+        return self.find_all_keys_in_tree()
 
     def get_keys_and_values(self):
         keys = self.get_keys()
@@ -1005,14 +1180,13 @@ class RootNode(DerivationNode):
         return keys + values
 
     def get_hidden(self):
-        return self.find_hidden()
+        return self.find_all_hidden_keys_in_tree()
 
-    def get_hidden_keys_for_val(self):
+    def find_hidden_keys(self):
         return OrderedSet([])
 
     def insert_key(self, domains: list[Domain]):
         assert is_sublist(domains, self.domains)
-        start_node = SchemaNode.product([d.node for d in self.domains])
         is_exact_match = np.sum(
             np.array([child.domains == domains for child in self.children])
         )
@@ -1021,12 +1195,6 @@ class RootNode(DerivationNode):
             return self
         else:
             assert is_exact_match == 0
-            stt = StartTraversal(self.domains)
-            indices = [find_index(d, self.domains) for d in domains]
-            prj = Project(
-                start_node, SchemaNode.product([d.node for d in domains]), indices
-            )
-            ent = EndTraversal(domains)
             node = DerivationNode(domains, [Get(domains)], [])
             new_root = self.copy()
             new_root.children = OrderedSet(
@@ -1046,7 +1214,10 @@ class RootNode(DerivationNode):
         new_root = new_root.merge_subtree(unit_key)
         return new_root
 
-    def add_hidden_keys(self, hidden_keys: list[Domain]):
+    def add_hidden_keys(self, hidden_keys: list[Domain] | OrderedSet[Domain]):
+        if isinstance(hidden_keys, OrderedSet):
+            hidden_keys = hidden_keys.to_list()
+
         new_root = self.copy()
         new_root.children = OrderedSet([c.set_parent(new_root) for c in self.children])
         unit_key = new_root.find_node_with_domains([])
@@ -1060,7 +1231,7 @@ class RootNode(DerivationNode):
         new_root = new_root.merge_subtree(unit_key)
         return new_root
 
-    def add_child(self, parent, child):
+    def add_child(self, parent, child) -> RootNode:
         clone = self.copy()
         clone.children = OrderedSet(
             [c.set_parent(clone).add_child(parent, child) for c in self.children]
@@ -1087,6 +1258,18 @@ class RootNode(DerivationNode):
             [c.set_parent(clone).remove_children(children) for c in self.children]
         )
         return clone
+
+    def is_root(self):
+        return True
+
+    def to_intermediate_representation(self):
+        ir = self.intermediate_representation.copy()  # push a frame onto the stack
+        for i, child in enumerate(self.children):
+            if i == 0:
+                ir += child.to_intermediate_representation()
+            else:
+                ir += child.to_intermediate_representation() + [Merge()]  # outer merge
+        return ir
 
     def copy(self):
         return RootNode(self.domains)
@@ -1174,7 +1357,11 @@ class ColumnNode(DerivationNode):
             return new_node
 
     def show_key(self, column: Domain) -> [DerivationNode]:
-        return [self.to_key_column()]
+        if self.is_hidden_key_column():
+            return [self.to_key_column()]
+        else:
+            return super().show_key(column)
+
 
 class IntermediateNode(DerivationNode):
     def __init__(
@@ -1201,8 +1388,8 @@ class IntermediateNode(DerivationNode):
     def get_intermediates(self):
         root = self.find_root_of_tree()
         keys = set([n.domains[0] for n in root.get_keys()])
-        vals = set([n.domains[0] for n in self.find_values()])
-        hids = set(self.get_hidden_keys_for_val())
+        vals = set([n.domains[0] for n in self.find_all_values_in_tree()])
+        hids = set(self.find_hidden_keys())
         intermediates = [c for c in self.domains if c not in keys | vals | hids]
         return intermediates
 

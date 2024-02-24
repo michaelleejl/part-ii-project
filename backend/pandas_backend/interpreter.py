@@ -128,7 +128,7 @@ def trv(derivation_step: Traverse, backend, stack, sp) -> interp:
     end_node = derivation_step.end_node
     end_nodes = SchemaNode.get_constituents(end_node)
 
-    relation = backend.get_relation_from_edge(SchemaEdge(start_node, end_node), table)
+    relation = backend.get_relation_from_mapping(derivation_step.edge, table)
 
     hidden_keys = [c for c in derivation_step.hidden_keys]
     idxs = []
@@ -364,7 +364,7 @@ def interpret(steps: list[RepresentationStep], backend) -> pd.DataFrame:
     stack = []
     sp = None
     for s in steps:
-        print(s)
+        # print(s)
         stack, sp = step(s, backend, stack, sp)
-        print(stack)
+        # print(stack)
     return stack[0]

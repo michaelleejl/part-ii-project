@@ -1,10 +1,12 @@
-import unittest
+import expecttest
 
 
-from schema import SchemaNode, SchemaEdge, Cardinality, AtomicNode, BaseType
+from schema.node import SchemaNode, AtomicNode, BaseType
+from schema.cardinality import Cardinality
+from schema.edge import SchemaEdge
 
 
-class TestSchemaEdge(unittest.TestCase):
+class TestSchemaEdge(expecttest.TestCase):
 
     def test_schemaEdge_getCardinalityReturnsCorrectCardinalityIfTraversingForwards(
         self,
@@ -21,3 +23,4 @@ class TestSchemaEdge(unittest.TestCase):
         v = AtomicNode("name2", BaseType.STRING)
         e = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
         self.assertEqual(Cardinality.ONE_TO_MANY, e.get_cardinality(v))
+

@@ -1,0 +1,243 @@
+import expecttest
+
+from frontend.derivation.derivation_node import DerivationNode, RootNode, ColumnNode, intermediate_representation_for_path, \
+    invert_derivation_path, set_hidden_keys_along_path, find_splice_point
+from frontend.derivation.ordered_set import OrderedSet
+from frontend.derivation.exceptions import *
+from frontend.domain import Domain
+from frontend.tables.column_type import Val, Key, HiddenKey
+from schema.cardinality import Cardinality
+from schema.edge import SchemaEdge
+from schema.node import AtomicNode, SchemaNode
+from representation.representation import StartTraversal, Traverse, EndTraversal, Get, Project
+
+class TestRootNode(expecttest.TestCase):
+
+    def test_initialisation_createsRootWithColumnNodes(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        root = RootNode([a, b])
+
+        self.assertExpectedInline(str(root), """\
+[a, b] // hidden: []
+	[] // hidden: []
+	[a] // hidden: []
+	[b] // hidden: []""")
+
+    def test_splice_splicesAtTheCorrectPoint_forStraightLineDerivation(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        x = AtomicNode("x")
+        y = AtomicNode("y")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+        x.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", x)
+        e = Domain("e", y)
+
+        e1 = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        e3 = SchemaEdge(w, x, Cardinality.MANY_TO_ONE)
+        e4 = SchemaEdge(x, y, Cardinality.MANY_TO_ONE)
+
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])])
+        d_node = DerivationNode([d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])])
+        e_node = DerivationNode([e], [StartTraversal([d]), Traverse(e4), EndTraversal([e])])
+
+        root = RootNode([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node).add_child(b_node, c_node)
+
+        root2 = RootNode([a])
+        a_node = root2.children[1]
+        root2 = (root2.add_child(a_node, b_node)
+                      .add_child(b_node, c_node)
+                      .add_child(c_node, d_node)
+                      .add_child(d_node, e_node)
+                 )
+
+        a_node = root2.children[1]
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        d_node = c_node.children[0]
+        e_node = d_node.children[0]
+
+        path = [a_node, b_node, c_node, d_node, e_node]
+
+        root = root.splice(path, set())
+
+        self.assertExpectedInline(str(root), """\
+[a] // hidden: []
+	[] // hidden: []
+	[a] // hidden: []
+		[b] // hidden: []
+			[c] // hidden: []
+				[e] // hidden: []""")
+
+    def test_splice_splicesAtTheCorrectPoint_forBranchingDerivation(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        x = AtomicNode("x")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+        x.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", x)
+
+        e1 = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        e3 = SchemaEdge(w, x, Cardinality.MANY_TO_ONE)
+
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])])
+        d_node = DerivationNode([d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])])
+
+        root = RootNode([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node).add_child(a_node, c_node)
+
+        root2 = RootNode([a])
+        a_node = root2.children[1]
+        root2 = (root2.add_child(a_node, b_node)
+                 .add_child(b_node, c_node)
+                 .add_child(c_node, d_node)
+                 )
+
+        a_node = root2.children[1]
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        d_node = c_node.children[0]
+
+        path = [a_node, b_node, c_node, d_node]
+
+        root = root.splice(path, set())
+
+        self.assertExpectedInline(str(root), """\
+[a] // hidden: []
+	[] // hidden: []
+	[a] // hidden: []
+		[b] // hidden: []
+			[d] // hidden: []
+		[c] // hidden: []""")
+
+    def test_splice_namesSetsAndAddsHiddenKeys(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        x = AtomicNode("x")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+        x.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", x)
+
+        e1 = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        e3 = SchemaEdge(w, x, Cardinality.ONE_TO_MANY)
+
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])])
+        d_node = DerivationNode([d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])])
+
+        root = RootNode([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node).add_child(b_node, c_node)
+
+        root2 = RootNode([a])
+        a_node = root2.children[1]
+        root2 = root2.add_child(a_node, b_node).add_child(b_node, c_node).add_child(c_node, d_node)
+
+        a_node = root2.children[1]
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        d_node = c_node.children[0]
+
+        path = [a_node, b_node, c_node, d_node]
+
+        root = root.splice(path, set())
+
+        self.assertExpectedInline(str(root), """\
+[a] // hidden: []
+	[] // hidden: []
+		[x] // hidden: []
+	[a] // hidden: []
+		[b] // hidden: []
+			[c] // hidden: []
+				[d] // hidden: [x]""")
+
+    def test_splice_respectsNamespace(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        x = AtomicNode("x")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+        x.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", x)
+
+        e1 = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        e2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        e3 = SchemaEdge(w, x, Cardinality.ONE_TO_MANY)
+
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])])
+        d_node = DerivationNode([d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])])
+
+        x_node = ColumnNode(Domain("x", x), HiddenKey(), [])
+
+        root = RootNode([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node).add_child(b_node, c_node)
+        unit_node = root.children[0]
+        root = root.add_child(unit_node, x_node)
+        root2 = RootNode([a])
+        a_node = root2.children[1]
+        root2 = root2.add_child(a_node, b_node).add_child(b_node, c_node).add_child(c_node, d_node)
+
+        a_node = root2.children[1]
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        d_node = c_node.children[0]
+
+        path = [a_node, b_node, c_node, d_node]
+
+        root = root.splice(path, set("x"))
+
+        self.assertExpectedInline(str(root), """\
+[a] // hidden: []
+	[] // hidden: []
+		[x] // hidden: []
+		[x_1] // hidden: []
+	[a] // hidden: []
+		[b] // hidden: []
+			[c] // hidden: []
+				[d] // hidden: [x_1]""""")

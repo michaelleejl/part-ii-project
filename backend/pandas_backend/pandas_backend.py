@@ -11,6 +11,8 @@ from backend.pandas_backend.helpers import (
 )
 from backend.pandas_backend.interpreter import interpret, end
 from backend.pandas_backend.relation import DataRelation
+from backend.pandas_backend.transform_interpreter import transform_interpreter
+from frontend.mapping import Mapping
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from representation.representation import RepresentationStep, End
@@ -60,24 +62,26 @@ class PandasBackend(Backend):
     def clone(self, node: SchemaNode, new_node: SchemaNode):
         self.clones[new_node] = node
 
-    def map_edge_to_data_relation(self, edge, relation: pd.DataFrame):
-        rev = SchemaEdge(edge.to_node, edge.from_node)
-        # assert edge not in self.edge_data
-        # assert rev not in self.edge_data
+    def map_edge_to_data_relation(self, edge: SchemaEdge, relation: pd.DataFrame):
         f_node_c = SchemaNode.get_constituents(edge.from_node)
         t_node_c = SchemaNode.get_constituents(edge.to_node)
         assert len(f_node_c + t_node_c) == len(relation.columns)
         df = copy_data(relation)
         df.columns = list(range(len(df.columns)))
+        if not edge.is_functional():
+            j = 0
+            for i in range(len(f_node_c), len(df.columns)):
+                df[-j - 1] = df[i]
+                j += 1
         self.edge_data[edge] = copy_data(df)
 
     def map_edge_to_closure(
-        self,
-        edge,
-        function: Exp,
-        num_args: int,
-        rev_target: SchemaNode = None,
-        target_idxs: list[int] = None,
+            self,
+            edge,
+            function: Exp,
+            num_args: int,
+            rev_target: SchemaNode = None,
+            target_idxs: list[int] = None,
     ):
         if rev_target is None:
             target = edge.from_node
@@ -128,22 +132,41 @@ class PandasBackend(Backend):
 
         self.edge_funs[edge] = closure
 
-    def get_relation_from_edge(self, edge: SchemaEdge, table) -> pd.DataFrame:
+    # def get_base_relation(self, edge: SchemaEdge):
+    #     rev = SchemaEdge(edge.to_node, edge.from_node)
+
+    def get_relation_from_mapping(self, mapping: Mapping, table) -> pd.DataFrame:
+        edge = mapping.edge
         rev = SchemaEdge(edge.to_node, edge.from_node)
+
         n = len(SchemaNode.get_constituents(edge.from_node))
         m = len(SchemaNode.get_constituents(edge.to_node))
+
+        hks = mapping.hidden_keys
+        # function edges
         if edge in self.edge_funs:
             return self.edge_funs[edge](table)
-        elif edge in self.edge_data:
-            return copy_data(self.edge_data[edge])
         elif rev in self.edge_funs:
-            return self.edge_funs[rev](table).rename(
-                {i: i + n for i in range(m)} | {j: j for j in range(n)}, axis=1
-            )
+            data = self.edge_funs[rev](table)
+            data.rename({j: -j for j in range(n, n + m)}, axis=1)
+            data.rename({i: i + m for i in range(n)}, axis=1)
+            data.rename({j: (-j) - n for j in range(-n - m + 1, -n + 1)}, axis=1)
+            return data
+
+        # data edges
+        elif edge in self.edge_data:
+            data = copy_data(self.edge_data[edge])
+
         elif rev in self.edge_data:
-            return copy_data(self.edge_data[rev]).rename(
-                {i: i + n for i in range(m)} | {j + m: j for j in range(n)}, axis=1
-            )
+            data = copy_data(self.edge_data[rev])
+            data.rename({j: -j for j in range(n, n + m)}, axis=1)
+            data.rename({i: i + m for i in range(n)}, axis=1)
+            data.rename({j: (-j) - n for j in range(-n - m + 1, -n + 1)}, axis=1)
+        else:
+            assert False
+
+        data, hks = transform_interpreter(data, hks, mapping.transform, self)
+        return data
 
     def extend_domain(self, node: AtomicNode, domain_node: SchemaClass):
         domain = self.get_domain_from_atomic_node(domain_node, domain_node.name)
@@ -165,7 +188,7 @@ class PandasBackend(Backend):
             return determine_cardinality(mapping.data, key_cols, val_cols)
 
     def execute_query(
-        self, table_id, derived_from, derivation_steps: list[RepresentationStep]
+            self, table_id, derived_from, derivation_steps: list[RepresentationStep]
     ):
         # assert len(derivation_steps) >= 1
         # if derived_from is None or derived_from not in self.derived_tables.keys():

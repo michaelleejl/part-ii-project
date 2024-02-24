@@ -1,6 +1,9 @@
 from __future__ import annotations
 import abc
+from typing import Callable, Set, Tuple
+
 from frontend.domain import Domain
+from frontend.mapping import Mapping
 
 
 class RepresentationStep(abc.ABC):
@@ -93,7 +96,7 @@ class Traverse(RepresentationStep):
 
     from schema.edge import SchemaEdge
 
-    def __init__(self, edge: SchemaEdge, columns=None):
+    def __init__(self, edge: Mapping, columns=None):
         """
         Initialise a new Traverse representation step
 
@@ -103,10 +106,10 @@ class Traverse(RepresentationStep):
             Defaults to None.
         """
         super().__init__("TRV")
-        self.edge = edge
-        self.hidden_keys = edge.get_hidden_keys()
-        self.start_node = edge.from_node
-        self.end_node = edge.to_node
+        from schema.edge import SchemaEdge
+        self.edge: Mapping = edge
+        self.hidden_keys: list[Domain] = self.edge.get_hidden_keys()
+
         if columns is None:
             self.columns = []
         else:
@@ -115,7 +118,7 @@ class Traverse(RepresentationStep):
     def get_hidden_keys(self) -> list[Domain]:
         if len(self.columns) == len(self.edge.get_hidden_keys()):
             return self.columns
-        return [Domain(node.name, node) for node in self.edge.get_hidden_keys()]
+        return self.hidden_keys
 
     def __repr__(self):
         return f"{self.name} <{self.edge}, {self.hidden_keys}>"
@@ -123,7 +126,7 @@ class Traverse(RepresentationStep):
     def __str__(self):
         return self.__repr__()
 
-    def invert(self) -> Traverse:
+    def invert(self) -> Callable[[set[str], Callable[[set[str], str], str]], tuple[Mapping, set[str]]]:
         """
         Inverts the traversal
         Returns:
@@ -132,8 +135,7 @@ class Traverse(RepresentationStep):
         from schema.edge import SchemaEdge
 
         edge = self.edge
-        rev = SchemaEdge.invert(edge)
-        return Traverse(rev)
+        return edge.invert()
 
 
 class Expand(RepresentationStep):

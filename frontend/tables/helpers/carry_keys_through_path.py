@@ -8,8 +8,8 @@ def carry_keys_through_representation(
     result = []
     for command in representation:
         if isinstance(command, StartTraversal):
-            start_node = SchemaNode.product([n for n in command.start_columns + keys])
-            end_node = SchemaNode.product([n for n in command.start_columns])
+            start_node = SchemaNode.product([n.node for n in command.start_columns + keys])
+            end_node = SchemaNode.product([n.node for n in command.start_columns])
             indices = list(range(len(command.start_columns)))
             result += [
                 StartTraversal(command.start_columns + keys),

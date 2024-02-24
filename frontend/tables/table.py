@@ -19,7 +19,7 @@ from frontend.derivation.derivation_node import (
     DerivationNode,
     ColumnNode,
     IntermediateNode,
-    RootNode,
+    RootNode, invert_derivation_path, intermediate_representation_for_path,
 )
 from frontend.derivation.ordered_set import OrderedSet
 from frontend.domain import Domain
@@ -503,7 +503,7 @@ class Table:
         cardinality, repr, hidden_keys = shortest_p
         new_repr: list[RepresentationStep] = []
         hidden_columns = []
-        get_next_step = transform_step(namespace, self, start, end, aggregated_over)
+        get_next_step = transform_step(namespace)
         for step in repr:
             next_step, cols = get_next_step(step)
             new_repr += [next_step]
@@ -746,20 +746,7 @@ class Table:
             )
             path = key_node.path_to_value(val_node)
 
-            hidden_keys = col.get_hidden_keys()
-            new_root = t.derivation.insert_key(strong_keys)
-            new_root = new_root.add_hidden_keys(hidden_keys)
-            parent = key_node
-            for child in path[1:]:
-                if child.is_val_column() and child.get_domain().name not in set(
-                    t.displayed_columns
-                ):
-                    child = child.to_intermediate_node()
-                child.children = OrderedSet([])
-                new_root = new_root.add_child(parent, child)
-                parent = child
-
-            t.derivation = new_root
+            t.derivation = self.derivation.splice(path, self.get_namespace())
             t.execute()
             return t
 
@@ -828,7 +815,7 @@ class Table:
 
     def hide(self, column: existing_column):
         column = self.__get_existing_column(column)
-        self.verify_columns([column], {Table.ColumnRequirements.IS_KEY})
+        self.verify_columns([column], {Table.ColumnRequirements.IS_KEY_OR_VAL})
         t = Table.create_from_table(self)
         idx = find_index(column.name, self.displayed_columns)
         if idx < t.marker:
@@ -928,7 +915,10 @@ class Table:
 
         new_root = DerivationNode.create_root(new_keys)
 
-        res, inverted_repr = DerivationNode.invert_path(path, t)
+        res = invert_derivation_path(path, t.get_namespace())
+        res = res.children[0]
+        new_path = res.path_to_value(key_node)
+        inverted_repr = intermediate_representation_for_path(new_path)
 
         children = old_root.children.to_list()
         groups = classify_groups(children, key_doms)
@@ -988,7 +978,7 @@ class Table:
                 new_root = new_root.add_child(key_node, intermediate)
             else:
                 path = child.path_to_value(val_doms + difference)
-                inverted_path = DerivationNode.invert_path(path, t)
+                inverted_path = invert_derivation_path(path, t.get_namespace())
                 new_root = new_root.add_child(key_node, inverted_path[1])
                 penultimate = new_root.find_node_with_domains(inverted_path[-2].domains)
                 end = new_root.find_node_with_domains(child.domains)

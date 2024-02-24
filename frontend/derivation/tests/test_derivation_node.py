@@ -1,13 +1,14 @@
 import expecttest
-from frontend.derivation.derivation_node import DerivationNode, ColumnNode
+from frontend.derivation.derivation_node import DerivationNode, ColumnNode, intermediate_representation_for_path, \
+    invert_derivation_path, set_hidden_keys_along_path, find_splice_point
 from frontend.derivation.ordered_set import OrderedSet
 from frontend.derivation.exceptions import *
 from frontend.domain import Domain
-from frontend.tables.column_type import Val, Key
+from frontend.tables.column_type import Val, Key, HiddenKey
 from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge
 from schema.node import AtomicNode, SchemaNode
-from representation.representation import StartTraversal, Traverse, EndTraversal, Get
+from representation.representation import StartTraversal, Traverse, EndTraversal, Get, Project
 
 
 class TestDerivationNode(expecttest.TestCase):
@@ -1017,8 +1018,7 @@ class TestDerivationNode(expecttest.TestCase):
         equated = a2b_node.equate_internal(a1, a2, [a1, a2])
         self.assertExpectedInline(str(equated), """\
 [a1, b] // hidden: []
-	[a2, b] // hidden: []
-		[c] // hidden: []""")
+	[c] // hidden: []""")
 
     def test_equate_internal_eliminatesSecondKeyIfBothFirstAndSecondKeyAppearInNode(self):
         u = AtomicNode("u")
@@ -1045,8 +1045,7 @@ class TestDerivationNode(expecttest.TestCase):
         equated = a1a2b_node.equate_internal(a1, a2, [a1, a2])
         self.assertExpectedInline(str(equated), """\
 [a1, b] // hidden: []
-	[a1, a2, b] // hidden: []
-		[c] // hidden: []""")
+	[c] // hidden: []""")
 
     def test_equate_doesNotMutate(self):
         u = AtomicNode("u")
@@ -1074,4 +1073,568 @@ class TestDerivationNode(expecttest.TestCase):
         self.assertExpectedInline(str(a1a2b_node), """\
 [a1, a2, b] // hidden: []
 	[c] // hidden: []""")
+
+    def test_equate_modifiesIntermediateRepresentation(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        uu = SchemaNode.product([u, u])
+        uuv = SchemaNode.product([u, u, v])
+
+        a1 = Domain("a1", u)
+        a2 = Domain("a2", u)
+
+        b = Domain("b", v)
+
+        edge = SchemaEdge(uu, v, Cardinality.MANY_TO_ONE)
+        edge2 = SchemaEdge(uuv, w, Cardinality.MANY_TO_ONE)
+
+        a1a2b_node = DerivationNode([a1, a2, b], [StartTraversal([a1, a2]), Traverse(edge), EndTraversal([b])])
+
+        c = Domain("c", w)
+        c_node = DerivationNode([c], [StartTraversal([a1, a2, b]), Traverse(edge2), EndTraversal([c])])
+
+        root = DerivationNode.create_root([a1, a2])
+        root = root.insert_key([a1, a2])
+
+        a1a2_node = root.children[3]
+        root = root.add_child(a1a2_node, a1a2b_node).add_child(a1a2b_node, c_node)
+        a1a2_node = root.children[3]
+        a1a2b_node = a1a2_node.children[0]
+
+        equated = a1a2b_node.equate_internal(a1, a2, [a1, a2])
+        child = equated.children[0]
+        self.assertExpectedInline(str(child.to_intermediate_representation()), """[STT <[a1, b]>, PRJ <u;v, u, [0]>, ENT <[a2]>, STT <[a1, a2, b]>, TRV <u;u;v ---> w, []>, ENT <[c]>, DRP <[a2]>]""")
+
+    def test_rename_doesNothingIfDomainNotInNode(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        b_node = DerivationNode([b], [])
+        root = root.add_child(a_node, b_node)
+        a_node = root.children[1]
+        b_node = a_node.children[0]
+
+        renamed = b_node.rename("c", "d")
+        self.assertExpectedInline(str(renamed), """[b] // hidden: []""")
+
+    def test_rename_successfullyRenames(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        b_node = DerivationNode([b], [])
+        root = root.add_child(a_node, b_node)
+        a_node = root.children[1]
+        b_node = a_node.children[0]
+
+        renamed = b_node.rename("b", "c")
+        self.assertExpectedInline(str(renamed), """[c] // hidden: []""")
+
+    def test_rename_successfullyRenamesUnderRepresentation(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        u.id_prefix = 0
+        v.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        root = root.add_child(a_node, b_node)
+        a_node = root.children[1]
+        b_node = a_node.children[0]
+
+        renamed = b_node.rename("b", "c")
+        self.assertExpectedInline(str(renamed.to_intermediate_representation()), """[STT <[a]>, TRV <u ---> v, []>, ENT <[c]>]""")
+
+    def test_rename_doesNotMutate(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        b_node = DerivationNode([b], [])
+        root = root.add_child(a_node, b_node)
+        a_node = root.children[1]
+        b_node = a_node.children[0]
+
+        _ = b_node.rename("b", "c")
+        self.assertExpectedInline(str(b_node), """[b] // hidden: []""")
+
+    def test_is_value_or_set_of_values_returnsTrueIfNodeIsValue(self):
+        u = AtomicNode("u")
+        a = Domain("a", u)
+
+        val = ColumnNode(a, Val(), [])
+
+        self.assertTrue(val.is_value_or_set_of_values())
+
+    def test_is_value_or_set_of_values_returnsTrueIfNodeIsSetOfValues(self):
+        u = AtomicNode("u")
+
+        a = Domain("a", u)
+        b = Domain("b", u)
+        c = Domain("c", u)
+
+        a_node = ColumnNode(a, Val(), [])
+        b_node = ColumnNode(b, Val(), [])
+        c_node = ColumnNode(c, Val(), [])
+
+        set_of_vals = DerivationNode([a, b, c], [])
+        set_of_vals = set_of_vals.set_children([a_node, b_node, c_node])
+
+        self.assertTrue(set_of_vals.is_value_or_set_of_values())
+
+    def test_is_value_or_set_of_values_returnsFalseIfNodeIsKey(self):
+        u = AtomicNode("u")
+        a = Domain("a", u)
+
+        key = ColumnNode(a, Key(), [])
+
+        self.assertFalse(key.is_value_or_set_of_values())
+
+    def test_is_value_or_set_of_values_returnsFalseIfNodeIsHiddenKey(self):
+        u = AtomicNode("u")
+        a = Domain("a", u)
+
+        key = ColumnNode(a, HiddenKey(), [])
+
+        self.assertFalse(key.is_value_or_set_of_values())
+
+    def test_check_if_value_or_set_of_values_returnsFalseIfNodeIsNotSetOfNodes(self):
+        u = AtomicNode("u")
+        a = Domain("a", u)
+        b = Domain("b", u)
+        c = Domain("c", u)
+
+        a_node = ColumnNode(a, Val(), [])
+        b_node = DerivationNode([b], [])
+        c_node = ColumnNode(c, Val(), [])
+
+        node = DerivationNode([a, b, c], [])
+        node = node.set_children([a_node, b_node, c_node])
+
+        self.assertFalse(node.is_value_or_set_of_values())
+
+    def test_path_to_value_returnsPathToValueNode(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        b_node = ColumnNode(b, Val(), [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node)
+        a_node = root.children[1]
+
+        path = a_node.path_to_value(b_node)
+        self.assertEqual(path, [a_node, b_node])
+
+    def test_path_to_value_returnsPathToSetOfValues(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        vw = SchemaNode.product([v, w])
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        edge = SchemaEdge(u, vw, Cardinality.MANY_TO_ONE)
+
+        bc_node = DerivationNode([b, c], [StartTraversal([a]), Traverse(edge), EndTraversal([b, c])])
+
+        b_node = ColumnNode(b, Val(), [StartTraversal([b, c]), Project(vw, v, [0]), EndTraversal([b])])
+        c_node = ColumnNode(c, Val(), [StartTraversal([b, c]), Project(vw, w, [1]), EndTraversal([c])])
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, bc_node)
+        a_node = root.children[1]
+        bc_node = a_node.children[0]
+
+        root = root.add_children(bc_node, [b_node, c_node])
+
+        path = root.path_to_value(bc_node)
+        self.assertEqual(path, [root, a_node, bc_node])
+
+    def test_intermediate_representation_for_path_returnsEmptyListIfPathEmpty(self):
+        self.assertEqual(intermediate_representation_for_path([]), [])
+
+    def test_intermediate_representation_for_path_returnsCorrectIntermediateRepresentationForPath(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        b_node = ColumnNode(b, Val(), [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+
+        root = DerivationNode.create_root([a])
+        a_node = root.children[1]
+        root = root.add_child(a_node, b_node)
+        a_node = root.children[1]
+
+        path = a_node.path_to_value(b_node)
+        self.assertExpectedInline(str(intermediate_representation_for_path(path)), """[GET <[a]>, STT <[a]>, TRV <u ---> v, []>, ENT <[b]>]""")
+
+    def test_invert_derivation_path_successfullyInvertsDerivationPath(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+
+        a_node = DerivationNode([a], [Get([a])])
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+
+        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        inverted = invert_derivation_path([a_node, b_node, c_node], set())
+        self.assertExpectedInline(str(inverted), """\
+[c] // hidden: []
+	[b] // hidden: [v]
+		[a] // hidden: [u]""")
+
+    def test_invert_derivation_path_invertsRepresentationSteps(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+
+        a_node = DerivationNode([a], [Get([a])])
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+
+        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        inverted = invert_derivation_path([a_node, b_node, c_node], set())
+        self.assertExpectedInline(str(inverted.to_intermediate_representation()), """[GET <[c]>, CAL, STT <[c]>, TRV <w <--- v, [v]>, ENT <[b]>, CAL, STT <[b]>, TRV <v <--- u, [u]>, ENT <[a]>, RET, RET]""""")
+
+    def test_invert_derivation_path_renamesHiddenKeysToAvoidNamespaceClashes(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+
+        a_node = DerivationNode([a], [Get([a])])
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+
+        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        inverted = invert_derivation_path([a_node, b_node, c_node], set("u"))
+        self.assertExpectedInline(str(inverted), """\
+[c] // hidden: []
+	[b] // hidden: [v]
+		[a] // hidden: [u_1]""")
+
+    def test_invert_derivation_path_doesNotInvertChildrenNotOnPath(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", u)
+        e = Domain("e", u)
+
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+
+        a_node = DerivationNode([a], [Get([a])])
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+
+        d_node = DerivationNode([d], [])
+        e_node = DerivationNode([e], [])
+
+        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node).add_child(b_node, d_node).add_child(c_node, e_node)
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        inverted = invert_derivation_path([a_node, b_node, c_node], set())
+
+        self.assertExpectedInline(str(inverted), """\
+[c] // hidden: []
+	[e] // hidden: []
+	[b] // hidden: [v]
+		[d] // hidden: []
+		[a] // hidden: [u]""")
+
+    def test_invert_derivation_path_doesNotMutate(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+
+        a_node = DerivationNode([a], [Get([a])])
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+
+        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        _ = invert_derivation_path([a_node, b_node, c_node], set())
+        self.assertExpectedInline(str(a_node), """\
+[a] // hidden: []
+	[b] // hidden: []
+		[c] // hidden: []""")
+
+    def test_set_hidden_keys_along_path_avoidsNamespaceClashes(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        edge = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
+        edge2 = SchemaEdge(v, w, Cardinality.ONE_TO_MANY)
+
+        a_node = DerivationNode([a], [Get([a])])
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+
+        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        hidden_keys_set = set_hidden_keys_along_path([a_node, b_node, c_node], a_node, set("v"))
+        self.assertExpectedInline(str(hidden_keys_set), """\
+[a] // hidden: []
+	[b] // hidden: [v_1]
+		[c] // hidden: [w]""")
+
+    def test_set_hidden_keys_along_path_doesNotMutate(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        edge = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
+        edge2 = SchemaEdge(v, w, Cardinality.ONE_TO_MANY)
+
+        a_node = DerivationNode([a], [Get([a])])
+        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+
+        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
+        b_node = a_node.children[0]
+        c_node = b_node.children[0]
+        _ = set_hidden_keys_along_path([a_node, b_node, c_node], a_node, set("v"))
+        self.assertExpectedInline(str(a_node), """\
+[a] // hidden: []
+	[b] // hidden: []
+		[c] // hidden: []""")
+
+    def test_find_column_with_name_successfullyFindsColumnIfExists(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+
+        a_node = DerivationNode([a], [Get([a])])
+        b_node = ColumnNode(b, Val(), [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+
+        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
+
+        self.assertEqual(a_node.find_column_with_name("b"), b_node)
+
+    def test_find_column_with_name_returnsNoneIfColumnDoesNotExist(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        a_node = DerivationNode([a], [Get([a])])
+
+        self.assertIsNone(a_node.find_column_with_name("b"))
+
+    def test_find_all_keys_in_tree_successfullyFindsAllKeys(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+
+        root = DerivationNode.create_root([a, b])
+
+        a_node, b_node = root.children[1:]
+
+        keys = root.find_all_keys_in_tree()
+        subkeys = a_node.find_all_keys_in_tree()
+
+        self.assertEqual(keys, [a_node, b_node])
+        self.assertEqual(subkeys, [a_node])
+
+    def test_find_all_values_in_tree_successfullyFindsAllValues(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        x = AtomicNode("x")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", x)
+
+        c_node = ColumnNode(c, Val(), [])
+        d_node = ColumnNode(d, Val(), [])
+
+        root = DerivationNode.create_root([a, b])
+
+        a_node, b_node = root.children[1:]
+
+        root = root.add_child(a_node, c_node).add_child(b_node, d_node)
+        a_node, b_node = root.children[1:]
+
+        values = root.find_all_values_in_tree()
+        subvalues = a_node.find_all_values_in_tree()
+
+        self.assertEqual(values, [c_node, d_node])
+        self.assertEqual(subvalues, [c_node])
+
+    def test_find_all_hidden_keys_in_tree_successfullyFindsAllHiddenKeys(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        b_node = ColumnNode(b, HiddenKey(), [])
+
+        root = DerivationNode.create_root([a])
+
+        root = root.add_hidden_key(b)
+
+        hidden = root.find_all_hidden_keys_in_tree()
+
+        self.assertEqual(hidden, [b_node])
+
+    def test_find_splice_point_successfullyFindsSplicePoint(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        x = AtomicNode("x")
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        d = Domain("d", x)
+
+        a_node = DerivationNode([a], [])
+        b_node = DerivationNode([b], [])
+        c_node = DerivationNode([c], [])
+        d_node = DerivationNode([d], [])
+
+        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
+        path_1 = [a_node, d_node]
+        path_2 = [a_node, b_node, d_node]
+
+        splice_point_1 = find_splice_point(a_node, path_1)
+
+        splice_point_2 = find_splice_point(a_node, path_2)
+
+        self.assertEqual(splice_point_1, 0)
+        self.assertEqual(splice_point_2, 1)
 

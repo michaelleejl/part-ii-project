@@ -85,7 +85,7 @@ class Val(ColumnType):
         return node.find_strong_keys()
 
     def get_hidden_keys(self, node):
-        return node.get_hidden_keys_for_val()
+        return node.find_hidden_keys()
 
     def get_derivation(self, node):
         return self.get_strong_keys(node), self.get_hidden_keys(node)

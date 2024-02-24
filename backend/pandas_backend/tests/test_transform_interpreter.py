@@ -1,0 +1,95 @@
+import expecttest
+import pandas as pd
+
+from backend.pandas_backend.transform_interpreter import step
+from frontend.domain import Domain
+from frontend.transform import *
+from schema.node import AtomicNode
+
+
+class TestTransformInterpreter(expecttest.TestCase):
+    def test_step_cur(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        curry = Curry(0, Domain("a", u))
+        t = pd.DataFrame({0: [1, 2, 3], 1: [4, 5, 6], 2: [7, 8, 9], -1: [10, 11, 12]})
+        hks = [Domain("b", v)]
+        t, hks = step(curry, lambda x, y: None)(t, hks)
+        self.assertExpectedInline(str(t), """\
+   -2  -1   0   1
+0  10   1   4   7
+1  11   2   5   8
+2  12   3   6   9""")
+        self.assertExpectedInline(str(hks), """[a, b]""")
+
+    def test_step_unc(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        uncurry = Uncurry(0, 1)
+        t = pd.DataFrame({0: [1, 2, 3], 1: [4, 5, 6], 2: [7, 8, 9], -1: [10, 11, 12]})
+        hks = [Domain("b", v)]
+
+        t, hks = step(uncurry, lambda x, y: None)(t, hks)
+        self.assertExpectedInline(str(t), """\
+   0   1  2  3
+0  1  10  4  7
+1  2  11  5  8
+2  3  12  6  9""")
+        self.assertExpectedInline(str(hks), """[]""")
+
+    def test_step_car(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        carry = Carry(Domain("b", v), 1, 2)
+        t = pd.DataFrame({0: [1, 2, 3], 1: [4, 5, 6], 2: [7, 8, 9], -1: [10, 11, 12]})
+        hks = [Domain("c", w)]
+
+        t, hks = step(carry, lambda x, y: pd.DataFrame({y: ["a", "b", "c"]}))(t, hks)
+        self.assertExpectedInline(str(t), """\
+   -1   0  1   2   3  4
+0  10   1  a   4   7  a
+1  10   1  b   4   7  b
+2  10   1  c   4   7  c
+3  11   2  a   5   8  a
+4  11   2  b   5   8  b
+5  11   2  c   5   8  c
+6  12   3  a   6   9  a
+7  12   3  b   6   9  b
+8  12   3  c   6   9  c""")
+        self.assertExpectedInline(str(hks), """[c]""")
+
+    def test_step_drop(self):
+        w = AtomicNode("w")
+        drop = Drop(1, 2)
+        t = pd.DataFrame({0: [1, 1, 1, 2, 2, 2, 3, 3, 3],
+                          1: [4, 5, 6, 4, 5, 6, 4, 5, 6],
+                          2: [4, 5, 6, 4, 5, 6, 4, 5, 6],
+                          3: [7, 7, 7, 8, 8, 8, 9, 9, 9],
+                          -1: [10, 10, 10, 11, 11, 11, 12, 12, 12]})
+        hks = [Domain("c", w)]
+
+        t, hks = step(drop, lambda x, y: None)(t, hks)
+        self.assertExpectedInline(str(t), """\
+   index  -1  0  1
+0      0  10  1  7
+1      3  11  2  8
+2      6  12  3  9""")
+        self.assertExpectedInline(str(hks), """[c]""")
+
+    def test_step_invert(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        invert = Invert([Domain("a", u), Domain("b", v)], 2, 2, [1])
+        t = pd.DataFrame({0: [1, 2, 3], 1: [4, 5, 6], 2: [7, 8, 9], 3: [4, 5, 6], -1: [10, 11, 12]})
+        hks = [Domain("c", w)]
+
+        t, hks = step(invert, lambda x, y: None)(t, hks)
+        self.assertExpectedInline(str(t), """\
+   -1   0   1   2   3
+0   1   7   4   1   4
+1   2   8   5   2   5
+2   3   9   6   3   6""")
+        self.assertExpectedInline(str(hks), """[a, b]""")
+

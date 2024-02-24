@@ -421,9 +421,12 @@ Edinburgh Cambridge          0.300000
 
         t9 = (
             t1.infer(["ToCity"], t6["relative_inflow"], with_name="expected_outflow")
-            .show("FromCity_1")
-            .equate("FromCity", "FromCity_1")
+              .show("FromCity_1")
+              .equate("FromCity", "FromCity_1")
         )
+
+        print("table 9")
+        print(t9["expected_outflow"].node.intermediate_representation)
 
         t10 = (
             t9.infer(["FromCity"], t8["relative_outflow"])
@@ -432,6 +435,7 @@ Edinburgh Cambridge          0.300000
         )
 
         self.maxDiff = None
+        print(t10.derivation)
         print(t10)
 
 

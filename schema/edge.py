@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from enum import Enum
+
 from schema.cardinality import Cardinality
-from schema.node import SchemaNode
+from schema.node import SchemaNode, AtomicNode, SchemaClass
 
 
 def reverse_cardinality(cardinality: Cardinality) -> Cardinality:
@@ -92,7 +94,7 @@ class SchemaEdge:
             or self.cardinality == Cardinality.MANY_TO_ONE
         )
 
-    def get_hidden_keys(self) -> list[SchemaNode]:
+    def get_hidden_keys(self) -> list[AtomicNode | SchemaClass]:
         """
         Returns the hidden keys needed to traverse the edge
 
