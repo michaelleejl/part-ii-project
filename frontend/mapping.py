@@ -2,14 +2,18 @@ from __future__ import annotations
 
 from typing import TypeVar, Callable
 
-from frontend.domain import Domain
 from frontend.exceptions import *
+from frontend.tables.table import new_domain_from_schema_node
 from frontend.transform import *
 from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 
-T = TypeVar('T')
+T = TypeVar("T")
+
+Namespace = frozenset[str]
+Name = str
+NamingFunction = Callable[[Namespace, Name], Name]
 
 
 def instantiate_list(raw: list[T] | None) -> list[T]:
@@ -40,23 +44,29 @@ def strengthen_cardinality(cardinality: Cardinality) -> Cardinality:
 
 
 class Mapping:
-    def __init__(self,
-                 edge: SchemaEdge,
-                 from_nodes: list[AtomicNode | SchemaClass] = None,
-                 to_nodes: list[AtomicNode | SchemaClass] = None,
-                 hidden_keys: list[Domain] = None,
-                 cardinality: Cardinality = None,
-                 transform: list[Transform] = None,
-                 carried: dict[Domain, (int, int)] = None):
+    def __init__(
+        self,
+        edge: SchemaEdge,
+        from_nodes: list[AtomicNode | SchemaClass] = None,
+        to_nodes: list[AtomicNode | SchemaClass] = None,
+        hidden_keys: list[Domain] = None,
+        cardinality: Cardinality = None,
+        transform: list[Transform] = None,
+        carried: dict[Domain, (int, int)] = None,
+    ):
 
         self.edge: SchemaEdge = edge
         if from_nodes is None:
-            self.from_nodes: list[AtomicNode | SchemaClass] = SchemaNode.get_constituents(edge.from_node)
+            self.from_nodes: list[AtomicNode | SchemaClass] = (
+                SchemaNode.get_constituents(edge.from_node)
+            )
         else:
             self.from_nodes: list[AtomicNode | SchemaClass] = from_nodes
 
         if to_nodes is None:
-            self.to_nodes: list[AtomicNode | SchemaClass] = SchemaNode.get_constituents(edge.to_node)
+            self.to_nodes: list[AtomicNode | SchemaClass] = SchemaNode.get_constituents(
+                edge.to_node
+            )
         else:
             self.to_nodes = to_nodes
 
@@ -73,6 +83,12 @@ class Mapping:
             self.carried: dict[Domain, int] = {}
         else:
             self.carried = carried
+
+    @classmethod
+    def create_mapping_from_edge(
+        cls, edge: SchemaEdge, hidden_keys: list[Domain] = None
+    ) -> Mapping:
+        return Mapping(edge, hidden_keys=hidden_keys)
 
     def get_cardinality(self) -> Cardinality:
         return self.edge.cardinality
@@ -110,10 +126,24 @@ class Mapping:
         new_cardinality = weaken_cardinality(self.cardinality)
 
         if index in set([x[0] for x in self.carried.values()]):
-            new_carried = {d: ((-1, j) if i == index else (i, j) if 0 <= i < index else (i-1, j)) for d, (i, j) in self.carried.items()}
+            new_carried = {
+                d: ((-1, j) if i == index else (i, j) if 0 <= i < index else (i - 1, j))
+                for d, (i, j) in self.carried.items()
+            }
         else:
-            new_carried = {d: ((i, j) if 0 <= i < index else (i-1, j)) for d, (i, j) in self.carried.items()}
-        return Mapping(self.edge, new_from, self.to_nodes, new_hk, new_cardinality, new_transform, new_carried)
+            new_carried = {
+                d: ((i, j) if 0 <= i < index else (i - 1, j))
+                for d, (i, j) in self.carried.items()
+            }
+        return Mapping(
+            self.edge,
+            new_from,
+            self.to_nodes,
+            new_hk,
+            new_cardinality,
+            new_transform,
+            new_carried,
+        )
 
     def uncurry(self, domain: Domain) -> Mapping:
         if domain not in set(self.hidden_keys):
@@ -132,11 +162,25 @@ class Mapping:
         else:
             new_cardinality = self.cardinality
         if domain in self.carried.keys():
-            new_carried = {d: ((i, j) if d == domain else (len(self.from_nodes), j)) for d, (i, j) in self.carried.items()}
+            new_carried = {
+                d: ((i, j) if d == domain else (len(self.from_nodes), j))
+                for d, (i, j) in self.carried.items()
+            }
         else:
-            hidx = -idx-1
-            new_carried = {d: ((i, j) if i > hidx else (i+1, j)) for d, (i, j) in self.carried.items()}
-        return Mapping(self.edge, new_from, self.to_nodes, new_hk, new_cardinality, new_transform, new_carried)
+            hidx = -idx - 1
+            new_carried = {
+                d: ((i, j) if i > hidx else (i + 1, j))
+                for d, (i, j) in self.carried.items()
+            }
+        return Mapping(
+            self.edge,
+            new_from,
+            self.to_nodes,
+            new_hk,
+            new_cardinality,
+            new_transform,
+            new_carried,
+        )
 
     def carry(self, domain: Domain) -> Mapping:
         assert domain not in self.carried
@@ -148,7 +192,15 @@ class Mapping:
         carried = self.carried.copy()
         carried |= {domain: (len(self.from_nodes), len(self.to_nodes))}
 
-        return Mapping(self.edge, new_from, new_to, self.hidden_keys, self.cardinality, new_transform, carried)
+        return Mapping(
+            self.edge,
+            new_from,
+            new_to,
+            self.hidden_keys,
+            self.cardinality,
+            new_transform,
+            carried,
+        )
 
     def drop(self, domain: Domain) -> Mapping:
         assert domain in self.carried
@@ -158,33 +210,89 @@ class Mapping:
         new_from = [n for i, n in enumerate(self.from_nodes) if i != drop_from]
         new_to = [n for i, n in enumerate(self.to_nodes) if i != drop_to]
 
-        carried = {d: (i-1, j-1) for d, (i, j) in self.carried.items() if d != domain}
+        carried = {
+            d: (i - 1, j - 1) for d, (i, j) in self.carried.items() if d != domain
+        }
 
-        return Mapping(self.edge, new_from, new_to, self.hidden_keys, self.cardinality, new_transform, carried)
+        return Mapping(
+            self.edge,
+            new_from,
+            new_to,
+            self.hidden_keys,
+            self.cardinality,
+            new_transform,
+            carried,
+        )
 
-    def invert(self) -> Callable[[set[str], Callable[[set[str], str], str]], tuple[Mapping, set[str]]]:
-        if reverse_cardinality(self.cardinality) == Cardinality.MANY_TO_ONE or reverse_cardinality(self.cardinality) == Cardinality.ONE_TO_ONE:
+    def invert(
+        self,
+    ) -> Callable[[Namespace], tuple[Mapping, Namespace]]:
+        if (
+            reverse_cardinality(self.cardinality) == Cardinality.MANY_TO_ONE
+            or reverse_cardinality(self.cardinality) == Cardinality.ONE_TO_ONE
+        ):
             new_hk = []
             to_exclude = []
         else:
-            to_exclude = (set([x[0] for x in self.carried.values() if x[0] >= 0]))
+            to_exclude = set([x[0] for x in self.carried.values() if x[0] >= 0])
             new_hk = [n for i, n in enumerate(self.from_nodes) if i not in to_exclude]
 
-        def name_hks(namespace: set[str], naming_function: Callable[[set[str], str], str]) -> tuple[Mapping, set[str]]:
-            internal_namespace = namespace.copy()
-            new_hks = [Domain(naming_function(internal_namespace, d.name), d) for d in new_hk]
-            internal_namespace |= set([d.name for d in new_hks])
-            new_transform = self.transform + [Invert(new_hks, self.num_from_domains(), self.num_to_domains(), list(sorted(to_exclude)))]
+        def name_hks(namespace: frozenset[str]) -> tuple[Mapping, Namespace]:
+            internal_namespace = namespace
+            hidden_keys = []
+            for node in new_hk:
+                d = new_domain_from_schema_node(internal_namespace, node)
+                hidden_keys += [d]
+                internal_namespace |= {d.name}
+            new_transform = self.transform + [
+                Invert(
+                    hidden_keys,
+                    self.num_from_domains(),
+                    self.num_to_domains(),
+                    list(sorted(to_exclude)),
+                )
+            ]
             new_cardinality = reverse_cardinality(self.cardinality)
             new_edge = SchemaEdge.invert(self.edge)
-            new_carried = {d: (j, i) for d, (i, j) in self.carried.items() if i >=0}
-            mapping = Mapping(new_edge, self.to_nodes, self.from_nodes, new_hks, new_cardinality, new_transform, new_carried)
+            new_carried = {d: (j, i) for d, (i, j) in self.carried.items() if i >= 0}
+            mapping = Mapping(
+                new_edge,
+                self.to_nodes,
+                self.from_nodes,
+                hidden_keys,
+                new_cardinality,
+                new_transform,
+                new_carried,
+            )
             return mapping, internal_namespace
 
         return name_hks
 
+    def replace_hidden_keys(self, new_hidden_keys: list[Domain]) -> Mapping:
+        assert len(new_hidden_keys) == len(self.hidden_keys)
+        assert all(
+            [
+                hk.node == self.hidden_keys[i].node
+                for i, hk in enumerate(new_hidden_keys)
+            ]
+        )
+
+        return Mapping(
+            self.edge,
+            self.from_nodes,
+            self.to_nodes,
+            new_hidden_keys,
+            self.cardinality,
+            self.transform,
+            self.carried,
+        )
+
     def __repr__(self):
-        return SchemaEdge(SchemaNode.product(self.from_nodes), SchemaNode.product(self.to_nodes), self.cardinality).__repr__()
+        return SchemaEdge(
+            SchemaNode.product(self.from_nodes),
+            SchemaNode.product(self.to_nodes),
+            self.cardinality,
+        ).__repr__()
 
     def __str__(self):
         return self.__repr__()

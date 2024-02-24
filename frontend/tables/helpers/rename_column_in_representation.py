@@ -31,7 +31,10 @@ def rename_column_in_step(step: RepresentationStep, old_name: str, new_name: str
             return EndTraversal(renaming_function(step.end_columns))
         case "TRV":
             assert isinstance(step, Traverse)
-            return Traverse(step.edge, renaming_function(step.columns))
+            new_edge = step.edge.replace_hidden_keys(
+                renaming_function(step.edge.get_hidden_keys())
+            )
+            return Traverse(new_edge)
         case "EXP":
             assert isinstance(step, Expand)
             return Expand(

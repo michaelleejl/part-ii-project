@@ -91,7 +91,7 @@ class Schema:
 
         for node in val_nodes:
             self.backend.map_edge_to_data_relation(
-                SchemaEdge(key_node, node),
+                SchemaEdge(key_node, node, Cardinality.MANY_TO_ONE),
                 df[node.name].reset_index().drop_duplicates(),
             )
 
@@ -313,15 +313,9 @@ class Schema:
         """
         node1 = SchemaNode.product([c.node for c in from_columns])
         node2 = SchemaNode.product([c.node for c in to_columns])
-        cardinality, commands, hidden_keys = self.__find_shortest_path_in_graph(
-            node1, node2, via
-        )
-        first = StartTraversal(from_columns)
-        last = EndTraversal(to_columns)
-        if len(commands) > 0:
-            return cardinality, [first] + commands + [last], hidden_keys
-        else:
-            return cardinality, [first, last], hidden_keys
+        cardinality, edges = self.__find_shortest_path_in_graph(node1, node2, via)
+
+        return cardinality, edges
 
     def execute_query(self, table_id, derived_from, derivation):
         x, y, z, new_backend = self.backend.execute_query(

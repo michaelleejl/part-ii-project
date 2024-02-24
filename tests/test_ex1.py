@@ -223,6 +223,7 @@ val_id
         s, cardnum, person = self.initialise()
         t21 = s.get(cardnum=cardnum["cardnum"])
         t22 = t21.infer(["cardnum"], cardnum["val_id"])
+
         self.assertExpectedInline(
             str(t22),
             """\

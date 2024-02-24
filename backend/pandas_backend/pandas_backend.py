@@ -23,6 +23,18 @@ def interpret_function(function: Exp):
     return exp_interpreter(function)
 
 
+def generate_hidden_keys(edge: SchemaEdge, data: pd.DataFrame):
+    from_node = edge.from_node
+    n = len(SchemaNode.get_constituents(from_node))
+    data = data.copy()
+    if not edge.is_functional():
+        j = 0
+        for i in range(n, len(data.columns)):
+            data[-j - 1] = data[i]
+            j += 1
+    return data
+
+
 class PandasBackend(Backend):
 
     def __init__(self):
@@ -68,20 +80,15 @@ class PandasBackend(Backend):
         assert len(f_node_c + t_node_c) == len(relation.columns)
         df = copy_data(relation)
         df.columns = list(range(len(df.columns)))
-        if not edge.is_functional():
-            j = 0
-            for i in range(len(f_node_c), len(df.columns)):
-                df[-j - 1] = df[i]
-                j += 1
         self.edge_data[edge] = copy_data(df)
 
     def map_edge_to_closure(
-            self,
-            edge,
-            function: Exp,
-            num_args: int,
-            rev_target: SchemaNode = None,
-            target_idxs: list[int] = None,
+        self,
+        edge,
+        function: Exp,
+        num_args: int,
+        rev_target: SchemaNode = None,
+        target_idxs: list[int] = None,
     ):
         if rev_target is None:
             target = edge.from_node
@@ -145,13 +152,13 @@ class PandasBackend(Backend):
         hks = mapping.hidden_keys
         # function edges
         if edge in self.edge_funs:
-            return self.edge_funs[edge](table)
+            data = self.edge_funs[edge](table)
+
         elif rev in self.edge_funs:
             data = self.edge_funs[rev](table)
-            data.rename({j: -j for j in range(n, n + m)}, axis=1)
-            data.rename({i: i + m for i in range(n)}, axis=1)
-            data.rename({j: (-j) - n for j in range(-n - m + 1, -n + 1)}, axis=1)
-            return data
+            data = data.rename({j: -j for j in range(n, n + m)}, axis=1)
+            data = data.rename({i: i + m for i in range(n)}, axis=1)
+            data = data.rename({j: (-j) - n for j in range(-n - m + 1, -n + 1)}, axis=1)
 
         # data edges
         elif edge in self.edge_data:
@@ -159,13 +166,16 @@ class PandasBackend(Backend):
 
         elif rev in self.edge_data:
             data = copy_data(self.edge_data[rev])
-            data.rename({j: -j for j in range(n, n + m)}, axis=1)
-            data.rename({i: i + m for i in range(n)}, axis=1)
-            data.rename({j: (-j) - n for j in range(-n - m + 1, -n + 1)}, axis=1)
+            data = data.rename({j: -j for j in range(n, n + m)}, axis=1)
+            data = data.rename({i: i + m for i in range(n)}, axis=1)
+            data = data.rename({j: (-j) - n for j in range(-n - m + 1, -n + 1)}, axis=1)
         else:
             assert False
 
+        data = generate_hidden_keys(edge, data)
+
         data, hks = transform_interpreter(data, hks, mapping.transform, self)
+        data = data.rename({-i - 1: hk.name for (i, hk) in enumerate(hks)}, axis=1)
         return data
 
     def extend_domain(self, node: AtomicNode, domain_node: SchemaClass):
@@ -188,7 +198,7 @@ class PandasBackend(Backend):
             return determine_cardinality(mapping.data, key_cols, val_cols)
 
     def execute_query(
-            self, table_id, derived_from, derivation_steps: list[RepresentationStep]
+        self, table_id, derived_from, derivation_steps: list[RepresentationStep]
     ):
         # assert len(derivation_steps) >= 1
         # if derived_from is None or derived_from not in self.derived_tables.keys():

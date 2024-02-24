@@ -1,4 +1,4 @@
-from schema.node import SchemaNode
+from schema.node import SchemaNode, AtomicNode, SchemaClass
 
 
 class Domain:
@@ -6,7 +6,7 @@ class Domain:
     A domain is a named alias for a node in the schema
     """
 
-    def __init__(self, name: str, node: SchemaNode):
+    def __init__(self, name: str, node: AtomicNode | SchemaClass):
         """
         Initialises a domain
         Args:

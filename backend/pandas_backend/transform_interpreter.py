@@ -16,7 +16,9 @@ def step(transform: Transform, get_fn):
                 tot = len(t_new.columns) - len(hks)
                 t_new = t_new[[c for c in t_new.columns if c != idx]]
                 t_new = t_new.rename({i: i - 1 for i in range(idx + 1, tot)}, axis=1)
-                t_new = t_new.rename({i: i - 1 for i in range(-1, -len(hks) - 1, -1)}, axis=1)
+                t_new = t_new.rename(
+                    {i: i - 1 for i in range(-1, -len(hks) - 1, -1)}, axis=1
+                )
                 t_new[-1] = t[idx]
                 t_new = t_new.reindex(sorted(t_new.columns), axis=1)
 
@@ -36,7 +38,9 @@ def step(transform: Transform, get_fn):
                 t_new = t_new[[c for c in t_new.columns if c != idx]]
                 tot = len(t.columns) - len(hks)
                 t_new = t_new.rename({i: i + 1 for i in range(n, tot)}, axis=1)
-                t_new = t_new.rename({j: j + 1 for j in range(idx, len(hks) - 2, -1)}, axis=1)
+                t_new = t_new.rename(
+                    {j: j + 1 for j in range(idx, len(hks) - 2, -1)}, axis=1
+                )
                 t_new[n] = t[idx]
                 t_new = t_new.reindex(sorted(t_new.columns), axis=1)
                 return t_new, [hk for (i, hk) in enumerate(hks) if i != org]
@@ -54,7 +58,7 @@ def step(transform: Transform, get_fn):
             def carry(t: pd.DataFrame, hks: list[Domain]):
                 t_new = t.copy()
                 t_new = t_new.rename({i: i + 1 for i in range(n, n + m)}, axis=1)
-                t_new = pd.merge(t_new, domain, how='cross')
+                t_new = pd.merge(t_new, domain, how="cross")
                 t_new[n + m + 1] = t_new[n]
                 t_new = t_new.reindex(sorted(t_new.columns), axis=1)
                 return t_new, hks
@@ -70,9 +74,15 @@ def step(transform: Transform, get_fn):
             def drop(t: pd.DataFrame, hks: list[Domain]):
                 t_new = t.copy()
                 tot = len(t_new.columns) - len(hks)
-                t_new = t_new[[c for c in t_new.columns if c not in {drop_to, drop_from}]]
-                t_new = t_new.rename({i: i - 1 for i in range(drop_to + 1, drop_from)}, axis=1)
-                t_new = t_new.rename({i: i - 2 for i in range(drop_from + 1, tot)}, axis=1)
+                t_new = t_new[
+                    [c for c in t_new.columns if c not in {drop_to, drop_from}]
+                ]
+                t_new = t_new.rename(
+                    {i: i - 1 for i in range(drop_to + 1, drop_from)}, axis=1
+                )
+                t_new = t_new.rename(
+                    {i: i - 2 for i in range(drop_from + 1, tot)}, axis=1
+                )
                 t_new = t_new.drop_duplicates()
                 t_new = t_new.reindex(sorted(t_new.columns), axis=1).reset_index()
                 return t_new, hks
@@ -92,11 +102,13 @@ def step(transform: Transform, get_fn):
                 t_new = t_new[[c for c in t.columns if c >= 0]].drop_duplicates()
                 t_new = t_new.rename({j: -j for j in range(n, n + m)}, axis=1)
                 t_new = t_new.rename({i: i + m for i in range(n)}, axis=1)
-                t_new = t_new.rename({j: (-j) - n for j in range(-n - m + 1, -n + 1)}, axis=1)
+                t_new = t_new.rename(
+                    {j: (-j) - n for j in range(-n - m + 1, -n + 1)}, axis=1
+                )
                 if len(new_hks) > 0:
                     j = 0
                     for i in range(m, n + m):
-                        if i-m in set(to_exclude):
+                        if i - m in set(to_exclude):
                             continue
                         t_new[-j - 1] = t_new[i]
                         j += 1
@@ -114,6 +126,8 @@ def steps(transformations: list[Transform], get_fn):
     return k
 
 
-def transform_interpreter(t: pd.DataFrame, hks: list[Domain], transformations: list[Transform], get_fn):
+def transform_interpreter(
+    t: pd.DataFrame, hks: list[Domain], transformations: list[Transform], get_fn
+):
     transformation = steps(transformations, get_fn)
     return transformation(t, hks)

@@ -105,7 +105,7 @@ def end(
 
     df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index(keys_str)
     keys_count = reduce(
-        operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in keys]
+        operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in keys], 1
     )
     dropped_keys_cnt = keys_count - len(df3)
     return df3, dropped_keys_cnt, 0
@@ -123,21 +123,11 @@ def stt(derivation_step: StartTraversal, backend, stack, sp) -> interp:
 
 def trv(derivation_step: Traverse, backend, stack, sp) -> interp:
     table = stack[-1]
-    start_node = derivation_step.start_node
-    start_nodes = SchemaNode.get_constituents(start_node)
-    end_node = derivation_step.end_node
-    end_nodes = SchemaNode.get_constituents(end_node)
+
+    start_nodes = derivation_step.edge.from_nodes
+    end_nodes = derivation_step.edge.to_nodes
 
     relation = backend.get_relation_from_mapping(derivation_step.edge, table)
-
-    hidden_keys = [c for c in derivation_step.hidden_keys]
-    idxs = []
-    i = 0
-    for hk in hidden_keys:
-        while end_nodes[i] != hk:
-            i += 1
-        idxs += [i]
-    new_cols = derivation_step.columns
 
     to_join = list(range(len(start_nodes)))
 
@@ -153,8 +143,6 @@ def trv(derivation_step: Traverse, backend, stack, sp) -> interp:
         },
         axis=1,
     )
-    for i, idx in enumerate(idxs):
-        df[new_cols[i].name] = df[idx]
 
     return stack[:-1] + [df], sp
 

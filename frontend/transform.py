@@ -7,6 +7,7 @@ class Transform:
     """
     Represents a closure property on edges
     """
+
     def __init__(self, name):
         self.name = name
 
@@ -16,6 +17,7 @@ class Curry(Transform):
     Represents a currying transformation
     If there is an edge from A * B --> C, then there is an edge from A --> (B --> C)
     """
+
     def __init__(self, to_curry: int, hidden_key: Domain):
         super().__init__("CUR")
         self.to_curry = to_curry
@@ -33,6 +35,7 @@ class Uncurry(Transform):
     Represents an uncurrying transformation
     If there is an edge from A --> (B --> C), then there is an edge from A * B --> C
     """
+
     def __init__(self, to_uncurry: int, n: int):
         super().__init__("UNC")
         self.to_uncurry = to_uncurry
@@ -50,6 +53,7 @@ class Carry(Transform):
     Represents a carrying transformation
     If there is an edge from A --> B, then there is an edge from A * C --> B * C
     """
+
     def __init__(self, to_carry: Domain, n: int, m: int):
         super().__init__("CAR")
         self.to_carry = to_carry
@@ -68,6 +72,7 @@ class Drop(Transform):
     Represents a dropping transformation
     Undoes carrying
     """
+
     def __init__(self, drop_from: int, drop_to: int):
         super().__init__("DRP")
         self.drop_from = drop_from
@@ -85,7 +90,10 @@ class Invert(Transform):
     Represents an inverting transformation
     If there is an edge from A --> B, then there is an edge from B --> A
     """
-    def __init__(self, hidden_keys: list[Domain], n: int, m: int, to_exclude: list[int]):
+
+    def __init__(
+        self, hidden_keys: list[Domain], n: int, m: int, to_exclude: list[int]
+    ):
         super().__init__("INV")
         self.hidden_keys = hidden_keys
         self.n = n

@@ -163,8 +163,12 @@ class TestMapping(expecttest.TestCase):
         new_mapping = mapping.carry(c).carry(d)
         self.assertExpectedInline(str(new_mapping), """u;w;w ---> v;w;w""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[CAR <c, 1, 1>, CAR <d, 2, 2>]""")
-        self.assertExpectedInline(str(new_mapping.carried), """{c: (1, 1), d: (2, 2)}""")
+        self.assertExpectedInline(
+            str(new_mapping.transform), """[CAR <c, 1, 1>, CAR <d, 2, 2>]"""
+        )
+        self.assertExpectedInline(
+            str(new_mapping.carried), """{c: (1, 1), d: (2, 2)}"""
+        )
 
     def test_carry_raisesAssertionError_ifAlreadyCarried(self):
         u = AtomicNode("u")
@@ -203,7 +207,9 @@ class TestMapping(expecttest.TestCase):
 
         self.assertExpectedInline(str(new_mapping), """u ---> v""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[CAR <c, 1, 1>, DRP <1, 1>]""")
+        self.assertExpectedInline(
+            str(new_mapping.transform), """[CAR <c, 1, 1>, DRP <1, 1>]"""
+        )
         self.assertExpectedInline(str(new_mapping.carried), """{}""")
 
     def test_drop_complex(self):
@@ -227,7 +233,9 @@ class TestMapping(expecttest.TestCase):
 
         self.assertExpectedInline(str(new_mapping), """u;w ---> v;w""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[CAR <c, 1, 1>, CAR <d, 2, 2>, DRP <1, 1>]""")
+        self.assertExpectedInline(
+            str(new_mapping.transform), """[CAR <c, 1, 1>, CAR <d, 2, 2>, DRP <1, 1>]"""
+        )
         self.assertExpectedInline(str(new_mapping.carried), """{d: (1, 1)}""")
 
     def test_carry_then_curry(self):
@@ -250,8 +258,12 @@ class TestMapping(expecttest.TestCase):
         new_mapping = mapping.carry(c).carry(d).curry(1, c)
         self.assertExpectedInline(str(new_mapping), """u;w --- v;w;w""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[c]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[CAR <c, 1, 1>, CAR <d, 2, 2>, CUR <1, c>]""")
-        self.assertExpectedInline(str(new_mapping.carried), """{c: (-1, 1), d: (1, 2)}""")
+        self.assertExpectedInline(
+            str(new_mapping.transform), """[CAR <c, 1, 1>, CAR <d, 2, 2>, CUR <1, c>]"""
+        )
+        self.assertExpectedInline(
+            str(new_mapping.carried), """{c: (-1, 1), d: (1, 2)}"""
+        )
 
     def test_carry_then_curry_then_curry(self):
         u = AtomicNode("u")
@@ -274,8 +286,13 @@ class TestMapping(expecttest.TestCase):
 
         self.assertExpectedInline(str(new_mapping), """w --- v;w;w""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[a, c]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[CAR <c, 1, 1>, CAR <d, 2, 2>, CUR <1, c>, CUR <0, a>]""")
-        self.assertExpectedInline(str(new_mapping.carried), """{c: (-2, 1), d: (0, 2)}""")
+        self.assertExpectedInline(
+            str(new_mapping.transform),
+            """[CAR <c, 1, 1>, CAR <d, 2, 2>, CUR <1, c>, CUR <0, a>]""",
+        )
+        self.assertExpectedInline(
+            str(new_mapping.carried), """{c: (-2, 1), d: (0, 2)}"""
+        )
 
     def test_carry_then_curry_then_curry_then_uncurry(self):
         u = AtomicNode("u")
@@ -298,8 +315,13 @@ class TestMapping(expecttest.TestCase):
 
         self.assertExpectedInline(str(new_mapping), """w;u --- v;w;w""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[c]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[CAR <c, 1, 1>, CAR <d, 2, 2>, CUR <1, c>, CUR <0, a>, UNC <0, 1>]""")
-        self.assertExpectedInline(str(new_mapping.carried), """{c: (-1, 1), d: (0, 2)}""")
+        self.assertExpectedInline(
+            str(new_mapping.transform),
+            """[CAR <c, 1, 1>, CAR <d, 2, 2>, CUR <1, c>, CUR <0, a>, UNC <0, 1>]""",
+        )
+        self.assertExpectedInline(
+            str(new_mapping.carried), """{c: (-1, 1), d: (0, 2)}"""
+        )
 
     def test_invert_simple(self):
         u = AtomicNode("u")
@@ -315,7 +337,9 @@ class TestMapping(expecttest.TestCase):
 
         self.assertExpectedInline(str(new_mapping), """v <--- u""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[u]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[INV <[u], 1, 1, []>]""")
+        self.assertExpectedInline(
+            str(new_mapping.transform), """[INV <[u], 1, 1, []>]"""
+        )
 
     def test_invert_oneToOne(self):
         u = AtomicNode("u")
@@ -331,7 +355,9 @@ class TestMapping(expecttest.TestCase):
 
         self.assertExpectedInline(str(new_mapping), """v <--> u""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[INV <[], 1, 1, []>]""")
+        self.assertExpectedInline(
+            str(new_mapping.transform), """[INV <[], 1, 1, []>]"""
+        )
 
     def test_invert_excludesCarried(self):
         u = AtomicNode("u")
@@ -355,7 +381,9 @@ class TestMapping(expecttest.TestCase):
 
         self.assertExpectedInline(str(new_mapping), """w;x <--- u;v;x""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[u, v]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[CAR <c, 2, 1>, INV <[u, v], 3, 2, [2]>]""")
+        self.assertExpectedInline(
+            str(new_mapping.transform), """[CAR <c, 2, 1>, INV <[u, v], 3, 2, [2]>]"""
+        )
 
     def test_invert_doesNotExcludeCarriedIfCarriedIsCurried(self):
         u = AtomicNode("u")
@@ -379,4 +407,7 @@ class TestMapping(expecttest.TestCase):
 
         self.assertExpectedInline(str(new_mapping), """w;x --- u;v""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[u, v]""")
-        self.assertExpectedInline(str(new_mapping.transform), """[CAR <c, 2, 1>, CUR <2, c>, INV <[u, v], 2, 2, []>]""")
+        self.assertExpectedInline(
+            str(new_mapping.transform),
+            """[CAR <c, 2, 1>, CUR <2, c>, INV <[u, v], 2, 2, []>]""",
+        )

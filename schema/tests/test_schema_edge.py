@@ -23,4 +23,3 @@ class TestSchemaEdge(expecttest.TestCase):
         v = AtomicNode("name2", BaseType.STRING)
         e = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
         self.assertEqual(Cardinality.ONE_TO_MANY, e.get_cardinality(v))
-

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import copy
 import uuid
 from enum import Enum
@@ -7,38 +8,31 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from frontend.tables.helpers.flatten import flatten
-from schema.helpers.compose_cardinality import compose_cardinality
-from schema.cardinality import Cardinality
-from schema.base_types import BaseType
-from schema.helpers.is_sublist import is_sublist
-from schema.helpers.find_index import find_index
-from schema.node import SchemaNode, AtomicNode, SchemaClass
-from frontend.tables.column import Column
+from exp.exp import Exp, ExtendExp, MaskExp
+from exp.helpers.wrap_aexp import wrap_aexp
+from exp.helpers.wrap_bexp import wrap_bexp
+from exp.helpers.wrap_sexp import wrap_sexp
 from frontend.derivation.derivation_node import (
     DerivationNode,
     ColumnNode,
     IntermediateNode,
-    RootNode, invert_derivation_path, intermediate_representation_for_path,
+    RootNode,
+    invert_derivation_path,
+    intermediate_representation_for_path,
 )
-from frontend.derivation.ordered_set import OrderedSet
 from frontend.domain import Domain
+from frontend.tables.column import Column
 from frontend.tables.exceptions import (
     ColumnsNeedToBeUniqueException,
     ColumnsNeedToBeInTableAndVisibleException,
     ColumnsNeedToBeKeysException,
     ColumnsNeedToBeInTableException,
     ColumnsNeedToBeValuesException,
-    ColumnWithNameAlreadyExistsInTable,
 )
-from exp.exp import Exp, ExtendExp, MaskExp
 from frontend.tables.helpers.carry_keys_through_path import (
     carry_keys_through_representation,
 )
-from frontend.tables.helpers.transform_step import transform_step
-from exp.helpers.wrap_aexp import wrap_aexp
-from exp.helpers.wrap_bexp import wrap_bexp
-from exp.helpers.wrap_sexp import wrap_sexp
+from frontend.tables.helpers.flatten import flatten
 from representation.representation import (
     RepresentationStep,
     End,
@@ -49,6 +43,12 @@ from representation.representation import (
     StartTraversal,
     Pop,
 )
+from schema.base_types import BaseType
+from schema.cardinality import Cardinality
+from schema.helpers.compose_cardinality import compose_cardinality
+from schema.helpers.find_index import find_index
+from schema.helpers.is_sublist import is_sublist
+from schema.node import SchemaNode, AtomicNode, SchemaClass
 
 existing_column = str | Column | ColumnNode
 new_column = AtomicNode | SchemaClass | Column | ColumnNode
@@ -127,7 +127,7 @@ def get_names_and_nodes(input_columns: list[new_column]) -> tuple[list[Any], ...
     )
 
 
-def get_fresh_name(name: str, namespace: set[str]) -> str:
+def get_fresh_name(name: str, namespace: frozenset[str]) -> str:
     """
     Generates a fresh name by appending a number to the name if it already exists in the namespace
 
@@ -149,7 +149,7 @@ def get_fresh_name(name: str, namespace: set[str]) -> str:
 
 
 def new_domain_from_schema_node(
-    namespace: set[str], node: AtomicNode, name: str = None
+    namespace: frozenset[str], node: AtomicNode, name: str = None
 ):
     """
     Creates a new domain from a schema node, such that the name of the domain is not already in the namespace
@@ -169,7 +169,7 @@ def new_domain_from_schema_node(
     return Domain(name, node)
 
 
-def create_domain(name: str, node: AtomicNode, namespace: set[str]) -> Domain:
+def create_domain(name: str, node: AtomicNode, namespace: frozenset[str]) -> Domain:
     """
     Creates a domain from a name and a schema node
 
@@ -229,13 +229,13 @@ class Table:
         table_id = uuid.uuid4().hex
         table = Table(table_id, None, [], schema)
         keys = []
-        namespace = set()
+        namespace = frozenset()
         for column in columns:
             key_node = column.node
             name = column.name
             key = create_domain(name, key_node, namespace)
             keys += [key]
-            namespace.add(name)
+            namespace |= {name}
 
         table.displayed_columns = [str(k) for k in keys]
         table.left = {str(k): k for k in keys}
@@ -481,14 +481,14 @@ class Table:
             )
         )
 
-    def get_namespace(self) -> set[str]:
+    def get_namespace(self) -> frozenset[str]:
         """
         Gets the namespace of the table
 
         Returns:
             The namespace
         """
-        return set(
+        return frozenset(
             [
                 d.name
                 for d in self.derivation.get_keys_and_values()
@@ -499,15 +499,15 @@ class Table:
     def get_representation(
         self, start: list[Domain], end: list[Domain], via, aggregated_over, namespace
     ):
-        shortest_p = self.schema.find_shortest_path(start, end, via)
-        cardinality, repr, hidden_keys = shortest_p
-        new_repr: list[RepresentationStep] = []
-        hidden_columns = []
-        get_next_step = transform_step(namespace)
-        for step in repr:
-            next_step, cols = get_next_step(step)
-            new_repr += [next_step]
-            hidden_columns += cols
+
+        from frontend.tables.helpers.convert_path_to_representation import (
+            convert_path_to_representation,
+        )
+
+        cardinality, edges = self.schema.find_shortest_path(start, end, via)
+        new_repr, hidden_columns = convert_path_to_representation(
+            start, end, edges, namespace
+        )
         return cardinality, new_repr, hidden_columns
 
     def compose(
@@ -529,14 +529,14 @@ class Table:
         t = Table.create_from_table(self)
 
         namespace = t.get_namespace()
-        namespace.remove(to_key)
+        namespace = namespace.difference({to_key})
         # STEP 2
         # 2a. Update the columns to display
 
         cols_to_add = []
         for k in from_keys_nodes:
             col = new_domain_from_schema_node(namespace, k)
-            namespace.add(col.name)
+            namespace |= {col.name}
             cols_to_add += [col]
 
         t.set_displayed_columns(

@@ -1,8 +1,15 @@
-from representation.representation import *
+from representation.representation import (
+    RepresentationStep,
+    StartTraversal,
+    EndTraversal,
+)
+from typing import Callable
 
 
 def invert_representation(
-    representation: list[RepresentationStep], namespace: set[str], naming_function: Callable[[set[str], str], str]
+    representation: list[RepresentationStep],
+    namespace: set[str],
+    naming_function: Callable[[set[str], str], str],
 ) -> list[RepresentationStep]:
     """
     Inverts a representation. If the original representation describes how to derive Y from X, the inverted

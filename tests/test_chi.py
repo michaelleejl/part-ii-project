@@ -421,8 +421,8 @@ Edinburgh Cambridge          0.300000
 
         t9 = (
             t1.infer(["ToCity"], t6["relative_inflow"], with_name="expected_outflow")
-              .show("FromCity_1")
-              .equate("FromCity", "FromCity_1")
+            .show("FromCity_1")
+            .equate("FromCity", "FromCity_1")
         )
 
         print("table 9")

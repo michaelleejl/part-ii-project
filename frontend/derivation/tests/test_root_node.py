@@ -1,7 +1,14 @@
 import expecttest
 
-from frontend.derivation.derivation_node import DerivationNode, RootNode, ColumnNode, intermediate_representation_for_path, \
-    invert_derivation_path, set_hidden_keys_along_path, find_splice_point
+from frontend.derivation.derivation_node import (
+    DerivationNode,
+    RootNode,
+    ColumnNode,
+    intermediate_representation_for_path,
+    invert_derivation_path,
+    set_hidden_keys_along_path,
+    find_splice_point,
+)
 from frontend.derivation.ordered_set import OrderedSet
 from frontend.derivation.exceptions import *
 from frontend.domain import Domain
@@ -9,7 +16,14 @@ from frontend.tables.column_type import Val, Key, HiddenKey
 from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge
 from schema.node import AtomicNode, SchemaNode
-from representation.representation import StartTraversal, Traverse, EndTraversal, Get, Project
+from representation.representation import (
+    StartTraversal,
+    Traverse,
+    EndTraversal,
+    Get,
+    Project,
+)
+
 
 class TestRootNode(expecttest.TestCase):
 
@@ -22,11 +36,14 @@ class TestRootNode(expecttest.TestCase):
 
         root = RootNode([a, b])
 
-        self.assertExpectedInline(str(root), """\
+        self.assertExpectedInline(
+            str(root),
+            """\
 [a, b] // hidden: []
 	[] // hidden: []
 	[a] // hidden: []
-	[b] // hidden: []""")
+	[b] // hidden: []""",
+        )
 
     def test_splice_splicesAtTheCorrectPoint_forStraightLineDerivation(self):
         u = AtomicNode("u")
@@ -51,10 +68,18 @@ class TestRootNode(expecttest.TestCase):
         e3 = SchemaEdge(w, x, Cardinality.MANY_TO_ONE)
         e4 = SchemaEdge(x, y, Cardinality.MANY_TO_ONE)
 
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])])
-        d_node = DerivationNode([d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])])
-        e_node = DerivationNode([e], [StartTraversal([d]), Traverse(e4), EndTraversal([e])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])]
+        )
+        d_node = DerivationNode(
+            [d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])]
+        )
+        e_node = DerivationNode(
+            [e], [StartTraversal([d]), Traverse(e4), EndTraversal([e])]
+        )
 
         root = RootNode([a])
         a_node = root.children[1]
@@ -62,11 +87,12 @@ class TestRootNode(expecttest.TestCase):
 
         root2 = RootNode([a])
         a_node = root2.children[1]
-        root2 = (root2.add_child(a_node, b_node)
-                      .add_child(b_node, c_node)
-                      .add_child(c_node, d_node)
-                      .add_child(d_node, e_node)
-                 )
+        root2 = (
+            root2.add_child(a_node, b_node)
+            .add_child(b_node, c_node)
+            .add_child(c_node, d_node)
+            .add_child(d_node, e_node)
+        )
 
         a_node = root2.children[1]
         b_node = a_node.children[0]
@@ -78,13 +104,16 @@ class TestRootNode(expecttest.TestCase):
 
         root = root.splice(path, set())
 
-        self.assertExpectedInline(str(root), """\
+        self.assertExpectedInline(
+            str(root),
+            """\
 [a] // hidden: []
 	[] // hidden: []
 	[a] // hidden: []
 		[b] // hidden: []
 			[c] // hidden: []
-				[e] // hidden: []""")
+				[e] // hidden: []""",
+        )
 
     def test_splice_splicesAtTheCorrectPoint_forBranchingDerivation(self):
         u = AtomicNode("u")
@@ -106,9 +135,15 @@ class TestRootNode(expecttest.TestCase):
         e2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
         e3 = SchemaEdge(w, x, Cardinality.MANY_TO_ONE)
 
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])])
-        d_node = DerivationNode([d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])]
+        )
+        d_node = DerivationNode(
+            [d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])]
+        )
 
         root = RootNode([a])
         a_node = root.children[1]
@@ -116,10 +151,11 @@ class TestRootNode(expecttest.TestCase):
 
         root2 = RootNode([a])
         a_node = root2.children[1]
-        root2 = (root2.add_child(a_node, b_node)
-                 .add_child(b_node, c_node)
-                 .add_child(c_node, d_node)
-                 )
+        root2 = (
+            root2.add_child(a_node, b_node)
+            .add_child(b_node, c_node)
+            .add_child(c_node, d_node)
+        )
 
         a_node = root2.children[1]
         b_node = a_node.children[0]
@@ -130,13 +166,16 @@ class TestRootNode(expecttest.TestCase):
 
         root = root.splice(path, set())
 
-        self.assertExpectedInline(str(root), """\
+        self.assertExpectedInline(
+            str(root),
+            """\
 [a] // hidden: []
 	[] // hidden: []
 	[a] // hidden: []
 		[b] // hidden: []
 			[d] // hidden: []
-		[c] // hidden: []""")
+		[c] // hidden: []""",
+        )
 
     def test_splice_namesSetsAndAddsHiddenKeys(self):
         u = AtomicNode("u")
@@ -158,9 +197,15 @@ class TestRootNode(expecttest.TestCase):
         e2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
         e3 = SchemaEdge(w, x, Cardinality.ONE_TO_MANY)
 
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])])
-        d_node = DerivationNode([d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])]
+        )
+        d_node = DerivationNode(
+            [d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])]
+        )
 
         root = RootNode([a])
         a_node = root.children[1]
@@ -168,7 +213,11 @@ class TestRootNode(expecttest.TestCase):
 
         root2 = RootNode([a])
         a_node = root2.children[1]
-        root2 = root2.add_child(a_node, b_node).add_child(b_node, c_node).add_child(c_node, d_node)
+        root2 = (
+            root2.add_child(a_node, b_node)
+            .add_child(b_node, c_node)
+            .add_child(c_node, d_node)
+        )
 
         a_node = root2.children[1]
         b_node = a_node.children[0]
@@ -179,14 +228,17 @@ class TestRootNode(expecttest.TestCase):
 
         root = root.splice(path, set())
 
-        self.assertExpectedInline(str(root), """\
+        self.assertExpectedInline(
+            str(root),
+            """\
 [a] // hidden: []
 	[] // hidden: []
 		[x] // hidden: []
 	[a] // hidden: []
 		[b] // hidden: []
 			[c] // hidden: []
-				[d] // hidden: [x]""")
+				[d] // hidden: [x]""",
+        )
 
     def test_splice_respectsNamespace(self):
         u = AtomicNode("u")
@@ -208,9 +260,15 @@ class TestRootNode(expecttest.TestCase):
         e2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
         e3 = SchemaEdge(w, x, Cardinality.ONE_TO_MANY)
 
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])])
-        d_node = DerivationNode([d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(e1), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(e2), EndTraversal([c])]
+        )
+        d_node = DerivationNode(
+            [d], [StartTraversal([c]), Traverse(e3), EndTraversal([d])]
+        )
 
         x_node = ColumnNode(Domain("x", x), HiddenKey(), [])
 
@@ -221,7 +279,11 @@ class TestRootNode(expecttest.TestCase):
         root = root.add_child(unit_node, x_node)
         root2 = RootNode([a])
         a_node = root2.children[1]
-        root2 = root2.add_child(a_node, b_node).add_child(b_node, c_node).add_child(c_node, d_node)
+        root2 = (
+            root2.add_child(a_node, b_node)
+            .add_child(b_node, c_node)
+            .add_child(c_node, d_node)
+        )
 
         a_node = root2.children[1]
         b_node = a_node.children[0]
@@ -232,7 +294,9 @@ class TestRootNode(expecttest.TestCase):
 
         root = root.splice(path, set("x"))
 
-        self.assertExpectedInline(str(root), """\
+        self.assertExpectedInline(
+            str(root),
+            """\
 [a] // hidden: []
 	[] // hidden: []
 		[x] // hidden: []
@@ -240,4 +304,6 @@ class TestRootNode(expecttest.TestCase):
 	[a] // hidden: []
 		[b] // hidden: []
 			[c] // hidden: []
-				[d] // hidden: [x_1]""""")
+				[d] // hidden: [x_1]"""
+            "",
+        )

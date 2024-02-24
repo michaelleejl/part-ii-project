@@ -1,6 +1,12 @@
 import expecttest
-from frontend.derivation.derivation_node import DerivationNode, ColumnNode, intermediate_representation_for_path, \
-    invert_derivation_path, set_hidden_keys_along_path, find_splice_point
+from frontend.derivation.derivation_node import (
+    DerivationNode,
+    ColumnNode,
+    intermediate_representation_for_path,
+    invert_derivation_path,
+    set_hidden_keys_along_path,
+    find_splice_point,
+)
 from frontend.derivation.ordered_set import OrderedSet
 from frontend.derivation.exceptions import *
 from frontend.domain import Domain
@@ -8,7 +14,13 @@ from frontend.tables.column_type import Val, Key, HiddenKey
 from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge
 from schema.node import AtomicNode, SchemaNode
-from representation.representation import StartTraversal, Traverse, EndTraversal, Get, Project
+from representation.representation import (
+    StartTraversal,
+    Traverse,
+    EndTraversal,
+    Get,
+    Project,
+)
 
 
 class TestDerivationNode(expecttest.TestCase):
@@ -374,10 +386,13 @@ class TestDerivationNode(expecttest.TestCase):
         p_double_node = p_double_node.set_children([c2_node])
         p_new = p_node.merge_subtree(p_double_node)
 
-        self.assertExpectedInline(str(p_new), """\
+        self.assertExpectedInline(
+            str(p_new),
+            """\
 [p] // hidden: []
 	[c1] // hidden: []
-	[c2] // hidden: []""")
+	[c2] // hidden: []""",
+        )
 
     def test_merge_subtree_doesNotMutate(self):
         u = AtomicNode("u")
@@ -398,9 +413,12 @@ class TestDerivationNode(expecttest.TestCase):
         p_double_node = p_double_node.set_children([c2_node])
         p_new = p_node.merge_subtree(p_double_node)
 
-        self.assertExpectedInline(str(p_node), """\
+        self.assertExpectedInline(
+            str(p_node),
+            """\
 [p] // hidden: []
-	[c1] // hidden: []""")
+	[c1] // hidden: []""",
+        )
 
     def test_remove_child_removesChildFromNode(self):
         u = AtomicNode("u")
@@ -706,7 +724,9 @@ class TestDerivationNode(expecttest.TestCase):
             [a, b], [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])]
         )
 
-        c_node = DerivationNode([c], [StartTraversal([a, b]), Traverse(e_uv_to_w), EndTraversal([c])])
+        c_node = DerivationNode(
+            [c], [StartTraversal([a, b]), Traverse(e_uv_to_w), EndTraversal([c])]
+        )
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
@@ -715,10 +735,13 @@ class TestDerivationNode(expecttest.TestCase):
         ab_node = a_node.children[0]
 
         hidden = ab_node.hide(a)
-        self.assertExpectedInline(str(hidden), """\
+        self.assertExpectedInline(
+            str(hidden),
+            """\
 [b] // hidden: []
 	[a, b] // hidden: [a]
-		[c] // hidden: []""")
+		[c] // hidden: []""",
+        )
 
     def test_hide_doesNotMutate(self):
         u = AtomicNode("u")
@@ -742,7 +765,9 @@ class TestDerivationNode(expecttest.TestCase):
             [a, b], [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])]
         )
 
-        c_node = DerivationNode([c], [StartTraversal([a, b]), Traverse(e_uv_to_w), EndTraversal([c])])
+        c_node = DerivationNode(
+            [c], [StartTraversal([a, b]), Traverse(e_uv_to_w), EndTraversal([c])]
+        )
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
@@ -751,9 +776,12 @@ class TestDerivationNode(expecttest.TestCase):
         ab_node = a_node.children[0]
 
         hidden = ab_node.hide(a)
-        self.assertExpectedInline(str(ab_node), """\
+        self.assertExpectedInline(
+            str(ab_node),
+            """\
 [a, b] // hidden: []
-	[c] // hidden: []""")
+	[c] // hidden: []""",
+        )
 
     def test_hide_successfullyTurnsKeysIntoHiddenKeys(self):
         u = AtomicNode("u")
@@ -777,7 +805,9 @@ class TestDerivationNode(expecttest.TestCase):
             [a, b], [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])]
         )
 
-        c_node = DerivationNode([c], [StartTraversal([a, b]), Traverse(e_uv_to_w), EndTraversal([c])])
+        c_node = DerivationNode(
+            [c], [StartTraversal([a, b]), Traverse(e_uv_to_w), EndTraversal([c])]
+        )
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
@@ -785,12 +815,15 @@ class TestDerivationNode(expecttest.TestCase):
         a_node = root.children[1]
 
         hidden = a_node.hide(a)
-        self.assertExpectedInline(str(hidden), """\
+        self.assertExpectedInline(
+            str(hidden),
+            """\
 [] // hidden: []
 	[a] // hidden: [a]
 		[b] // hidden: []
 			[a, b] // hidden: [a]
-				[c] // hidden: []""")
+				[c] // hidden: []""",
+        )
         self.assertTrue(hidden.children[0].is_hidden_key_column())
 
     def test_hide_successfullyTurnsValueColumnIntoDerivationNode(self):
@@ -811,16 +844,23 @@ class TestDerivationNode(expecttest.TestCase):
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
-        b_node = ColumnNode(b, Val(), [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])])
-        c_node = ColumnNode(c, Val(),[StartTraversal([b]), Traverse(e_v_to_w), EndTraversal([c])])
+        b_node = ColumnNode(
+            b, Val(), [StartTraversal([a]), Traverse(e_u_to_v), EndTraversal([b])]
+        )
+        c_node = ColumnNode(
+            c, Val(), [StartTraversal([b]), Traverse(e_v_to_w), EndTraversal([c])]
+        )
         root = root.add_child(a_node, b_node).add_child(b_node, c_node)
         a_node = root.children[1]
         b_node = a_node.children[0]
 
         hidden = b_node.hide(b)
-        self.assertExpectedInline(str(hidden), """\
+        self.assertExpectedInline(
+            str(hidden),
+            """\
 [b] // hidden: []
-	[c] // hidden: []""")
+	[c] // hidden: []""",
+        )
         self.assertFalse(hidden.is_val_column())
 
     def test_hide_key_createsHiddenKeyIfOneDoesNotExist(self):
@@ -834,11 +874,14 @@ class TestDerivationNode(expecttest.TestCase):
         a_node = root.children[1]
         hidden = root.hide(a_node)
 
-        self.assertExpectedInline(str(hidden), """\
+        self.assertExpectedInline(
+            str(hidden),
+            """\
 [b] // hidden: []
 	[] // hidden: []
 		[a] // hidden: [a]
-	[b] // hidden: []""")
+	[b] // hidden: []""",
+        )
 
     def test_hide_mergesSubtrees(self):
         u = AtomicNode("u")  # a
@@ -853,32 +896,39 @@ class TestDerivationNode(expecttest.TestCase):
         w.id_prefix = 0
 
         e_u_to_w = SchemaEdge(u, w, Cardinality.MANY_TO_ONE)
-        e_uv_to_x= SchemaEdge(uv, x, Cardinality.MANY_TO_ONE)
+        e_uv_to_x = SchemaEdge(uv, x, Cardinality.MANY_TO_ONE)
 
         a = Domain("a", u)
         b = Domain("b", v)
         c = Domain("c", w)
         d = Domain("d", x)
 
-        c_node = ColumnNode(c, Val(), [StartTraversal([a]), Traverse(e_u_to_w), EndTraversal([c])])
-        d_node = ColumnNode(d, Val(), [StartTraversal([a, b]), Traverse(e_uv_to_x), EndTraversal([d])])
+        c_node = ColumnNode(
+            c, Val(), [StartTraversal([a]), Traverse(e_u_to_w), EndTraversal([c])]
+        )
+        d_node = ColumnNode(
+            d, Val(), [StartTraversal([a, b]), Traverse(e_uv_to_x), EndTraversal([d])]
+        )
         root = DerivationNode.create_root([a, b])
         a_node = root.children[1]
         b_node = root.children[2]
         root = root.insert_key([a, b])
         ab_node = root.children[3]
         root = root.add_child(a_node, c_node).add_child(ab_node, d_node)
-        
+
         hidden = root.hide(b_node)
 
-        self.assertExpectedInline(str(hidden), """\
+        self.assertExpectedInline(
+            str(hidden),
+            """\
 [a] // hidden: []
 	[] // hidden: []
 		[b] // hidden: [b]
 	[a] // hidden: []
 		[c] // hidden: []
 		[a, b] // hidden: [b]
-			[d] // hidden: []""")
+			[d] // hidden: []""",
+        )
 
     def test_show_key_splitsSubtreesIntoWithAndWithoutKey(self):
         u = AtomicNode("u")
@@ -900,17 +950,27 @@ class TestDerivationNode(expecttest.TestCase):
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
-        root = root.add_child(a_node, b_node).add_child(b_node, c_node).add_child(b_node, d_node)
+        root = (
+            root.add_child(a_node, b_node)
+            .add_child(b_node, c_node)
+            .add_child(b_node, d_node)
+        )
         a_node = root.children[1]
         b_node = a_node.children[0]
 
         with_hk, without_hk = b_node.show_key(hid)
-        self.assertExpectedInline(str(with_hk), """\
+        self.assertExpectedInline(
+            str(with_hk),
+            """\
 [b, hid] // hidden: []
-	[d] // hidden: []""")
-        self.assertExpectedInline(str(without_hk), """\
+	[d] // hidden: []""",
+        )
+        self.assertExpectedInline(
+            str(without_hk),
+            """\
 [b] // hidden: []
-	[c] // hidden: []""")
+	[c] // hidden: []""",
+        )
 
     def test_show_key_doesNotMutate(self):
         u = AtomicNode("u")
@@ -932,16 +992,23 @@ class TestDerivationNode(expecttest.TestCase):
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
-        root = root.add_child(a_node, b_node).add_child(b_node, c_node).add_child(b_node, d_node)
+        root = (
+            root.add_child(a_node, b_node)
+            .add_child(b_node, c_node)
+            .add_child(b_node, d_node)
+        )
         a_node = root.children[1]
         b_node = a_node.children[0]
 
         _ = b_node.show_key(hid)
 
-        self.assertExpectedInline(str(b_node), """\
+        self.assertExpectedInline(
+            str(b_node),
+            """\
 [b] // hidden: []
 	[c] // hidden: []
-	[d] // hidden: [hid]""")
+	[d] // hidden: [hid]""",
+        )
 
     def test_show_val_convertsDerivationNodeIntoVal(self):
         u = AtomicNode("u")
@@ -965,9 +1032,12 @@ class TestDerivationNode(expecttest.TestCase):
         b_node = a_node.children[0]
 
         val = b_node.show_val(c)
-        self.assertExpectedInline(str(val), """\
+        self.assertExpectedInline(
+            str(val),
+            """\
 [b] // hidden: []
-	[c] // hidden: []""")
+	[c] // hidden: []""",
+        )
         self.assertTrue(val.children[0].is_val_column())
 
     def test_equate_internal_doesNothingIfNeitherKeyAppearsInNode(self):
@@ -989,11 +1059,14 @@ class TestDerivationNode(expecttest.TestCase):
         root = root.add_child(a1_node, b_node).add_child(b_node, c_node)
         a1_node = root.children[1]
         b_node = a1_node.children[0]
-        
+
         equated = b_node.equate_internal(a1, a2, [a1, a2])
-        self.assertExpectedInline(str(equated), """\
+        self.assertExpectedInline(
+            str(equated),
+            """\
 [b] // hidden: []
-	[c] // hidden: []""")
+	[c] // hidden: []""",
+        )
 
     def test_equate_internal_performsSubstitutionIfOnlySecondKeyAppearsInNode(self):
         u = AtomicNode("u")
@@ -1016,11 +1089,16 @@ class TestDerivationNode(expecttest.TestCase):
         a2b_node = a2_node.children[0]
 
         equated = a2b_node.equate_internal(a1, a2, [a1, a2])
-        self.assertExpectedInline(str(equated), """\
+        self.assertExpectedInline(
+            str(equated),
+            """\
 [a1, b] // hidden: []
-	[c] // hidden: []""")
+	[c] // hidden: []""",
+        )
 
-    def test_equate_internal_eliminatesSecondKeyIfBothFirstAndSecondKeyAppearInNode(self):
+    def test_equate_internal_eliminatesSecondKeyIfBothFirstAndSecondKeyAppearInNode(
+        self,
+    ):
         u = AtomicNode("u")
         v = AtomicNode("v")
         w = AtomicNode("w")
@@ -1043,9 +1121,12 @@ class TestDerivationNode(expecttest.TestCase):
         a1a2b_node = a1a2_node.children[0]
 
         equated = a1a2b_node.equate_internal(a1, a2, [a1, a2])
-        self.assertExpectedInline(str(equated), """\
+        self.assertExpectedInline(
+            str(equated),
+            """\
 [a1, b] // hidden: []
-	[c] // hidden: []""")
+	[c] // hidden: []""",
+        )
 
     def test_equate_doesNotMutate(self):
         u = AtomicNode("u")
@@ -1070,9 +1151,12 @@ class TestDerivationNode(expecttest.TestCase):
         a1a2b_node = a1a2_node.children[0]
 
         equated = a1a2b_node.equate_internal(a1, a2, [a1, a2])
-        self.assertExpectedInline(str(a1a2b_node), """\
+        self.assertExpectedInline(
+            str(a1a2b_node),
+            """\
 [a1, a2, b] // hidden: []
-	[c] // hidden: []""")
+	[c] // hidden: []""",
+        )
 
     def test_equate_modifiesIntermediateRepresentation(self):
         u = AtomicNode("u")
@@ -1094,10 +1178,14 @@ class TestDerivationNode(expecttest.TestCase):
         edge = SchemaEdge(uu, v, Cardinality.MANY_TO_ONE)
         edge2 = SchemaEdge(uuv, w, Cardinality.MANY_TO_ONE)
 
-        a1a2b_node = DerivationNode([a1, a2, b], [StartTraversal([a1, a2]), Traverse(edge), EndTraversal([b])])
+        a1a2b_node = DerivationNode(
+            [a1, a2, b], [StartTraversal([a1, a2]), Traverse(edge), EndTraversal([b])]
+        )
 
         c = Domain("c", w)
-        c_node = DerivationNode([c], [StartTraversal([a1, a2, b]), Traverse(edge2), EndTraversal([c])])
+        c_node = DerivationNode(
+            [c], [StartTraversal([a1, a2, b]), Traverse(edge2), EndTraversal([c])]
+        )
 
         root = DerivationNode.create_root([a1, a2])
         root = root.insert_key([a1, a2])
@@ -1109,7 +1197,10 @@ class TestDerivationNode(expecttest.TestCase):
 
         equated = a1a2b_node.equate_internal(a1, a2, [a1, a2])
         child = equated.children[0]
-        self.assertExpectedInline(str(child.to_intermediate_representation()), """[STT <[a1, b]>, PRJ <u;v, u, [0]>, ENT <[a2]>, STT <[a1, a2, b]>, TRV <u;u;v ---> w, []>, ENT <[c]>, DRP <[a2]>]""")
+        self.assertExpectedInline(
+            str(child.to_intermediate_representation()),
+            """[STT <[a1, b]>, PRJ <u;v, u, [0]>, ENT <[a2]>, STT <[a1, a2, b]>, TRV <u;u;v ---> w, []>, ENT <[c]>, DRP <[a2]>]""",
+        )
 
     def test_rename_doesNothingIfDomainNotInNode(self):
         u = AtomicNode("u")
@@ -1157,13 +1248,18 @@ class TestDerivationNode(expecttest.TestCase):
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
         edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
         root = root.add_child(a_node, b_node)
         a_node = root.children[1]
         b_node = a_node.children[0]
 
         renamed = b_node.rename("b", "c")
-        self.assertExpectedInline(str(renamed.to_intermediate_representation()), """[STT <[a]>, TRV <u ---> v, []>, ENT <[c]>]""")
+        self.assertExpectedInline(
+            str(renamed.to_intermediate_representation()),
+            """[STT <[a]>, TRV <u ---> v, []>, ENT <[c]>]""",
+        )
 
     def test_rename_doesNotMutate(self):
         u = AtomicNode("u")
@@ -1245,7 +1341,9 @@ class TestDerivationNode(expecttest.TestCase):
         b = Domain("b", v)
 
         edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
-        b_node = ColumnNode(b, Val(), [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        b_node = ColumnNode(
+            b, Val(), [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
@@ -1268,10 +1366,16 @@ class TestDerivationNode(expecttest.TestCase):
 
         edge = SchemaEdge(u, vw, Cardinality.MANY_TO_ONE)
 
-        bc_node = DerivationNode([b, c], [StartTraversal([a]), Traverse(edge), EndTraversal([b, c])])
+        bc_node = DerivationNode(
+            [b, c], [StartTraversal([a]), Traverse(edge), EndTraversal([b, c])]
+        )
 
-        b_node = ColumnNode(b, Val(), [StartTraversal([b, c]), Project(vw, v, [0]), EndTraversal([b])])
-        c_node = ColumnNode(c, Val(), [StartTraversal([b, c]), Project(vw, w, [1]), EndTraversal([c])])
+        b_node = ColumnNode(
+            b, Val(), [StartTraversal([b, c]), Project(vw, v, [0]), EndTraversal([b])]
+        )
+        c_node = ColumnNode(
+            c, Val(), [StartTraversal([b, c]), Project(vw, w, [1]), EndTraversal([c])]
+        )
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
@@ -1287,7 +1391,9 @@ class TestDerivationNode(expecttest.TestCase):
     def test_intermediate_representation_for_path_returnsEmptyListIfPathEmpty(self):
         self.assertEqual(intermediate_representation_for_path([]), [])
 
-    def test_intermediate_representation_for_path_returnsCorrectIntermediateRepresentationForPath(self):
+    def test_intermediate_representation_for_path_returnsCorrectIntermediateRepresentationForPath(
+        self,
+    ):
         u = AtomicNode("u")
         v = AtomicNode("v")
 
@@ -1298,7 +1404,9 @@ class TestDerivationNode(expecttest.TestCase):
         b = Domain("b", v)
 
         edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
-        b_node = ColumnNode(b, Val(), [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
+        b_node = ColumnNode(
+            b, Val(), [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
@@ -1306,7 +1414,10 @@ class TestDerivationNode(expecttest.TestCase):
         a_node = root.children[1]
 
         path = a_node.path_to_value(b_node)
-        self.assertExpectedInline(str(intermediate_representation_for_path(path)), """[GET <[a]>, STT <[a]>, TRV <u ---> v, []>, ENT <[b]>]""")
+        self.assertExpectedInline(
+            str(intermediate_representation_for_path(path)),
+            """[GET <[a]>, STT <[a]>, TRV <u ---> v, []>, ENT <[b]>]""",
+        )
 
     def test_invert_derivation_path_successfullyInvertsDerivationPath(self):
         u = AtomicNode("u")
@@ -1325,17 +1436,24 @@ class TestDerivationNode(expecttest.TestCase):
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
 
         a_node = DerivationNode([a], [Get([a])])
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+        )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
         inverted = invert_derivation_path([a_node, b_node, c_node], set())
-        self.assertExpectedInline(str(inverted), """\
+        self.assertExpectedInline(
+            str(inverted),
+            """\
 [c] // hidden: []
 	[b] // hidden: [v]
-		[a] // hidden: [u]""")
+		[a] // hidden: [u]""",
+        )
 
     def test_invert_derivation_path_invertsRepresentationSteps(self):
         u = AtomicNode("u")
@@ -1354,14 +1472,22 @@ class TestDerivationNode(expecttest.TestCase):
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
 
         a_node = DerivationNode([a], [Get([a])])
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+        )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
         inverted = invert_derivation_path([a_node, b_node, c_node], set())
-        self.assertExpectedInline(str(inverted.to_intermediate_representation()), """[GET <[c]>, CAL, STT <[c]>, TRV <w <--- v, [v]>, ENT <[b]>, CAL, STT <[b]>, TRV <v <--- u, [u]>, ENT <[a]>, RET, RET]""""")
+        self.assertExpectedInline(
+            str(inverted.to_intermediate_representation()),
+            """[GET <[c]>, CAL, STT <[c]>, TRV <w <--- v, [v]>, ENT <[b]>, CAL, STT <[b]>, TRV <v <--- u, [u]>, ENT <[a]>, RET, RET]"""
+            "",
+        )
 
     def test_invert_derivation_path_renamesHiddenKeysToAvoidNamespaceClashes(self):
         u = AtomicNode("u")
@@ -1380,17 +1506,24 @@ class TestDerivationNode(expecttest.TestCase):
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
 
         a_node = DerivationNode([a], [Get([a])])
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+        )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
         inverted = invert_derivation_path([a_node, b_node, c_node], set("u"))
-        self.assertExpectedInline(str(inverted), """\
+        self.assertExpectedInline(
+            str(inverted),
+            """\
 [c] // hidden: []
 	[b] // hidden: [v]
-		[a] // hidden: [u_1]""")
+		[a] // hidden: [u_1]""",
+        )
 
     def test_invert_derivation_path_doesNotInvertChildrenNotOnPath(self):
         u = AtomicNode("u")
@@ -1411,23 +1544,35 @@ class TestDerivationNode(expecttest.TestCase):
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
 
         a_node = DerivationNode([a], [Get([a])])
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+        )
 
         d_node = DerivationNode([d], [])
         e_node = DerivationNode([e], [])
 
-        a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node).add_child(b_node, d_node).add_child(c_node, e_node)
+        a_node = (
+            a_node.add_child(a_node, b_node)
+            .add_child(b_node, c_node)
+            .add_child(b_node, d_node)
+            .add_child(c_node, e_node)
+        )
         b_node = a_node.children[0]
         c_node = b_node.children[0]
         inverted = invert_derivation_path([a_node, b_node, c_node], set())
 
-        self.assertExpectedInline(str(inverted), """\
+        self.assertExpectedInline(
+            str(inverted),
+            """\
 [c] // hidden: []
 	[e] // hidden: []
 	[b] // hidden: [v]
 		[d] // hidden: []
-		[a] // hidden: [u]""")
+		[a] // hidden: [u]""",
+        )
 
     def test_invert_derivation_path_doesNotMutate(self):
         u = AtomicNode("u")
@@ -1446,17 +1591,24 @@ class TestDerivationNode(expecttest.TestCase):
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
 
         a_node = DerivationNode([a], [Get([a])])
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+        )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
         _ = invert_derivation_path([a_node, b_node, c_node], set())
-        self.assertExpectedInline(str(a_node), """\
+        self.assertExpectedInline(
+            str(a_node),
+            """\
 [a] // hidden: []
 	[b] // hidden: []
-		[c] // hidden: []""")
+		[c] // hidden: []""",
+        )
 
     def test_set_hidden_keys_along_path_avoidsNamespaceClashes(self):
         u = AtomicNode("u")
@@ -1475,17 +1627,26 @@ class TestDerivationNode(expecttest.TestCase):
         edge2 = SchemaEdge(v, w, Cardinality.ONE_TO_MANY)
 
         a_node = DerivationNode([a], [Get([a])])
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+        )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
-        hidden_keys_set = set_hidden_keys_along_path([a_node, b_node, c_node], a_node, set("v"))
-        self.assertExpectedInline(str(hidden_keys_set), """\
+        hidden_keys_set = set_hidden_keys_along_path(
+            [a_node, b_node, c_node], a_node, set("v")
+        )
+        self.assertExpectedInline(
+            str(hidden_keys_set),
+            """\
 [a] // hidden: []
 	[b] // hidden: [v_1]
-		[c] // hidden: [w]""")
+		[c] // hidden: [w]""",
+        )
 
     def test_set_hidden_keys_along_path_doesNotMutate(self):
         u = AtomicNode("u")
@@ -1504,17 +1665,24 @@ class TestDerivationNode(expecttest.TestCase):
         edge2 = SchemaEdge(v, w, Cardinality.ONE_TO_MANY)
 
         a_node = DerivationNode([a], [Get([a])])
-        b_node = DerivationNode([b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+        b_node = DerivationNode(
+            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+        )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
         _ = set_hidden_keys_along_path([a_node, b_node, c_node], a_node, set("v"))
-        self.assertExpectedInline(str(a_node), """\
+        self.assertExpectedInline(
+            str(a_node),
+            """\
 [a] // hidden: []
 	[b] // hidden: []
-		[c] // hidden: []""")
+		[c] // hidden: []""",
+        )
 
     def test_find_column_with_name_successfullyFindsColumnIfExists(self):
         u = AtomicNode("u")
@@ -1533,8 +1701,12 @@ class TestDerivationNode(expecttest.TestCase):
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
 
         a_node = DerivationNode([a], [Get([a])])
-        b_node = ColumnNode(b, Val(), [StartTraversal([a]), Traverse(edge), EndTraversal([b])])
-        c_node = DerivationNode([c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])])
+        b_node = ColumnNode(
+            b, Val(), [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+        )
+        c_node = DerivationNode(
+            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+        )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
 
@@ -1637,4 +1809,3 @@ class TestDerivationNode(expecttest.TestCase):
 
         self.assertEqual(splice_point_1, 0)
         self.assertEqual(splice_point_2, 1)
-

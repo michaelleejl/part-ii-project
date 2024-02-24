@@ -10,7 +10,7 @@ from schema import (
 )
 from schema.helpers.find_index import find_index
 from schema.helpers.get_indices_of_sublist import SubListMustBeFullyContainedInList
-from schema.helpers.invert_representation import invert_representation
+from representation.helpers.invert_representation import invert_representation
 from schema.helpers.list_difference import list_difference
 
 

@@ -1,45 +1,49 @@
-from typing import Callable
-
 from frontend.domain import Domain
 from representation.representation import RepresentationStep
 
 
-def transform_step(
-    namespace
-) -> Callable[[RepresentationStep], tuple[RepresentationStep, list[Domain]]]:
+def rename_key_in_representation_step(
+    step, namespace: frozenset[str]
+) -> tuple[RepresentationStep, list[Domain], frozenset[str]]:
+    from frontend.tables.table import new_domain_from_schema_node
+    from representation.representation import Traverse, Expand
+
     internal_namespace = namespace
 
-    from frontend.tables.table import new_domain_from_schema_node
+    if isinstance(step, Traverse) or isinstance(step, Expand):
+        step_hidden_keys = step.get_hidden_keys()
+        new_hks = []
+        for hk in step_hidden_keys:
+            new_hk = new_domain_from_schema_node(internal_namespace, hk.node, hk.name)
+            internal_namespace |= {new_hk.name}
+            new_hks += [new_hk]
 
-    def internal(step) -> tuple[RepresentationStep, list[Domain]]:
-        from representation.representation import Traverse, Expand, EndTraversal
-
-        if isinstance(step, Traverse) or isinstance(step, Expand):
-            step_hidden_keys = step.hidden_keys
-            columns = []
-            for hk in step_hidden_keys:
-                col = new_domain_from_schema_node(internal_namespace, hk.node, hk.name)
-                internal_namespace.add(col.name)
-                columns += [col]
-
-            if isinstance(step, Traverse):
-                return (
-                    Traverse(
-                        step.edge,
-                        columns
-                    ),
-                    columns)
-            else:
-                return (
-                    Expand(
-                        step.start_node,
-                        step.end_node,
-                        step.indices,
-                        step.hidden_keys,
-                    ),
-                    columns,
-                )
+        if isinstance(step, Traverse):
+            new_edge = step.edge.replace_hidden_keys(new_hks)
+            return Traverse(new_edge), new_hks, frozenset(internal_namespace)
         else:
-            return step, []
+            return (
+                Expand(
+                    step.start_node,
+                    step.end_node,
+                    step.indices,
+                    new_hks,
+                ),
+                new_hks,
+                frozenset(internal_namespace),
+            )
+    else:
+        return step, [], frozenset(internal_namespace)
 
-    return internal
+
+def rename_hidden_keys_in_representation(
+    namespace: frozenset[str], representation: list[RepresentationStep]
+) -> [tuple[RepresentationStep, list[Domain], frozenset[str]]]:
+    namespace = frozenset(namespace)
+    new_representation = []
+    hidden_keys = []
+    for step in representation:
+        step, hks, namespace = rename_key_in_representation_step(step, namespace)
+        new_representation += [step]
+        hidden_keys += hks
+    return new_representation, hidden_keys, namespace
