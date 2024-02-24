@@ -1,6 +1,5 @@
 from __future__ import annotations
 import abc
-from typing import Callable, Set, Tuple
 
 from frontend.domain import Domain
 
@@ -27,12 +26,12 @@ class RepresentationStep(abc.ABC):
     def __str__(self):
         pass
 
-    def invert(self) -> RepresentationStep:
+    def invert(self, namespace: frozenset[str]) -> tuple[RepresentationStep, frozenset[str]]:
         """
         Invert the representation step
         For example, if the representation step is a traversal, the inverted representation step will be the reverse traversal
         """
-        return self
+        return self, namespace
 
     def get_hidden_keys(self) -> list[Domain]:
         return []
@@ -93,9 +92,7 @@ class Traverse(RepresentationStep):
     and H are the hidden keys required to traverse the edge
     """
 
-    from schema.edge import SchemaEdge
-
-    def __init__(self, edge: "Mapping"):
+    def __init__(self, edge: 'Mapping'):
         """
         Initialise a new Traverse representation step
 
@@ -104,9 +101,8 @@ class Traverse(RepresentationStep):
             Defaults to None.
         """
         super().__init__("TRV")
-        from schema.edge import SchemaEdge
 
-        self.edge: "Mapping" = edge
+        self.edge = edge
         self.hidden_keys: list[Domain] = self.edge.get_hidden_keys()
 
     def get_hidden_keys(self) -> list[Domain]:
@@ -119,17 +115,17 @@ class Traverse(RepresentationStep):
         return self.__repr__()
 
     def invert(
-        self,
-    ) -> Callable[[set[str], Callable[[set[str], str], str]], tuple[Mapping, set[str]]]:
+        self, namespace: frozenset[str]
+    ) -> tuple[RepresentationStep, frozenset[str]]:
         """
         Inverts the traversal
         Returns:
             Traverse: The inverted traversal
         """
-        from schema.edge import SchemaEdge
 
         edge = self.edge
-        return edge.invert()
+        new_mapping, namespace = edge.invert()(namespace)
+        return Traverse(new_mapping), namespace
 
 
 class Expand(RepresentationStep):
@@ -168,11 +164,11 @@ class Expand(RepresentationStep):
     def __str__(self):
         return self.__repr__()
 
-    def invert(self) -> Project:
+    def invert(self, namespace: frozenset[str]) -> tuple[Project, frozenset[str]]:
         """
         Inverts the expansion
         """
-        return Project(self.end_node, self.start_node, self.indices)
+        return Project(self.end_node, self.start_node, self.indices), namespace
 
     def get_hidden_keys(self) -> list[Domain]:
         return self.hidden_keys
@@ -361,7 +357,7 @@ class Project(RepresentationStep):
     def __str__(self):
         return self.__repr__()
 
-    def invert(self) -> Expand:
+    def invert(self, namespace: frozenset[str]) -> tuple[Expand, frozenset[str]]:
         """
         Inverts the projection
 
@@ -369,10 +365,16 @@ class Project(RepresentationStep):
             Expand: The inverted projection
         """
         from schema.node import SchemaNode
+        from frontend.tables.table import new_domain_from_schema_node
 
         nodes = SchemaNode.get_constituents(self.start_node)
-        hidden_keys = [n for (i, n) in enumerate(nodes) if i not in set(self.indices)]
-        return Expand(self.end_node, self.start_node, self.indices, hidden_keys)
+        hidden_key_nodes = [n for (i, n) in enumerate(nodes) if i not in set(self.indices)]
+        hidden_keys = []
+        for node in hidden_key_nodes:
+            d = new_domain_from_schema_node(namespace, node)
+            hidden_keys += [d]
+            namespace |= {d.name}
+        return Expand(self.end_node, self.start_node, self.indices, hidden_keys), namespace
 
 
 class Drop(RepresentationStep):

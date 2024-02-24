@@ -61,8 +61,9 @@ def invert_derivation_path(
 
     curr: DerivationNode = path[-2].copy()
 
-    intermediate_representation = invert_representation(
-        start.intermediate_representation
+    intermediate_representation, namespace = invert_representation(
+        start.intermediate_representation,
+        namespace
     )
 
     start = start.set_parent(None)
@@ -77,7 +78,7 @@ def invert_derivation_path(
             child = path[i - 1]
         curr = curr.set_children([c for c in curr.children if c != parent])
 
-        inverted = invert_representation(curr.intermediate_representation)
+        inverted = invert_representation(curr.intermediate_representation, namespace)
         curr.intermediate_representation = intermediate_representation
         intermediate_representation = inverted
 
@@ -89,7 +90,7 @@ def invert_derivation_path(
         curr = child
         i -= 1
 
-    new_path = set_hidden_keys_along_path(path[::-1], new_path, namespace)
+    # new_path = set_hidden_keys_along_path(path[::-1], new_path, namespace)
     return new_path
 
 

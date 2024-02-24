@@ -182,6 +182,12 @@ class Mapping:
             new_carried,
         )
 
+    def carry_multiple(self, domains: list[Domain]) -> Mapping:
+        mapping = self
+        for d in domains:
+            mapping = mapping.carry(d)
+        return mapping
+
     def carry(self, domain: Domain) -> Mapping:
         assert domain not in self.carried
         transform = Carry(domain, len(self.from_nodes), len(self.to_nodes))

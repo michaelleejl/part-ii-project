@@ -8,9 +8,8 @@ from typing import Callable
 
 def invert_representation(
     representation: list[RepresentationStep],
-    namespace: set[str],
-    naming_function: Callable[[set[str], str], str],
-) -> list[RepresentationStep]:
+    namespace: frozenset[str],
+) -> tuple[list[RepresentationStep], frozenset[str]]:
     """
     Inverts a representation. If the original representation describes how to derive Y from X, the inverted
     representation describes how to derive X from Y.
@@ -18,7 +17,6 @@ def invert_representation(
     Args:
         representation (list[RepresentationStep]): The representation to invert
         namespace (set[str]): The namespace of the representation
-        naming_function (Callable[[set[str], str], str]): The naming function for naming hidden keys
 
     Returns:
         list[RepresentationStep]: The inverted representation
@@ -38,6 +36,7 @@ def invert_representation(
             result += [start] + stack + [end]
             stack = []
         else:
-            stack = [command.invert()] + stack
+            new_command, namespace = command.invert(namespace)
+            stack = [new_command] + stack
     result += stack
-    return result
+    return result, namespace

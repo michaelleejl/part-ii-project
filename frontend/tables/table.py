@@ -29,7 +29,7 @@ from frontend.tables.exceptions import (
     ColumnsNeedToBeInTableException,
     ColumnsNeedToBeValuesException,
 )
-from frontend.tables.helpers.carry_keys_through_path import (
+from frontend.tables.helpers.carry_keys_through_representation import (
     carry_keys_through_representation,
 )
 from frontend.tables.helpers.flatten import flatten
