@@ -331,6 +331,8 @@ London     [London, Edinburgh, Oxford, Cambridge]  ...  [0.0, 0.0, 0.36363636363
             t10["volume_fillna"] / t10["total_outflow"], "relative_outflow"
         )
 
+        self.maxDiff = None
+
         t12 = t1.infer(["ToCity"], t7["relative_inflow"], with_name="expected_outflow")
         print(t12.derivation)
         self.assertExpectedInline(
@@ -378,6 +380,8 @@ Edinburgh Cambridge                [0.0, 0.0, 0.3, 0.7000000000000001]
         t12 = t1.infer(["ToCity"], t7["relative_inflow"], with_name="expected_outflow")
         t13 = t12.show("FromCity_1").equate("FromCity", "FromCity_1")
         print(t13["expected_outflow"].get_hidden_keys())
+        self.maxDiff = None
+
         self.assertExpectedInline(
             str(t13),
             """\

@@ -1089,15 +1089,17 @@ class RootNode(DerivationNode):
         splice_point = root.find_node_with_domains(path[splice_point_idx].domains)
 
         intermediate_representation = compress_path_representation(path[splice_point_idx+1:])
-        # to_splice_in = set_hidden_keys_along_path(
-        #     path[splice_point_idx + 1 :], path[splice_point_idx + 1], namespace
-        # )
         target = path[-1]
         target = target.set_intermediate_representation(intermediate_representation)
-        hidden_keys = target.find_hidden_keys()
-        target.hidden_keys = hidden_keys
+
+        to_splice_in = set_hidden_keys_along_path(
+            [target], target, namespace
+        )
+
+        hidden_keys = to_splice_in.find_hidden_keys()
+        to_splice_in.hidden_keys = hidden_keys
         root = root.add_hidden_keys(hidden_keys)
-        root = root.add_child(splice_point, target)
+        root = root.add_child(splice_point, to_splice_in)
         return root
 
     def infer(
