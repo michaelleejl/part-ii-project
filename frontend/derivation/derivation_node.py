@@ -7,6 +7,7 @@ import numpy as np
 
 from frontend.derivation.exceptions import *
 from frontend.tables.helpers.compose_cardinality import compose_cardinality
+from representation.helpers.show_key_in_representation import show_key_in_representation
 from schema.node import SchemaNode
 from schema.cardinality import Cardinality
 from schema.helpers.is_sublist import is_sublist
@@ -572,6 +573,8 @@ class DerivationNode:
             else:
                 new_child = child.copy()
                 new_child.hidden_keys = new_child.hidden_keys.remove(column)
+                new_ir = show_key_in_representation(column, new_child.intermediate_representation)
+                new_child = new_child.set_intermediate_representation(new_ir)
                 array = with_col
                 idxs = with_col_idxs
                 if new_child not in idxs:
@@ -1085,16 +1088,16 @@ class RootNode(DerivationNode):
         splice_point_idx = find_splice_point(key_node, path)
         splice_point = root.find_node_with_domains(path[splice_point_idx].domains)
 
-        # intermediate_representation = compress_path_representation(path[splice_point_idx+1:])
-        # target = target.set_intermediate_representation(intermediate_representation)
-        to_splice_in = set_hidden_keys_along_path(
-            path[splice_point_idx + 1 :], path[splice_point_idx + 1], namespace
-        )
-        target = to_splice_in.find_node_with_domains(path[-1].domains)
+        intermediate_representation = compress_path_representation(path[splice_point_idx+1:])
+        # to_splice_in = set_hidden_keys_along_path(
+        #     path[splice_point_idx + 1 :], path[splice_point_idx + 1], namespace
+        # )
+        target = path[-1]
+        target = target.set_intermediate_representation(intermediate_representation)
         hidden_keys = target.find_hidden_keys()
         target.hidden_keys = hidden_keys
         root = root.add_hidden_keys(hidden_keys)
-        root = root.add_child(splice_point, to_splice_in)
+        root = root.add_child(splice_point, target)
         return root
 
     def infer(

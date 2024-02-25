@@ -5,21 +5,20 @@ import numpy as np
 import pandas as pd
 
 from backend.pandas_backend.exp_interpreter import exp_interpreter
-from backend.populated_table import PopulatedTable
-from frontend.derivation.derivation_node import ColumnNode
 from frontend.domain import Domain
-from schema.helpers.find_index import find_index
-
+from backend.populated_table import PopulatedTable
 
 class PandasPopulatedTable(PopulatedTable):
 
-    def __init__(self, raw_table: pd.DataFrame):
-        self.raw_table: pd.DataFrame = raw_table
-        self.to_display: pd.DataFrame | None = None
-        self.dropped_keys_count: int = 0
-        self.dropped_vals_count: int = 0
+    def __init__(self, raw_table):
+        self.raw_table = raw_table
+        self.to_display = None
+        self.dropped_keys_count = 0
+        self.dropped_vals_count = 0
 
-    def display(self, left: list[ColumnNode], right: list[ColumnNode], backend):
+    def display(
+            self, left, right, backend
+    ):
         keys = left
         hidden = [c.get_hidden_keys() for c in keys if c.is_val_column()]
         to_add_set = set()

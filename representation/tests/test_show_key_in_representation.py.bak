@@ -103,6 +103,35 @@ class TestShowKeyInRepresentation(expecttest.TestCase):
         representation = [StartTraversal([a]), Traverse(m1), Expand(v, vw, [0], [c_1]), EndTraversal([b, c])]
 
         result, idx = show_key_in_representation_segment(c_1, representation)
+        self.assertExpectedInline(str(result), """[STT <[a, c_1]>, TRV <u;w ---> v;w, []>, ENT <[b, c]>]""")
+        self.assertEqual(idx, 3)
+
+    def test_show_key_in_representation_segment_successfullyShowsKeyWhenOffendingIsExpandAndExpandHasMultipleHiddenKeys(self):
+        u = AtomicNode("u")
+        v = AtomicNode("v")
+        w = AtomicNode("w")
+        x = AtomicNode("x")
+        vwx = SchemaNode.product([v, w, x])
+
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+        x.id_prefix = 0
+
+        a = Domain("a", u)
+        b = Domain("b", v)
+        c = Domain("c", w)
+        c_1 = Domain("c_1", w)
+        d = Domain("d", x)
+        d_1 = Domain("d_1", x)
+
+        e1 = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+
+        m1 = Mapping.create_mapping_from_edge(e1)
+
+        representation = [StartTraversal([a]), Traverse(m1), Expand(v, vwx, [0], [c_1, d_1]), EndTraversal([b, c, d])]
+
+        result, idx = show_key_in_representation_segment(c_1, representation)
         self.assertExpectedInline(str(result), """""")
 
 

@@ -238,8 +238,7 @@ class Table:
 
         table.displayed_columns = [str(k) for k in keys]
         table.left = {str(k): k for k in keys}
-        table.dropped_keys_count = 0
-        table.dropped_vals_count = 0
+        table.populated_table = None
         table.marker = len(keys)
         table.derivation = DerivationNode.create_root(keys)
         table.execute()
@@ -326,6 +325,7 @@ class Table:
         left, hids, right = self.get_columns_as_lists()
         self.intermediate_representation += [End(left, hids, right)]
         print(self.derivation)
+
         self.populated_table, self.schema = (
             self.schema.execute_query(
                 self.table_id, self.derived_from, self.intermediate_representation
@@ -579,11 +579,13 @@ class Table:
         exp, start_columns, aggregated_over, usages = Exp.convert_exp(function)
         start_columns = [c for c in start_columns]
         start_node = SchemaNode.product([c.node for c in start_columns])
+
         node_type = function.exp_type
         end_node = self.schema.add_node(AtomicNode(with_name, node_type))
         modified_start_node = None
         modified_start_cols = None
         if len(aggregated_over) > 0:
+
             modified_start_cols = [
                 i
                 for i, c in enumerate(start_columns)

@@ -1,7 +1,8 @@
 import expecttest
 import pandas as pd
 
-from schema import Schema, SchemaNode
+from schema.schema import Schema
+from schema.node import SchemaNode
 
 
 class TestEx2(expecttest.TestCase):
@@ -27,7 +28,7 @@ class TestEx2(expecttest.TestCase):
 
     def test_ex2_goal1_step1_get(self):
         s, cardnum, tstart, Val_id = self.initialise()
-        t1 = s.get([tstart["val_id"]])
+        t1 = s.get(val_id=tstart["val_id"])
         self.assertExpectedInline(
             str(t1),
             """\
@@ -51,7 +52,7 @@ Index: []
 
     def test_ex2_goal1_step2_infer(self):
         s, cardnum, tstart, Val_id = self.initialise()
-        t1 = s.get([tstart["val_id"]])
+        t1 = s.get(val_id=tstart["val_id"])
         t2 = t1.infer(["val_id"], tstart["tstart"])
         self.assertExpectedInline(
             str(t2),
@@ -80,7 +81,7 @@ val_id
 
     def test_ex2_goal2_step1_get(self):
         s, cardnum, tstart, Val_id = self.initialise()
-        t11 = s.get([Val_id]).sort("Val_id")
+        t11 = s.get(Val_id=tstart["val_id"])
         self.assertExpectedInline(
             str(t11),
             """\
@@ -88,7 +89,7 @@ val_id
 Empty DataFrame
 Columns: []
 Index: []
-8 keys hidden
+7 keys hidden
 
 """,
         )
@@ -106,7 +107,7 @@ Index: []
 
     def test_ex2_goal2_step2_infer(self):
         s, cardnum, tstart, Val_id = self.initialise()
-        t11 = s.get([Val_id])
+        t11 = s.get(Val_id=Val_id)
         t12 = t11.infer(["Val_id"], tstart["tstart"])
         self.assertExpectedInline(
             str(t12),
@@ -137,7 +138,7 @@ Val_id
 
     def test_ex2_goal3_step1_inferAgain(self):
         s, cardnum, tstart, Val_id = self.initialise()
-        t11 = s.get([Val_id])
+        t11 = s.get(Val_id=Val_id)
         t12 = t11.infer(["Val_id"], tstart["tstart"])
         # Hey, I also want the cardnum, not just the val_id
         # First two steps are the same as either Way 1 or Way 2, but then you can do
@@ -177,7 +178,7 @@ Val_id
     def test_ex2_goal4_step1_getCrossProduct(self):
         # What if the user accidentally makes cardnum a key, so gets the cross product?
         s, cardnum, tstart, Val_id = self.initialise()
-        t31 = s.get([Val_id, cardnum["cardnum"]]).sort(["Val_id", "cardnum"])
+        t31 = s.get(Val_id=Val_id, cardnum=cardnum["cardnum"])
         self.assertExpectedInline(
             str(t31),
             """\
@@ -207,49 +208,50 @@ Index: []
         # cardnum is a weak key for tstart, but I think it will be too surprising to suddenly drop it.
         # what if the user is keeping it around for something else?
         s, cardnum, tstart, Val_id = self.initialise()
-        t31 = s.get([Val_id, cardnum["cardnum"]]).sort(["Val_id", "cardnum"])
-        t32 = t31.infer(["Val_id"], tstart["tstart"])
+        t31 = s.get(Val_id=Val_id, cardnum=cardnum["cardnum"])
+        t32 = t31.infer(["Val_id"], tstart["tstart"]).sort(["Val_id", "cardnum"])
+        self.maxDiff = None
         self.assertExpectedInline(
             str(t32),
             """\
 [Val_id cardnum || tstart]
                              tstart
 Val_id cardnum                     
-1      5172     2023-01-01 09:50:00
-       2354     2023-01-01 09:50:00
+1      1111     2023-01-01 09:50:00
        1410     2023-01-01 09:50:00
-       1111     2023-01-01 09:50:00
+       2354     2023-01-01 09:50:00
        4412     2023-01-01 09:50:00
-2      5172     2023-01-01 11:10:00
-       2354     2023-01-01 11:10:00
+       5172     2023-01-01 09:50:00
+2      1111     2023-01-01 11:10:00
        1410     2023-01-01 11:10:00
-       1111     2023-01-01 11:10:00
+       2354     2023-01-01 11:10:00
        4412     2023-01-01 11:10:00
-3      5172     2023-01-01 15:32:00
-       2354     2023-01-01 15:32:00
+       5172     2023-01-01 11:10:00
+3      1111     2023-01-01 15:32:00
        1410     2023-01-01 15:32:00
-       1111     2023-01-01 15:32:00
+       2354     2023-01-01 15:32:00
        4412     2023-01-01 15:32:00
-4      5172     2023-01-01 15:34:00
-       2354     2023-01-01 15:34:00
+       5172     2023-01-01 15:32:00
+4      1111     2023-01-01 15:34:00
        1410     2023-01-01 15:34:00
-       1111     2023-01-01 15:34:00
+       2354     2023-01-01 15:34:00
        4412     2023-01-01 15:34:00
-5      5172     2023-01-01 20:11:00
-       2354     2023-01-01 20:11:00
+       5172     2023-01-01 15:34:00
+5      1111     2023-01-01 20:11:00
        1410     2023-01-01 20:11:00
-       1111     2023-01-01 20:11:00
+       2354     2023-01-01 20:11:00
        4412     2023-01-01 20:11:00
-6      5172     2023-01-01 21:17:00
-       2354     2023-01-01 21:17:00
+       5172     2023-01-01 20:11:00
+6      1111     2023-01-01 21:17:00
        1410     2023-01-01 21:17:00
-       1111     2023-01-01 21:17:00
+       2354     2023-01-01 21:17:00
        4412     2023-01-01 21:17:00
-7      5172     2023-01-02 05:34:00
-       2354     2023-01-02 05:34:00
+       5172     2023-01-01 21:17:00
+7      1111     2023-01-02 05:34:00
        1410     2023-01-02 05:34:00
-       1111     2023-01-02 05:34:00
+       2354     2023-01-02 05:34:00
        4412     2023-01-02 05:34:00
+       5172     2023-01-02 05:34:00
 5 keys hidden
 
 """,
@@ -271,7 +273,7 @@ Val_id cardnum
         # (semantics - if you hide a key that's weak for all values, delete?)
         # (or explicit, guarded delete?)
         s, cardnum, tstart, Val_id = self.initialise()
-        t31 = s.get([Val_id, cardnum["cardnum"]]).sort(["Val_id", "cardnum"])
+        t31 = s.get(Val_id=Val_id, cardnum=cardnum["cardnum"]).sort(["Val_id", "cardnum"])
         t32 = t31.infer(["Val_id"], tstart["tstart"])
         t33 = t32.hide("cardnum")
         self.assertExpectedInline(
@@ -306,51 +308,51 @@ Val_id
         # (semantics - if you hide a key that's weak for all values, delete?)
         # (or explicit, guarded delete?)
         s, cardnum, tstart, Val_id = self.initialise()
-        t31 = s.get([Val_id, cardnum["cardnum"]]).sort(["Val_id", "cardnum"])
+        t31 = s.get(Val_id=Val_id, cardnum=cardnum["cardnum"]).sort(["Val_id", "cardnum"])
         t32 = t31.infer(["Val_id"], tstart["tstart"])
         t33 = t32.hide("cardnum")
-        t34 = t33.show("cardnum")
+        t34 = t33.show("cardnum").sort(["Val_id", "cardnum"])
         self.assertExpectedInline(
             str(t34),
             """\
 [Val_id cardnum || tstart]
                              tstart
 Val_id cardnum                     
-1      5172     2023-01-01 09:50:00
-       2354     2023-01-01 09:50:00
+1      1111     2023-01-01 09:50:00
        1410     2023-01-01 09:50:00
-       1111     2023-01-01 09:50:00
+       2354     2023-01-01 09:50:00
        4412     2023-01-01 09:50:00
-2      5172     2023-01-01 11:10:00
-       2354     2023-01-01 11:10:00
+       5172     2023-01-01 09:50:00
+2      1111     2023-01-01 11:10:00
        1410     2023-01-01 11:10:00
-       1111     2023-01-01 11:10:00
+       2354     2023-01-01 11:10:00
        4412     2023-01-01 11:10:00
-3      5172     2023-01-01 15:32:00
-       2354     2023-01-01 15:32:00
+       5172     2023-01-01 11:10:00
+3      1111     2023-01-01 15:32:00
        1410     2023-01-01 15:32:00
-       1111     2023-01-01 15:32:00
+       2354     2023-01-01 15:32:00
        4412     2023-01-01 15:32:00
-4      5172     2023-01-01 15:34:00
-       2354     2023-01-01 15:34:00
+       5172     2023-01-01 15:32:00
+4      1111     2023-01-01 15:34:00
        1410     2023-01-01 15:34:00
-       1111     2023-01-01 15:34:00
+       2354     2023-01-01 15:34:00
        4412     2023-01-01 15:34:00
-5      5172     2023-01-01 20:11:00
-       2354     2023-01-01 20:11:00
+       5172     2023-01-01 15:34:00
+5      1111     2023-01-01 20:11:00
        1410     2023-01-01 20:11:00
-       1111     2023-01-01 20:11:00
+       2354     2023-01-01 20:11:00
        4412     2023-01-01 20:11:00
-6      5172     2023-01-01 21:17:00
-       2354     2023-01-01 21:17:00
+       5172     2023-01-01 20:11:00
+6      1111     2023-01-01 21:17:00
        1410     2023-01-01 21:17:00
-       1111     2023-01-01 21:17:00
+       2354     2023-01-01 21:17:00
        4412     2023-01-01 21:17:00
-7      5172     2023-01-02 05:34:00
-       2354     2023-01-02 05:34:00
+       5172     2023-01-01 21:17:00
+7      1111     2023-01-02 05:34:00
        1410     2023-01-02 05:34:00
-       1111     2023-01-02 05:34:00
+       2354     2023-01-02 05:34:00
        4412     2023-01-02 05:34:00
+       5172     2023-01-02 05:34:00
 5 keys hidden
 
 """,

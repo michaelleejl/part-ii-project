@@ -201,10 +201,12 @@ class PandasBackend(Backend):
 
     def execute_query(
         self, table_id, derived_from, derivation_steps: list[RepresentationStep]
-    ):
+    ) -> tuple[PandasPopulatedTable, Backend]:
+
         last = typing.cast(End, derivation_steps[-1])
 
         table = interpret(derivation_steps[:-1], self)
         populated = PandasPopulatedTable(table)
         populated.display(last.left, last.right, self)
         return populated, self
+

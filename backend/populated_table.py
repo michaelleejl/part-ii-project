@@ -2,7 +2,6 @@ import abc
 
 from frontend.domain import Domain
 
-
 class PopulatedTable(abc.ABC):
 
     @abc.abstractmethod
@@ -24,3 +23,4 @@ class PopulatedTable(abc.ABC):
     @abc.abstractmethod
     def evaluate_exp(self, exp, keys: list[Domain], modified_keys: list[int]):
         pass
+

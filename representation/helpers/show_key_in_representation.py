@@ -51,6 +51,6 @@ def show_key_in_representation_segment(key: Domain, representation: list[Represe
 def show_key_in_representation(key: Domain, representation: list[RepresentationStep]) -> list[RepresentationStep]:
     steps = representation
     index = 0
-    while 0 < index <= len(steps):
+    while 0 <= index <= len(representation):
         steps[index:], index = show_key_in_representation_segment(key, steps[index:])
     return steps

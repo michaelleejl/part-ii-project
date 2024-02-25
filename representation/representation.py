@@ -159,7 +159,7 @@ class Expand(RepresentationStep):
         self.hidden_keys = hidden_keys
 
     def __repr__(self):
-        return f"{self.name} <{self.start_node}, {self.end_node}, {self.hidden_keys}>"
+        return f"{self.name} <{self.start_node}, {self.end_node}, {self.indices}, {self.hidden_keys}>"
 
     def __str__(self):
         return self.__repr__()

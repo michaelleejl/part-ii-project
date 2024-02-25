@@ -7,6 +7,7 @@ from exp.helpers.convert_key_to_idx_and_update_parameters import (
     convert_key_to_idx_and_update_parameters,
 )
 from exp.helpers.count_usage import count_usages
+from frontend.derivation.derivation_node import ColumnNode
 from frontend.domain import Domain
 from schema.base_types import BaseType
 from exp.exp import Exp
@@ -39,10 +40,10 @@ class ColumnSexp(Sexp):
 
     def to_closure(
         self,
-        parameters: list[Domain],
+        parameters: list[ColumnNode],
         aggregated_over: dict[int, int],
         usages: dict[int, int],
-    ) -> tuple[ColumnSexp, list[Domain], dict[int, int], dict[int, int]]:
+    ) -> tuple[ColumnSexp, list[ColumnNode], dict[int, int], dict[int, int]]:
         idx, parameters = convert_key_to_idx_and_update_parameters(
             self.column, parameters
         )
@@ -63,8 +64,8 @@ class ConstSexp(Sexp):
 
     def to_closure(
         self,
-        parameters: list[Domain],
+        parameters: list[ColumnNode],
         aggregated_over: dict[int, int],
         usages: dict[int, int],
-    ) -> tuple[ConstSexp, list[Domain], dict[int, int], dict[int, int]]:
+    ) -> tuple[ConstSexp, list[ColumnNode], dict[int, int], dict[int, int]]:
         return self, parameters, aggregated_over, usages

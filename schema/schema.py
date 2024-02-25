@@ -311,11 +311,11 @@ class Schema:
         return cardinality, edges
 
     def execute_query(self, table_id, derived_from, derivation):
-        populated, new_backend = self.backend.execute_query(
+        populated_table, new_backend = self.backend.execute_query(
             table_id, derived_from, derivation
         )
         self.backend = new_backend
-        return populated, self
+        return populated_table, self
 
     def __repr__(self):
         return self.schema_graph.__repr__()
