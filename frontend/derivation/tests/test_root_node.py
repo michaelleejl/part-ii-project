@@ -6,7 +6,7 @@ from frontend.derivation.derivation_node import (
     ColumnNode,
     intermediate_representation_for_path,
     invert_derivation_path,
-    set_hidden_keys_along_path,
+    set_and_name_hidden_keys_along_path,
     find_splice_point,
 )
 from frontend.derivation.ordered_set import OrderedSet

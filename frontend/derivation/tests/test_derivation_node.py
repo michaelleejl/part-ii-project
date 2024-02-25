@@ -4,12 +4,13 @@ from frontend.derivation.derivation_node import (
     ColumnNode,
     intermediate_representation_for_path,
     invert_derivation_path,
-    set_hidden_keys_along_path,
+    set_and_name_hidden_keys_along_path,
     find_splice_point,
 )
 from frontend.derivation.ordered_set import OrderedSet
 from frontend.derivation.exceptions import *
 from frontend.domain import Domain
+from frontend.mapping import Mapping
 from frontend.tables.column_type import Val, Key, HiddenKey
 from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge
@@ -431,7 +432,7 @@ class TestDerivationNode(expecttest.TestCase):
 
         p_node.children = OrderedSet([c_node])
 
-        p_new = p_node.remove_child(c_node)
+        p_new = p_node.remove_child(p_node, c_node)
         self.assertExpectedInline(str(p_new), """[p] // hidden: []""")
 
     def test_remove_child_doesNotMutate(self):
@@ -445,7 +446,7 @@ class TestDerivationNode(expecttest.TestCase):
 
         p_node.children = OrderedSet([c_node])
 
-        p_new = p_node.remove_child(c_node)
+        p_new = p_node.remove_child(p_node, c_node)
         self.assertTrue(len(p_node.children) == 1)
 
     def test_remove_children_removesChildrenFromNode(self):
@@ -462,7 +463,7 @@ class TestDerivationNode(expecttest.TestCase):
 
         p_node.children = OrderedSet([c1_node, c2_node])
 
-        p_new = p_node.remove_children([c1_node, c2_node])
+        p_new = p_node.remove_children(p_node, [c1_node, c2_node])
         self.assertExpectedInline(str(p_new), """[p] // hidden: []""")
 
     def test_remove_children_doesNotMutate(self):
@@ -479,7 +480,7 @@ class TestDerivationNode(expecttest.TestCase):
 
         p_node.children = OrderedSet([c1_node, c2_node])
 
-        p_new = p_node.remove_children([c1_node, c2_node])
+        p_new = p_node.remove_children(p_node, [c1_node, c2_node])
         self.assertTrue(len(p_node.children) == 2)
 
     def test_find_node_with_domains_returnsNodeIfNodeInTree(self):
@@ -686,9 +687,12 @@ class TestDerivationNode(expecttest.TestCase):
         b = Domain("b", v)
         b1 = Domain("b1", v)
 
+        m = Mapping.create_mapping_from_edge(e_u_to_v, [b1])
+
+
         b_node = DerivationNode(
             [b],
-            [StartTraversal([a]), Traverse(e_u_to_v, [b1]), EndTraversal([b])],
+            [StartTraversal([a]), Traverse(m), EndTraversal([b])],
             [b1],
         )
 
@@ -699,7 +703,7 @@ class TestDerivationNode(expecttest.TestCase):
 
         self.assertExpectedInline(
             str(a_node.to_intermediate_representation()),
-            """[GET <[a]>, CAL, STT <[a]>, TRV <u <--- v, [v]>, ENT <[b]>, RET]""",
+            """[GET <[a]>, CAL, STT <[a]>, TRV <u <--- v, [b1]>, ENT <[b]>, RET]""",
         )
 
     def test_hideSuccessfullyHidesColumnForDerivationNode(self):
@@ -1248,8 +1252,9 @@ class TestDerivationNode(expecttest.TestCase):
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
         edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        m = Mapping.create_mapping_from_edge(edge)
         b_node = DerivationNode(
-            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+            [b], [StartTraversal([a]), Traverse(m), EndTraversal([b])]
         )
         root = root.add_child(a_node, b_node)
         a_node = root.children[1]
@@ -1433,20 +1438,22 @@ class TestDerivationNode(expecttest.TestCase):
         c = Domain("c", w)
 
         edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        m1 = Mapping.create_mapping_from_edge(edge)
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        m2 = Mapping.create_mapping_from_edge(edge2)
 
         a_node = DerivationNode([a], [Get([a])])
         b_node = DerivationNode(
-            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+            [b], [StartTraversal([a]), Traverse(m1), EndTraversal([b])]
         )
         c_node = DerivationNode(
-            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+            [c], [StartTraversal([b]), Traverse(m2), EndTraversal([c])]
         )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
-        inverted = invert_derivation_path([a_node, b_node, c_node], set())
+        inverted = invert_derivation_path([a_node, b_node, c_node], frozenset())
         self.assertExpectedInline(
             str(inverted),
             """\
@@ -1469,20 +1476,22 @@ class TestDerivationNode(expecttest.TestCase):
         c = Domain("c", w)
 
         edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        m1 = Mapping.create_mapping_from_edge(edge)
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        m2 = Mapping.create_mapping_from_edge(edge2)
 
         a_node = DerivationNode([a], [Get([a])])
         b_node = DerivationNode(
-            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+            [b], [StartTraversal([a]), Traverse(m1), EndTraversal([b])]
         )
         c_node = DerivationNode(
-            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+            [c], [StartTraversal([b]), Traverse(m2), EndTraversal([c])]
         )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
-        inverted = invert_derivation_path([a_node, b_node, c_node], set())
+        inverted = invert_derivation_path([a_node, b_node, c_node], frozenset())
         self.assertExpectedInline(
             str(inverted.to_intermediate_representation()),
             """[GET <[c]>, CAL, STT <[c]>, TRV <w <--- v, [v]>, ENT <[b]>, CAL, STT <[b]>, TRV <v <--- u, [u]>, ENT <[a]>, RET, RET]"""
@@ -1503,20 +1512,22 @@ class TestDerivationNode(expecttest.TestCase):
         c = Domain("c", w)
 
         edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        m1 = Mapping.create_mapping_from_edge(edge)
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        m2 = Mapping.create_mapping_from_edge(edge2)
 
         a_node = DerivationNode([a], [Get([a])])
         b_node = DerivationNode(
-            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+            [b], [StartTraversal([a]), Traverse(m1), EndTraversal([b])]
         )
         c_node = DerivationNode(
-            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+            [c], [StartTraversal([b]), Traverse(m2), EndTraversal([c])]
         )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
-        inverted = invert_derivation_path([a_node, b_node, c_node], set("u"))
+        inverted = invert_derivation_path([a_node, b_node, c_node], frozenset(["u"]))
         self.assertExpectedInline(
             str(inverted),
             """\
@@ -1541,14 +1552,16 @@ class TestDerivationNode(expecttest.TestCase):
         e = Domain("e", u)
 
         edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        m1 = Mapping.create_mapping_from_edge(edge)
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        m2 = Mapping.create_mapping_from_edge(edge2)
 
         a_node = DerivationNode([a], [Get([a])])
         b_node = DerivationNode(
-            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+            [b], [StartTraversal([a]), Traverse(m1), EndTraversal([b])]
         )
         c_node = DerivationNode(
-            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+            [c], [StartTraversal([b]), Traverse(m2), EndTraversal([c])]
         )
 
         d_node = DerivationNode([d], [])
@@ -1562,7 +1575,7 @@ class TestDerivationNode(expecttest.TestCase):
         )
         b_node = a_node.children[0]
         c_node = b_node.children[0]
-        inverted = invert_derivation_path([a_node, b_node, c_node], set())
+        inverted = invert_derivation_path([a_node, b_node, c_node], frozenset())
 
         self.assertExpectedInline(
             str(inverted),
@@ -1588,20 +1601,22 @@ class TestDerivationNode(expecttest.TestCase):
         c = Domain("c", w)
 
         edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        m1 = Mapping.create_mapping_from_edge(edge)
         edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        m2 = Mapping.create_mapping_from_edge(edge2)
 
         a_node = DerivationNode([a], [Get([a])])
         b_node = DerivationNode(
-            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+            [b], [StartTraversal([a]), Traverse(m1), EndTraversal([b])]
         )
         c_node = DerivationNode(
-            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+            [c], [StartTraversal([b]), Traverse(m2), EndTraversal([c])]
         )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
-        _ = invert_derivation_path([a_node, b_node, c_node], set())
+        _ = invert_derivation_path([a_node, b_node, c_node], frozenset())
         self.assertExpectedInline(
             str(a_node),
             """\
@@ -1624,21 +1639,23 @@ class TestDerivationNode(expecttest.TestCase):
         c = Domain("c", w)
 
         edge = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
+        m1 = Mapping.create_mapping_from_edge(edge, [Domain("v", v)])
         edge2 = SchemaEdge(v, w, Cardinality.ONE_TO_MANY)
+        m2 = Mapping.create_mapping_from_edge(edge2, [Domain("w", v)])
 
         a_node = DerivationNode([a], [Get([a])])
         b_node = DerivationNode(
-            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+            [b], [StartTraversal([a]), Traverse(m1), EndTraversal([b])]
         )
         c_node = DerivationNode(
-            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+            [c], [StartTraversal([b]), Traverse(m2), EndTraversal([c])]
         )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
-        hidden_keys_set = set_hidden_keys_along_path(
-            [a_node, b_node, c_node], a_node, set("v")
+        hidden_keys_set = set_and_name_hidden_keys_along_path(
+            [a_node, b_node, c_node], a_node, frozenset(["v"])
         )
         self.assertExpectedInline(
             str(hidden_keys_set),
@@ -1661,21 +1678,23 @@ class TestDerivationNode(expecttest.TestCase):
         b = Domain("b", v)
         c = Domain("c", w)
 
-        edge = SchemaEdge(u, v, Cardinality.ONE_TO_MANY)
-        edge2 = SchemaEdge(v, w, Cardinality.ONE_TO_MANY)
+        edge = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
+        m1 = Mapping.create_mapping_from_edge(edge)
+        edge2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        m2 = Mapping.create_mapping_from_edge(edge2)
 
         a_node = DerivationNode([a], [Get([a])])
         b_node = DerivationNode(
-            [b], [StartTraversal([a]), Traverse(edge), EndTraversal([b])]
+            [b], [StartTraversal([a]), Traverse(m1), EndTraversal([b])]
         )
         c_node = DerivationNode(
-            [c], [StartTraversal([b]), Traverse(edge2), EndTraversal([c])]
+            [c], [StartTraversal([b]), Traverse(m2), EndTraversal([c])]
         )
 
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
-        _ = set_hidden_keys_along_path([a_node, b_node, c_node], a_node, set("v"))
+        _ = set_and_name_hidden_keys_along_path([a_node, b_node, c_node], a_node, frozenset(["v"]))
         self.assertExpectedInline(
             str(a_node),
             """\

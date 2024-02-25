@@ -7,6 +7,7 @@ import numpy as np
 
 from frontend.derivation.exceptions import *
 from frontend.tables.helpers.compose_cardinality import compose_cardinality
+from representation.helpers.get_hidden_keys_in_representation import get_hidden_keys_in_representation
 from representation.helpers.show_key_in_representation import show_key_in_representation
 from schema.node import SchemaNode
 from schema.cardinality import Cardinality
@@ -67,6 +68,8 @@ def invert_derivation_path(
         namespace
     )
 
+    hidden_keys = get_hidden_keys_in_representation(intermediate_representation)
+
     start = start.set_parent(None)
     start = start.set_intermediate_representation([Get(start.domains)])
 
@@ -79,7 +82,9 @@ def invert_derivation_path(
             child = path[i - 1]
         curr = curr.set_children([c for c in curr.children if c != parent])
 
-        inverted = invert_representation(curr.intermediate_representation, namespace)
+        inverted, namespace = invert_representation(curr.intermediate_representation, namespace)
+        curr.hidden_keys = hidden_keys
+        hidden_keys = get_hidden_keys_in_representation(inverted)
         curr.intermediate_representation = intermediate_representation
         intermediate_representation = inverted
 
@@ -90,12 +95,9 @@ def invert_derivation_path(
         parent = curr
         curr = child
         i -= 1
-
-    # new_path = set_hidden_keys_along_path(path[::-1], new_path, namespace)
     return new_path
 
-
-def set_hidden_keys_along_path(
+def set_and_name_hidden_keys_along_path(
     path: list[DerivationNode], entry: DerivationNode, namespace: frozenset[str]
 ) -> DerivationNode:
     """
@@ -123,7 +125,7 @@ def set_hidden_keys_along_path(
 
     child = path[0]
     child = node.find_node_with_domains(child.domains)
-    new_child = set_hidden_keys_along_path(path, child, new_namespace)
+    new_child = set_and_name_hidden_keys_along_path(path, child, new_namespace)
 
     node = node.remove_child(node, child).add_child(node, new_child)
     return node
@@ -1092,7 +1094,7 @@ class RootNode(DerivationNode):
         target = path[-1]
         target = target.set_intermediate_representation(intermediate_representation)
 
-        to_splice_in = set_hidden_keys_along_path(
+        to_splice_in = set_and_name_hidden_keys_along_path(
             [target], target, namespace
         )
 

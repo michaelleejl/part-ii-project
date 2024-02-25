@@ -106,7 +106,7 @@ class Traverse(RepresentationStep):
         self.hidden_keys: list[Domain] = self.edge.get_hidden_keys()
 
     def get_hidden_keys(self) -> list[Domain]:
-        return self.hidden_keys
+        return self.edge.get_hidden_keys()
 
     def __repr__(self):
         return f"{self.name} <{self.edge}, {self.hidden_keys}>"
