@@ -124,7 +124,7 @@ def set_hidden_keys_along_path(
     child = node.find_node_with_domains(child.domains)
     new_child = set_hidden_keys_along_path(path, child, new_namespace)
 
-    node = node.remove_child(child).add_child(node, new_child)
+    node = node.remove_child(node, child).add_child(node, new_child)
     return node
 
 
@@ -346,11 +346,12 @@ class DerivationNode:
         else:
             return clone.set_children([c.merge_subtree(subtree) for c in self.children])
 
-    def remove_child(self, child: DerivationNode) -> DerivationNode:
+    def remove_child(self, parent: DerivationNode, child: DerivationNode) -> DerivationNode:
         """
         Removes a child from the parent node
 
         Args:
+            parent (DerivationNode): The parent node to remove the child from
             child (DerivationNode): The child node to be removed
 
         Returns:
@@ -360,22 +361,28 @@ class DerivationNode:
             NodeIsNotChildOfParentException: If the child is not a child of the parent
         """
         parent = self.copy()
-        new_children = []
-        for c in self.children:
-            if c == child:
-                continue
-            else:
-                new_children += [c.remove_child(child)]
-        parent = parent.set_children(new_children)
+        if self == parent:
+            new_children = []
+            for c in self.children:
+                if c == child:
+                    continue
+                else:
+                    new_children += [c]
+            parent = parent.set_children(new_children)
+        else:
+            parent = parent.set_children(
+                [c.remove_child(parent, child) for c in self.children]
+            )
         return parent
 
     def remove_children(
-        self, children: list[DerivationNode] | OrderedSet[DerivationNode]
+        self, parent: DerivationNode, children: list[DerivationNode] | OrderedSet[DerivationNode]
     ) -> DerivationNode:
         """
         Removes children from the parent node
 
         Args:
+            parent (DerivationNode): The parent node to remove the child from
             children (list[DerivationNode] | OrderedSet[DerivationNode]): The children to be removed
 
         Returns:
@@ -385,13 +392,18 @@ class DerivationNode:
             children = children.to_list()
 
         parent = self.copy()
-        new_children = []
-        for c in self.children:
-            if c in set(children):
-                continue
-            else:
-                new_children += [c.remove_children(children)]
-        parent = parent.set_children(new_children)
+        if self == parent:
+            new_children = []
+            for c in self.children:
+                if c in set(children):
+                    continue
+                else:
+                    new_children += [c]
+            parent = parent.set_children(new_children)
+        else:
+            parent = parent.set_children(
+                [c.remove_children(parent, children) for c in self.children]
+            )
         return parent
 
     def set_hidden_keys(
@@ -1047,6 +1059,7 @@ class RootNode(DerivationNode):
                 new_root = new_root.insert_key(new_child.domains)
                 key_node = new_root.find_node_with_domains(new_child.domains)
                 new_root = new_root.add_children(key_node, new_child.children)
+        new_root = new_root.remove_hidden_key(column)
         return new_root
 
     def show_val(self, column: Domain) -> RootNode:
@@ -1079,6 +1092,7 @@ class RootNode(DerivationNode):
         )
         target = to_splice_in.find_node_with_domains(path[-1].domains)
         hidden_keys = target.find_hidden_keys()
+        target.hidden_keys = hidden_keys
         root = root.add_hidden_keys(hidden_keys)
         root = root.add_child(splice_point, to_splice_in)
         return root
@@ -1252,6 +1266,14 @@ class RootNode(DerivationNode):
         new_root = new_root.merge_subtree(unit_key)
         return new_root
 
+    def remove_hidden_key(self, hidden_key: Domain) -> RootNode:
+        new_root = self.copy()
+        new_root.children = OrderedSet([c.set_parent(new_root) for c in self.children])
+        unit_key = new_root.find_node_with_domains([])
+        hidden_key_node = new_root.find_node_with_domains([hidden_key])
+        new_root = new_root.remove_child(unit_key, hidden_key_node)
+        return new_root
+
     def add_hidden_keys(self, hidden_keys: list[Domain] | OrderedSet[Domain]):
         if isinstance(hidden_keys, OrderedSet):
             hidden_keys = hidden_keys.to_list()
@@ -1283,17 +1305,17 @@ class RootNode(DerivationNode):
         )
         return clone
 
-    def remove_child(self, child):
+    def remove_child(self, parent, child) -> RootNode:
         clone = self.copy()
         clone.children = OrderedSet(
-            [c.set_parent(clone).remove_child(child) for c in self.children]
+            [c.set_parent(clone).remove_child(parent, child) for c in self.children]
         )
         return clone
 
-    def remove_children(self, children):
+    def remove_children(self, parent, children):
         clone = self.copy()
         clone.children = OrderedSet(
-            [c.set_parent(clone).remove_children(children) for c in self.children]
+            [c.set_parent(clone).remove_children(parent, children) for c in self.children]
         )
         return clone
 

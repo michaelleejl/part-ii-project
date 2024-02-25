@@ -6,8 +6,8 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
+from backend.populated_table import PopulatedTable
 from exp.exp import Exp, ExtendExp, MaskExp
 from exp.helpers.wrap_aexp import wrap_aexp
 from exp.helpers.wrap_bexp import wrap_bexp
@@ -45,6 +45,7 @@ from representation.representation import (
 )
 from schema.base_types import BaseType
 from schema.cardinality import Cardinality
+from schema.edge import SchemaEdge
 from schema.helpers.compose_cardinality import compose_cardinality
 from schema.helpers.find_index import find_index
 from schema.helpers.is_sublist import is_sublist
@@ -210,9 +211,7 @@ class Table:
         self.intermediate_representation = intermediate_representation
         self.derivation = derivation
         self.schema = schema
-        self.df = pd.DataFrame()
-        self.dropped_keys_count = 0
-        self.dropped_vals_count = 0
+        self.populated_table: PopulatedTable | None = None
 
     @classmethod
     def construct(cls, columns: list[Domain], schema: "Schema") -> Table:
@@ -268,8 +267,7 @@ class Table:
         )
         new_table.displayed_columns = copy.copy(table.displayed_columns)
         new_table.marker = table.marker
-        new_table.dropped_keys_count = table.dropped_keys_count
-        new_table.dropped_vals_count = table.dropped_vals_count
+        new_table.populated_table = None
         return new_table
 
     def __get_existing_column(self, input: existing_column) -> ColumnNode:
@@ -328,7 +326,7 @@ class Table:
         left, hids, right = self.get_columns_as_lists()
         self.intermediate_representation += [End(left, hids, right)]
         print(self.derivation)
-        self.df, self.dropped_keys_count, self.dropped_vals_count, self.schema = (
+        self.populated_table, self.schema = (
             self.schema.execute_query(
                 self.table_id, self.derived_from, self.intermediate_representation
             )
@@ -394,7 +392,7 @@ class Table:
 
     def get_columns_as_lists(
         self,
-    ) -> tuple[list[ColumnNode], list[Domain], list[ColumnNode]]:
+    ) -> tuple[list[ColumnNode], list[ColumnNode], list[ColumnNode]]:
         """
         Gets the columns in the table as lists
 
@@ -465,7 +463,10 @@ class Table:
         hidden_keys = set()
         blocked_hidden_keys = self.blocked_hidden_keys()
         for column in columns:
-            hidden_keys_of_column = column.get_hidden_keys()
+            if column.is_hidden_key_column():
+                hidden_keys_of_column = [column.get_domain()]
+            else:
+                hidden_keys_of_column = column.get_hidden_keys()
             if column.get_domain() in aggregated_over:
                 hidden_keys = hidden_keys.union(
                     set(hidden_keys_of_column).intersection(blocked_hidden_keys)
@@ -576,12 +577,10 @@ class Table:
     def deduce(self, function: Exp, with_name: str):
         t = Table.create_from_table(self)
         exp, start_columns, aggregated_over, usages = Exp.convert_exp(function)
-        nodes = [c.node for c in start_columns]
         start_columns = [c for c in start_columns]
-        start_node = SchemaNode.product(nodes)
+        start_node = SchemaNode.product([c.node for c in start_columns])
         node_type = function.exp_type
         end_node = self.schema.add_node(AtomicNode(with_name, node_type))
-        edge = self.schema.add_edge(start_node, end_node, Cardinality.MANY_TO_ONE)
         modified_start_node = None
         modified_start_cols = None
         if len(aggregated_over) > 0:
@@ -612,33 +611,41 @@ class Table:
                     self.schema.add_edge(
                         end_node, modified_start_node, Cardinality.ONE_TO_MANY
                     )
-
-        self.schema.map_edge_to_closure(
-            edge, exp, len(start_columns), modified_start_node, modified_start_cols
-        )
-        _ = t.infer_internal(
-            [col.name for col in start_columns],
-            end_node,
-            with_name=with_name,
-            aggregated_over=[
-                start_columns[i]
-                for i in aggregated_over.keys()
-                if start_columns[i].name in t.displayed_columns
-            ],
-        )
-        t_new = self
-        if modified_start_cols is None or len(modified_start_cols) == 0:
-            modified_start_cols = [
-                col for col in start_columns if col.name in t.displayed_columns
-            ]
         else:
-            modified_start_cols = [
-                start_columns[i]
-                for i in modified_start_cols
-                if start_columns[i].name in t.displayed_columns
-            ]
-        t_new = t_new.infer(
-            [c.name for c in modified_start_cols], end_node, with_name=with_name
+            if not self.schema.does_edge_exist_in_graph(
+                    start_node, end_node
+            ):
+                self.schema.add_edge(
+                    start_node, end_node, Cardinality.MANY_TO_ONE
+                )
+
+        if modified_start_node is None:
+            modified_start_node = start_node
+        if modified_start_cols is None:
+            modified_start_cols = [i for i in range(len(start_columns))]
+        edge = SchemaEdge(modified_start_node, end_node, Cardinality.MANY_TO_ONE)
+        data = self.populated_table.evaluate_exp(exp, start_columns, modified_start_cols)
+        self.schema.map_edge_to_data(
+            edge, data
+        )
+        # _ = t.infer_internal(
+        #     [col.name for col in start_columns],
+        #     end_node,
+        #     with_name=with_name,
+        #     aggregated_over=[
+        #         start_columns[i]
+        #         for i in aggregated_over.keys()
+        #         if start_columns[i].name in t.displayed_columns
+        #     ],
+        # )
+        t_new = self
+        assumption = [
+            start_columns[i].name
+            for i in modified_start_cols
+            if start_columns[i].name in t_new.displayed_columns
+        ]
+        t_new = t_new.infer_internal(
+            assumption, end_node, with_name=with_name
         )
         return t_new
 
@@ -1134,12 +1141,12 @@ class Table:
         left, _, right = self.get_columns_as_lists()
         left = " ".join([l.get_name() for l in left])
         right = " ".join([r.get_name() for r in right])
-        dropped_keys = f"\n{self.dropped_keys_count} keys hidden"
-        dropped_vals = f"\n{self.dropped_vals_count} values hidden"
-        repr = f"[{left} || {right}]" + "\n" + str(self.df)
-        if self.dropped_keys_count > 0:
+        dropped_keys = f"\n{self.populated_table.get_num_dropped_keys()} keys hidden"
+        dropped_vals = f"\n{self.populated_table.get_num_dropped_vals()} values hidden"
+        repr = f"[{left} || {right}]" + "\n" + str(self.populated_table.get_table_to_display())
+        if self.populated_table.get_num_dropped_keys() > 0:
             repr += dropped_keys
-        if self.dropped_vals_count > 0:
+        if self.populated_table.get_num_dropped_vals() > 0:
             repr += dropped_vals
         return repr + "\n\n"
 

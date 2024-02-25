@@ -21,7 +21,7 @@ class TestChi(expecttest.TestCase):
     def test1(self):
         s, City, from_city, to_city, volume = initialise()
 
-        t0 = s.get([from_city, to_city])
+        t0 = s.get(from_city=from_city, to_city=to_city)
         t01 = t0.infer(["from_city", "to_city"], volume)
         self.assertExpectedInline(
             str(t01),
@@ -46,7 +46,7 @@ Edinburgh Cambridge     1.8
     def test2(self):
         s, City, from_city, to_city, volume = initialise()
 
-        t0 = s.get([City, City], ["FromCity", "ToCity"])
+        t0 = s.get(FromCity=City, ToCity=City)
         t01 = t0.infer(["FromCity", "ToCity"], volume)
         self.assertExpectedInline(
             str(t01),
@@ -71,7 +71,7 @@ Edinburgh Cambridge     1.8
     # TODO: Register function
     def test3(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna").sort(["FromCity", "ToCity"])
         self.assertExpectedInline(
@@ -102,7 +102,7 @@ Oxford    Cambridge     NaN            0.0
 
     def test4(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna")
         t4 = t3.swap("FromCity", "ToCity").sort(["FromCity", "ToCity"])
@@ -134,7 +134,7 @@ Oxford    Oxford        NaN            0.0
 
     def test5(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna")
         t4 = t3.swap("FromCity", "ToCity")
@@ -157,7 +157,7 @@ Cambridge  [Cambridge, London, Edinburgh, Oxford]  ...  [0.0, 4.2, 1.8, 0.0]
 
     def test6(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna")
         t4 = t3.swap("FromCity", "ToCity")
@@ -182,7 +182,7 @@ Cambridge  [Cambridge, Edinburgh, Oxford, London]  ...          6.0
 
     def test7(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna")
         t4 = t3.swap("FromCity", "ToCity")
@@ -208,7 +208,7 @@ Cambridge  [Cambridge, Edinburgh, Oxford, London]  ...                [0.0, 0.3,
 
     def test8(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna")
         t4 = t3.swap("FromCity", "ToCity")
@@ -245,7 +245,7 @@ Edinburgh Oxford        NaN  [0.45454545454545453, 0.7142857142857143, 1.0,...
 
     def test9(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna")
         t9 = t3.shift_left()
@@ -267,11 +267,12 @@ London     [London, Edinburgh, Oxford, Cambridge]  ...  [0.0, 0.0, 2.4, 4.2]
 
     def test10(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna")
         t9 = t3.shift_left()
         t10 = t9.deduce(t9["volume_fillna"].sum(), "total_outflow")
+        self.maxDiff = None
         self.assertExpectedInline(
             str(t10),
             """\
@@ -279,9 +280,9 @@ London     [London, Edinburgh, Oxford, Cambridge]  ...  [0.0, 0.0, 2.4, 4.2]
                                            ToCity  ... total_outflow
 FromCity                                           ...              
 Cambridge  [London, Edinburgh, Oxford, Cambridge]  ...           6.0
-London     [London, Edinburgh, Oxford, Cambridge]  ...           6.6
 Edinburgh  [London, Edinburgh, Oxford, Cambridge]  ...           4.2
 Oxford     [London, Edinburgh, Oxford, Cambridge]  ...           3.0
+London     [London, Edinburgh, Oxford, Cambridge]  ...           6.6
 
 [4 rows x 4 columns]
 
@@ -290,7 +291,7 @@ Oxford     [London, Edinburgh, Oxford, Cambridge]  ...           3.0
 
     def test11(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna")
         t9 = t3.shift_left()
@@ -305,9 +306,9 @@ Oxford     [London, Edinburgh, Oxford, Cambridge]  ...           3.0
                                            ToCity  ...                                   relative_outflow
 FromCity                                           ...                                                   
 Cambridge  [London, Edinburgh, Oxford, Cambridge]  ...  [0.5, 0.39999999999999997, 0.09999999999999999...
-London     [London, Edinburgh, Oxford, Cambridge]  ...  [0.0, 0.0, 0.36363636363636365, 0.636363636363...
 Edinburgh  [London, Edinburgh, Oxford, Cambridge]  ...  [0.5714285714285714, 0.0, 0.0, 0.4285714285714...
 Oxford     [London, Edinburgh, Oxford, Cambridge]  ...               [0.39999999999999997, 0.6, 0.0, 0.0]
+London     [London, Edinburgh, Oxford, Cambridge]  ...  [0.0, 0.0, 0.36363636363636365, 0.636363636363...
 
 [4 rows x 5 columns]
 
@@ -316,7 +317,7 @@ Oxford     [London, Edinburgh, Oxford, Cambridge]  ...               [0.39999999
 
     def test12(self):
         s, City, from_city, to_city, volume = initialise()
-        t1 = s.get([City, City], ["FromCity", "ToCity"])
+        t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
         t3 = t2.extend("volume", 0, "volume_fillna")
         t4 = t3.swap("FromCity", "ToCity")
@@ -331,28 +332,29 @@ Oxford     [London, Edinburgh, Oxford, Cambridge]  ...               [0.39999999
         )
 
         t12 = t1.infer(["ToCity"], t7["relative_inflow"], with_name="expected_outflow")
+        print(t12.derivation)
         self.assertExpectedInline(
             str(t12),
             """\
 [FromCity ToCity || expected_outflow]
                                                       expected_outflow
 FromCity  ToCity                                                      
-Cambridge London     [0.45454545454545453, 0.3636363636363636, 0.18...
-London    London     [0.45454545454545453, 0.3636363636363636, 0.18...
-Oxford    London     [0.45454545454545453, 0.3636363636363636, 0.18...
-Edinburgh London     [0.45454545454545453, 0.3636363636363636, 0.18...
+Cambridge London     [0.45454545454545453, 0.1818181818181818, 0.36...
+London    London     [0.45454545454545453, 0.1818181818181818, 0.36...
+Oxford    London     [0.45454545454545453, 0.1818181818181818, 0.36...
+Edinburgh London     [0.45454545454545453, 0.1818181818181818, 0.36...
 Cambridge Edinburgh  [0.5714285714285714, 0.42857142857142855, 0.0,...
 London    Edinburgh  [0.5714285714285714, 0.42857142857142855, 0.0,...
 Oxford    Edinburgh  [0.5714285714285714, 0.42857142857142855, 0.0,...
 Edinburgh Edinburgh  [0.5714285714285714, 0.42857142857142855, 0.0,...
-Cambridge Oxford     [0.7999999999999999, 0.19999999999999998, 0.0,...
-London    Oxford     [0.7999999999999999, 0.19999999999999998, 0.0,...
-Oxford    Oxford     [0.7999999999999999, 0.19999999999999998, 0.0,...
-Edinburgh Oxford     [0.7999999999999999, 0.19999999999999998, 0.0,...
-Cambridge Cambridge                [0.7000000000000001, 0.3, 0.0, 0.0]
-London    Cambridge                [0.7000000000000001, 0.3, 0.0, 0.0]
-Oxford    Cambridge                [0.7000000000000001, 0.3, 0.0, 0.0]
-Edinburgh Cambridge                [0.7000000000000001, 0.3, 0.0, 0.0]
+Cambridge Oxford     [0.19999999999999998, 0.0, 0.0, 0.799999999999...
+London    Oxford     [0.19999999999999998, 0.0, 0.0, 0.799999999999...
+Oxford    Oxford     [0.19999999999999998, 0.0, 0.0, 0.799999999999...
+Edinburgh Oxford     [0.19999999999999998, 0.0, 0.0, 0.799999999999...
+Cambridge Cambridge                [0.0, 0.0, 0.3, 0.7000000000000001]
+London    Cambridge                [0.0, 0.0, 0.3, 0.7000000000000001]
+Oxford    Cambridge                [0.0, 0.0, 0.3, 0.7000000000000001]
+Edinburgh Cambridge                [0.0, 0.0, 0.3, 0.7000000000000001]
 
 """,
         )
@@ -375,28 +377,29 @@ Edinburgh Cambridge                [0.7000000000000001, 0.3, 0.0, 0.0]
 
         t12 = t1.infer(["ToCity"], t7["relative_inflow"], with_name="expected_outflow")
         t13 = t12.show("FromCity_1").equate("FromCity", "FromCity_1")
+        print(t13["expected_outflow"].get_hidden_keys())
         self.assertExpectedInline(
             str(t13),
             """\
 [FromCity ToCity || expected_outflow]
-                     expected_outflow
-FromCity  ToCity                     
-Cambridge London             0.454545
-London    London             0.000000
-Oxford    London             0.181818
-Edinburgh London             0.363636
-Cambridge Edinburgh          0.571429
-London    Edinburgh          0.000000
-Edinburgh Edinburgh          0.000000
-Oxford    Edinburgh          0.428571
-Cambridge Oxford             0.200000
-London    Oxford             0.800000
-Oxford    Oxford             0.000000
-Edinburgh Oxford             0.000000
-Cambridge Cambridge          0.000000
-Oxford    Cambridge          0.000000
-London    Cambridge          0.700000
-Edinburgh Cambridge          0.300000
+                          expected_outflow
+FromCity  ToCity                          
+Cambridge London     [0.45454545454545453]
+          Edinburgh   [0.5714285714285714]
+          Oxford     [0.19999999999999998]
+Oxford    Cambridge                  [0.0]
+Cambridge Cambridge                  [0.0]
+Edinburgh London      [0.3636363636363636]
+London    Edinburgh                  [0.0]
+Edinburgh Edinburgh                  [0.0]
+          Oxford                     [0.0]
+Oxford    Oxford                     [0.0]
+Edinburgh Cambridge                  [0.3]
+Oxford    London      [0.1818181818181818]
+          Edinburgh  [0.42857142857142855]
+London    London                     [0.0]
+          Oxford      [0.7999999999999999]
+          Cambridge   [0.7000000000000001]
 
 """,
         )

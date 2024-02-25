@@ -9,9 +9,11 @@ from backend.pandas_backend.helpers import (
     get_cols_of_node,
     determine_cardinality,
 )
-from backend.pandas_backend.interpreter import interpret, end
+from backend.pandas_backend.interpreter import interpret
+from backend.pandas_backend.pandas_populated_table import PandasPopulatedTable
 from backend.pandas_backend.relation import DataRelation
 from backend.pandas_backend.transform_interpreter import transform_interpreter
+from frontend.domain import Domain
 from frontend.mapping import Mapping
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.node import SchemaNode, AtomicNode, SchemaClass
@@ -200,17 +202,9 @@ class PandasBackend(Backend):
     def execute_query(
         self, table_id, derived_from, derivation_steps: list[RepresentationStep]
     ):
-        # assert len(derivation_steps) >= 1
-        # if derived_from is None or derived_from not in self.derived_tables.keys():
-        #     first = typing.cast(Get, derivation_steps[0])
-        #     tbl = get(first, self)
-        #     start_from = 1
-        # else:
-        #     tbl, start_from = self.derived_tables[derived_from]
-        #
         last = typing.cast(End, derivation_steps[-1])
-        # derivation_steps = derivation_steps[start_from:-1]
 
         table = interpret(derivation_steps[:-1], self)
-        x, y, z = end(last, self, table)
-        return x, y, z, self
+        populated = PandasPopulatedTable(table)
+        populated.display(last.left, last.right, self)
+        return populated, self

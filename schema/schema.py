@@ -132,31 +132,24 @@ class Schema:
         self.schema_graph.add_edge(node1, node2, cardinality)
         return edge
 
-    def map_edge_to_closure(
+    def map_edge_to_data(
         self,
         edge: SchemaEdge,
-        closure: Exp,
-        num_args: int,
-        data_relation_source: SchemaNode = None,
-        data_relation_source_idxs: list[int] = None,
+        data,
     ):
         """
-        Maps a closure to an edge in the schema graph.
-        The closure is applied when the edge is traversed.
+        Maps an edge in the schema graph to data in the backend.
 
         Args:
             edge (SchemaEdge): The edge to which the closure is to be mapped
-            closure (Function): The closure to be mapped to the edge
-            num_args (int): The number of arguments to the closure
-            data_relation_source (SchemaNode): The source node of the data relation
-            data_relation_source_idxs (list[int]): The indices of the source node in the relation
+            data: The closure to be mapped to the edge
 
         Returns:
             None
         """
 
-        self.backend.map_edge_to_closure(
-            edge, closure, num_args, data_relation_source, data_relation_source_idxs
+        self.backend.map_edge_to_data_relation(
+            edge, data
         )
 
     def create_class(self, name: str) -> SchemaClass:
@@ -318,11 +311,11 @@ class Schema:
         return cardinality, edges
 
     def execute_query(self, table_id, derived_from, derivation):
-        x, y, z, new_backend = self.backend.execute_query(
+        populated, new_backend = self.backend.execute_query(
             table_id, derived_from, derivation
         )
         self.backend = new_backend
-        return x, y, z, self
+        return populated, self
 
     def __repr__(self):
         return self.schema_graph.__repr__()
