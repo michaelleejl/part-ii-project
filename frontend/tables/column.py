@@ -21,7 +21,7 @@ from exp.bexp import (
     AllBexp,
 )
 from frontend.tables.exceptions import ColumnTypeException
-from exp.exp import PopExp, CountExp
+from exp.exp import PopExp, CountExp, ExtendExp, MaskExp
 from exp.helpers.wrap_aexp import wrap_aexp
 from exp.helpers.wrap_bexp import wrap_bexp
 from exp.helpers.wrap_sexp import wrap_sexp
@@ -245,3 +245,31 @@ class Column:
 
     def get_hidden_keys(self):
         return self.node.get_hidden_keys()
+
+    def wrap_function(self, expr):
+        node_type = self.get_type()
+
+        match node_type:
+            case BaseType.FLOAT:
+                expr = wrap_aexp(expr)
+            case BaseType.BOOL:
+                expr = wrap_bexp(expr)
+            case BaseType.STRING:
+                expr = wrap_sexp(expr)
+
+        return expr
+
+    def extend(self, with_function):
+        assert self.node.is_val_column()
+        expr = self.wrap_function(with_function)
+        assert self.get_type() == expr.exp_type
+        return ExtendExp(
+            [], self.get_domain(), expr, expr.exp_type
+        )
+
+    def mask(self, with_condition):
+        expr = self.wrap_function(with_condition)
+        assert self.get_type() == expr.exp_type
+        return MaskExp(
+            [], self.get_domain(), expr, expr.exp_type
+        )

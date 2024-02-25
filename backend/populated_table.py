@@ -24,3 +24,7 @@ class PopulatedTable(abc.ABC):
     def evaluate_exp(self, exp, keys: list[Domain], modified_keys: list[int]):
         pass
 
+    @abc.abstractmethod
+    def copy(self):
+        pass
+

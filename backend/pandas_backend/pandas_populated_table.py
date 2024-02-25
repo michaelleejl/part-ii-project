@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import operator
 from functools import reduce
 
@@ -5,19 +7,30 @@ import numpy as np
 import pandas as pd
 
 from backend.pandas_backend.exp_interpreter import exp_interpreter
+from exp.exp import Exp
+from frontend.derivation.derivation_node import ColumnNode
 from frontend.domain import Domain
 from backend.populated_table import PopulatedTable
 
+
 class PandasPopulatedTable(PopulatedTable):
 
-    def __init__(self, raw_table):
-        self.raw_table = raw_table
+    def __init__(self, raw_table: pd.DataFrame):
+        self.raw_table = raw_table.copy()
         self.to_display = None
         self.dropped_keys_count = 0
         self.dropped_vals_count = 0
 
+    @classmethod
+    def create_from_table(cls, table: PandasPopulatedTable) -> PandasPopulatedTable:
+        populated = PandasPopulatedTable(table.raw_table)
+        populated.to_display = table.to_display.copy()
+        populated.dropped_keys_count = table.dropped_keys_count
+        populated.dropped_vals_count = table.dropped_vals_count
+        return populated
+
     def display(
-            self, left, right, backend
+            self, left: list[ColumnNode], right: list[ColumnNode], backend: 'PandasBackend'
     ):
         keys = left
         hidden = [c.get_hidden_keys() for c in keys if c.is_val_column()]
@@ -89,6 +102,7 @@ class PandasPopulatedTable(PopulatedTable):
             self.to_display = df3
             self.dropped_keys_count = dropped_keys_cnt
             self.dropped_vals_count = 0
+        return self
 
     def get_table_to_display(self):
         assert self.to_display is not None
@@ -100,7 +114,7 @@ class PandasPopulatedTable(PopulatedTable):
     def get_num_dropped_vals(self):
         return self.dropped_vals_count
 
-    def evaluate_exp(self, exp, start: list[Domain], modified_keys: list[int]):
+    def evaluate_exp(self, exp: Exp, start: list[Domain], modified_keys: list[int]) -> pd.DataFrame:
         df = self.raw_table[[k.name for k in start]]
         df = df.rename({k.name: i for i, k in enumerate(start)}, axis=1)
         n = len(start)
@@ -110,3 +124,6 @@ class PandasPopulatedTable(PopulatedTable):
         df = df.join(val)
         df = df[modified_keys + [n]]
         return df
+
+    def copy(self) -> PandasPopulatedTable:
+        return PandasPopulatedTable.create_from_table(self)

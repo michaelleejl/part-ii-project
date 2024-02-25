@@ -8,10 +8,7 @@ from typing import Any
 import numpy as np
 
 from backend.populated_table import PopulatedTable
-from exp.exp import Exp, ExtendExp, MaskExp
-from exp.helpers.wrap_aexp import wrap_aexp
-from exp.helpers.wrap_bexp import wrap_bexp
-from exp.helpers.wrap_sexp import wrap_sexp
+from exp.exp import Exp
 from frontend.derivation.derivation_node import (
     DerivationNode,
     ColumnNode,
@@ -43,7 +40,6 @@ from representation.representation import (
     StartTraversal,
     Pop,
 )
-from schema.base_types import BaseType
 from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge
 from schema.helpers.compose_cardinality import compose_cardinality
@@ -174,7 +170,13 @@ def create_domain(name: str, node: AtomicNode, namespace: frozenset[str]) -> Dom
     """
     Creates a domain from a name and a schema node
 
-    :return:
+    Args:
+        name: the name of the domain
+        node: the schema node
+        namespace: the namespace of the table
+
+    Returns:
+        The domain
     """
     name = get_fresh_name(name, namespace)
     return Domain(name, node)
@@ -266,7 +268,7 @@ class Table:
         )
         new_table.displayed_columns = copy.copy(table.displayed_columns)
         new_table.marker = table.marker
-        new_table.populated_table = None
+        new_table.populated_table = table.populated_table.copy()
         return new_table
 
     def __get_existing_column(self, input: existing_column) -> ColumnNode:
@@ -498,7 +500,7 @@ class Table:
         )
 
     def get_representation(
-        self, start: list[Domain], end: list[Domain], via, aggregated_over, namespace
+        self, start: list[Domain], end: list[Domain], via, namespace
     ):
 
         from frontend.tables.helpers.convert_path_to_representation import (
@@ -556,7 +558,7 @@ class Table:
         if via is not None:
             via_nodes = [t.schema.get_node_with_name(n) for n in via]
         shortest_p = t.get_representation(
-            cols_to_add, [key.get_domain()], via_nodes, [], namespace
+            cols_to_add, [key.get_domain()], via_nodes, namespace
         )
         cardinality, repr, hidden_columns = shortest_p
 
@@ -574,6 +576,12 @@ class Table:
         hidden = set(flatten([c.get_hidden_keys() for c in left]))
         return hidden
 
+    def mutate(self, **kwargs):
+        t = Table.create_from_table(self)
+        for name, expr in kwargs.items():
+            t = t.deduce(expr, name)
+        return t
+
     def deduce(self, function: Exp, with_name: str):
         t = Table.create_from_table(self)
         exp, start_columns, aggregated_over, usages = Exp.convert_exp(function)
@@ -585,7 +593,6 @@ class Table:
         modified_start_node = None
         modified_start_cols = None
         if len(aggregated_over) > 0:
-
             modified_start_cols = [
                 i
                 for i, c in enumerate(start_columns)
@@ -630,16 +637,6 @@ class Table:
         self.schema.map_edge_to_data(
             edge, data
         )
-        # _ = t.infer_internal(
-        #     [col.name for col in start_columns],
-        #     end_node,
-        #     with_name=with_name,
-        #     aggregated_over=[
-        #         start_columns[i]
-        #         for i in aggregated_over.keys()
-        #         if start_columns[i].name in t.displayed_columns
-        #     ],
-        # )
         t_new = self
         assumption = [
             start_columns[i].name
@@ -650,41 +647,6 @@ class Table:
             assumption, end_node, with_name=with_name
         )
         return t_new
-
-    def extend(self, column: existing_column, with_function, with_name: str):
-        column = self.__get_existing_column(column)
-        self.verify_columns([column], {self.ColumnRequirements.IS_VAL})
-        value: ColumnNode = column
-        strong_keys = value.get_strong_keys()
-        hidden_keys = [hk for hk in value.get_hidden_keys() if hk.name != column]
-
-        match value.get_schema_node().node_type:
-            case BaseType.FLOAT:
-                with_function = wrap_aexp(with_function)
-            case BaseType.BOOL:
-                with_function = wrap_bexp(with_function)
-            case BaseType.STRING:
-                with_function = wrap_sexp(with_function)
-
-        assert len(strong_keys + hidden_keys) > 0
-        assert value.get_schema_node().node_type == with_function.exp_type
-        function = ExtendExp(
-            [], value.domains[0], with_function, with_function.exp_type
-        )
-        return self.deduce(function, with_name)
-
-    def mask(self, column: existing_column, mask_with, with_name: str):
-        column = self.__get_existing_column(column)
-        self.verify_columns([column], {self.ColumnRequirements.IS_KEY_OR_VAL})
-        strong_keys = self.find_strong_keys_for_columns([column])
-        hidden_keys = [hk for hk in column.get_hidden_keys() if hk.name != column]
-
-        mask_with = wrap_bexp(mask_with)
-        assert len(strong_keys + hidden_keys) > 0
-        function = MaskExp(
-            [], column.domains[0], mask_with, column.get_schema_node().node_type
-        )
-        return self.deduce(function, with_name)
 
     def infer(
         self,
@@ -790,7 +752,6 @@ class Table:
                 [c.get_domain() for c in assumption_columns],
                 [conclusion_column],
                 via_nodes,
-                aggregated_over,
                 namespace,
             )
             cardinality, repr, hidden_keys = shortest_p
@@ -822,7 +783,7 @@ class Table:
 
         return t
 
-    def hide(self, column: existing_column):
+    def hide(self, column: existing_column) -> Table:
         column = self.__get_existing_column(column)
         self.verify_columns([column], {Table.ColumnRequirements.IS_KEY_OR_VAL})
         t = Table.create_from_table(self)
