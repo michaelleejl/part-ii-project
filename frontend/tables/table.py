@@ -631,6 +631,7 @@ class Table:
             exp, start_columns, modified_start_cols
         )
         self.schema.map_edge_to_data(edge, data)
+        self.schema.map_atomic_node_to_data(end_node, data[len(modified_start_cols)])
         t_new = self
         assumption = [
             start_columns[i].name

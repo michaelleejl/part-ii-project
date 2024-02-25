@@ -50,7 +50,7 @@ def step(transform: Transform, get_fn):
         case "CAR":
             car = transform
             assert isinstance(car, Carry)
-            to_get = car.to_carry
+            to_get = car.to_carry.node
             n = car.n
             m = car.m
             domain = get_fn(to_get, n)
@@ -120,14 +120,17 @@ def step(transform: Transform, get_fn):
 
 
 def steps(transformations: list[Transform], get_fn):
-    k = lambda x, y: (x, y)
+    interpreted_transforms = []
     for t in transformations:
-        k = lambda x, y: step(t, get_fn)(k(x, y))
-    return k
+        f = step(t, get_fn)
+        interpreted_transforms += [f]
+    return interpreted_transforms
 
 
 def transform_interpreter(
     t: pd.DataFrame, hks: list[Domain], transformations: list[Transform], get_fn
 ):
     transformation = steps(transformations, get_fn)
-    return transformation(t, hks)
+    for f in transformation:
+        t, hks = f(t, hks)
+    return t, hks

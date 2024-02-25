@@ -2,7 +2,8 @@ import expecttest
 import numpy as np
 import pandas as pd
 
-from schema import Schema, SchemaNode
+from schema.schema import Schema
+from schema.node import SchemaNode
 
 
 class TestEx3(expecttest.TestCase):
@@ -43,7 +44,7 @@ class TestEx3(expecttest.TestCase):
     def test_ex3_goal1_step1_get(self):
         # Get every Val_id, Cardnum pair
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([Val_id, Cardnum]).sort(["Val_id", "Cardnum"])
+        t1 = s.get(Val_id=Val_id, Cardnum=Cardnum).sort(["Val_id", "Cardnum"])
         self.maxDiff = None
         self.assertExpectedInline(
             str(t1),
@@ -80,7 +81,7 @@ Index: []
         # From val_id, cardnum, I can tell you the bonus
         # This will trim the key set, since values populate keys
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([Val_id, Cardnum])
+        t1 = s.get(Val_id=Val_id, Cardnum=Cardnum)
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         self.assertExpectedInline(
             str(t2),
@@ -109,7 +110,7 @@ Val_id Cardnum
     def test_ex3_goal1_step3_infer(self):
         # But we know for each val_id, we can infer a tstart
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([Val_id, Cardnum])
+        t1 = s.get(Val_id=Val_id, Cardnum=Cardnum)
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"]).sort(["Val_id", "Cardnum"])
         self.maxDiff = None
@@ -177,7 +178,7 @@ Val_id Cardnum
     def test_ex3_goal1_step4_filter(self):
         # I'm only interested in rows where the bonus actually exists.
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([Val_id, Cardnum])
+        t1 = s.get(Val_id=Val_id, Cardnum=Cardnum)
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"])
         t4 = t3.filter(t3["bonus"])
@@ -208,7 +209,7 @@ Val_id Cardnum
     def test_ex3_goal1_step5_infer(self):
         # Did anyone actually get a bonus?
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([Val_id, Cardnum])
+        t1 = s.get(Val_id=Val_id, Cardnum=Cardnum)
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"])
         t4 = t3.infer(["Val_id"], cardnum["cardnum"])
@@ -221,10 +222,10 @@ Val_id Cardnum
                 bonus               tstart  cardnum  return
 Val_id Cardnum                                             
 1      5172       4.0  2023-01-01 09:50:00   5172.0  206.88
-       1410      12.0  2023-01-01 09:50:00   5172.0  620.64
 2      1111       5.0  2023-01-01 11:10:00   2354.0  117.70
-       6440       7.0  2023-01-01 11:10:00   2354.0  164.78
 3      1111       1.0  2023-01-01 15:32:00   1410.0   14.10
+1      1410      12.0  2023-01-01 09:50:00   5172.0  620.64
+2      6440       7.0  2023-01-01 11:10:00   2354.0  164.78
 5      1410       2.0  2023-01-01 20:11:00   2354.0   47.08
 42 keys hidden
 
@@ -242,14 +243,12 @@ Val_id Cardnum
     def test_ex3_goal1_step6_filter(self):
         # Did anyone actually get a bonus?
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([Val_id, Cardnum])
+        t1 = s.get(Val_id=Val_id, Cardnum=Cardnum)
         t2 = t1.infer(["Val_id", "Cardnum"], bonus["bonus"])
         t3 = t2.infer(["Val_id"], tstart["tstart"])
         t4 = t3.infer(["Val_id"], cardnum["cardnum"])
-        t5 = t4.mask(
-            t4["Cardnum"],
-            (t4["Cardnum"] == t4["cardnum"]) & t4["bonus"].isnotnull(),
-            "Cardnum_filtered",
+        t5 = t4.mutate(
+            Cardnum_filtered = t4["Cardnum"].mask((t4["Cardnum"] == t4["cardnum"]) & t4["bonus"].isnotnull())
         )
         t6 = t5.filter(t5["Cardnum_filtered"])
         self.maxDiff = None
@@ -270,7 +269,7 @@ Val_id Cardnum
     # GOAL 2: [val_id || cardnum tstart bonus]
     def test_ex3_goal2_step1_get(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t11 = s.get([Val_id])
+        t11 = s.get(Val_id=Val_id)
         self.assertExpectedInline(
             str(t11),
             """\
@@ -294,12 +293,12 @@ Index: []
 
     def test_ex3_goal2_step2_inferenceChain(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t11 = s.get([Val_id])
+        t11 = s.get(Val_id=Val_id)
         t12 = (
             t11.infer(["Val_id"], cardnum["cardnum"])
             .infer(["Val_id"], tstart["tstart"])
             .infer(["Val_id"], bonus["bonus"])
-        )
+        ).sort("Val_id")
         self.assertExpectedInline(
             str(t12),
             """\
@@ -309,8 +308,8 @@ Val_id
 1        5172.0  2023-01-01 09:50:00  [4.0, 12.0]
 2        2354.0  2023-01-01 11:10:00   [5.0, 7.0]
 3        1410.0  2023-01-01 15:32:00        [1.0]
-5        2354.0  2023-01-01 20:11:00        [2.0]
 4        1111.0  2023-01-01 15:34:00           []
+5        2354.0  2023-01-01 20:11:00        [2.0]
 6           NaN  2023-01-01 21:17:00           []
 7           NaN  2023-01-02 05:34:00           []
 8        4412.0                  NaN           []
@@ -329,7 +328,7 @@ Val_id
 
     def test_ex3_goal2_step3_assignAndAggregate(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t11 = s.get([Val_id])
+        t11 = s.get(Val_id=Val_id)
         t12 = (
             t11.infer(["Val_id"], cardnum["cardnum"])
             .infer(["Val_id"], tstart["tstart"])
@@ -338,7 +337,7 @@ Val_id
         t13 = t12.deduce(
             (t12["bonus"].sum() / t12["bonus"].count() / 100) * t12["cardnum"],
             "returns",
-        )
+        ).sort("Val_id")
         print(t13.intermediate_representation)
         self.maxDiff = None
         print(t13["returns"].get_hidden_keys())
@@ -354,9 +353,9 @@ Val_id
 3        1410.0  2023-01-01 15:32:00        [1.0]    14.10
 4        1111.0  2023-01-01 15:34:00           []      NaN
 5        2354.0  2023-01-01 20:11:00        [2.0]    47.08
-8        4412.0                  NaN           []      NaN
 6           NaN  2023-01-01 21:17:00           []      NaN
 7           NaN  2023-01-02 05:34:00           []      NaN
+8        4412.0                  NaN           []      NaN
 
 """,
         )
@@ -368,7 +367,7 @@ Val_id
         # Does this mean that hiding a key could introduce new rows - specifically rows where
         # the hidden key is NA? Yes.
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t11 = s.get([Val_id])
+        t11 = s.get(Val_id=Val_id)
         t12 = (
             t11.infer(["Val_id"], cardnum["cardnum"])
             .infer(["Val_id"], tstart["tstart"])

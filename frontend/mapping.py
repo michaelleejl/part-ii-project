@@ -262,7 +262,7 @@ class Mapping:
             new_edge = SchemaEdge.invert(self.edge)
             new_carried = {d: (j, i) for d, (i, j) in self.carried.items() if i >= 0}
             mapping = Mapping(
-                new_edge,
+                self.edge,
                 self.to_nodes,
                 self.from_nodes,
                 hidden_keys,

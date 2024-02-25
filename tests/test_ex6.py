@@ -1,7 +1,7 @@
 import expecttest
 import pandas as pd
 
-from schema import Schema, SchemaNode
+from schema.schema import Schema
 
 
 class TestEx6(expecttest.TestCase):
@@ -48,7 +48,7 @@ class TestEx6(expecttest.TestCase):
         s, billing, delivery, payment, Address, Order, Payment_Method = (
             self.initialise()
         )
-        t1 = s.get([payment["order"], payment["payment_method"]])
+        t1 = s.get(order=payment["order"], payment_method=payment["payment_method"])
         self.assertExpectedInline(
             str(t1),
             """\
@@ -71,30 +71,30 @@ Index: []
         s, billing, delivery, payment, Address, Order, Payment_Method = (
             self.initialise()
         )
-        t1 = s.get([payment["order"], payment["payment_method"]])
-        t2 = t1.infer(["order"], Address)
+        t1 = s.get(order=payment["order"], payment_method=payment["payment_method"])
+        t2 = t1.infer(["order"], Address).sort(["order", "payment_method"])
         self.assertExpectedInline(
             str(t2),
             """\
 [order payment_method || Address]
                         Address
 order payment_method           
-1.0   5172.0          Cambridge
-      2354.0          Cambridge
-      1410.0          Cambridge
-      1111.0          Cambridge
-2.0   5172.0          Singapore
-      2354.0          Singapore
-      1410.0          Singapore
-      1111.0          Singapore
-4.0   5172.0             Oxford
-      2354.0             Oxford
-      1410.0             Oxford
-      1111.0             Oxford
-5.0   5172.0          Cambridge
-      2354.0          Cambridge
-      1410.0          Cambridge
-      1111.0          Cambridge
+1.0   1111            Cambridge
+      1410            Cambridge
+      2354            Cambridge
+      5172            Cambridge
+2.0   1111            Singapore
+      1410            Singapore
+      2354            Singapore
+      5172            Singapore
+4.0   1111               Oxford
+      1410               Oxford
+      2354               Oxford
+      5172               Oxford
+5.0   1111            Cambridge
+      1410            Cambridge
+      2354            Cambridge
+      5172            Cambridge
 
 """,
         )
@@ -111,7 +111,7 @@ order payment_method
         s, billing, delivery, payment, Address, Order, Payment_Method = (
             self.initialise()
         )
-        t11 = s.get([payment["order"]]).infer(["order"], payment["payment_method"])
+        t11 = s.get(order = payment["order"]).infer(["order"], payment["payment_method"])
         self.assertExpectedInline(
             str(t11),
             """\
@@ -135,7 +135,7 @@ order
         s, billing, delivery, payment, Address, Order, Payment_Method = (
             self.initialise()
         )
-        t11 = s.get([payment["order"]]).infer(["order"], payment["payment_method"])
+        t11 = s.get(order = payment["order"]).infer(["order"], payment["payment_method"])
         t12 = t11.shift_right()
         self.assertExpectedInline(
             str(t12),

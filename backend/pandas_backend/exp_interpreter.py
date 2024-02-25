@@ -42,7 +42,7 @@ def exp_interpreter(exp: Exp):
                 keys = cou.keys
                 col = cou.column
                 hids = cou.hids
-                return lambda t: aggregate(t, hids, keys, col, len)
+                return lambda t: aggregate(t, keys, hids, col, len)
             case "EXT":
                 ext = typing.cast(ExtendExp, exp)
                 keys = ext.keys

@@ -1,7 +1,7 @@
 import expecttest
 import pandas as pd
 
-from schema import Schema, SchemaNode
+from schema.schema import Schema
 
 
 class TestEx7(expecttest.TestCase):
@@ -41,7 +41,7 @@ class TestEx7(expecttest.TestCase):
     def test_ex7_goal1_step1_get(self):
         # Get every Val_id, Cardnum pair
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
+        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
         self.assertExpectedInline(
             str(t1),
             """\
@@ -67,8 +67,8 @@ val_id
 
     def test_ex7_goal1_step2_infer(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
-        t2 = t1.infer(["val_id"], bonus["bonus"])
+        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
+        t2 = t1.infer(["val_id"], bonus["bonus"]).sort(["val_id"])
         self.maxDiff = None
         self.assertExpectedInline(
             str(t2),
@@ -79,8 +79,8 @@ val_id
 1          5172  [4.0, 12.0]
 2          2354   [5.0, 7.0]
 3          1410        [1.0]
-5          2354        [2.0]
 4          1111           []
+5          2354        [2.0]
 8          4412           []
 
 """,
@@ -95,9 +95,9 @@ val_id
 
     def test_ex7_goal1_step3_setKey(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
+        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
-        t3 = t2.shift_right()
+        t3 = t2.shift_right().sort(["val_id"])
         self.assertExpectedInline(
             str(t3),
             """\
@@ -124,7 +124,7 @@ val_id cardnum
 
     def test_ex7_goal1_step4_show(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
+        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
         t3 = t2.shift_right()
         t4 = t3.show("cardnum_1")
@@ -157,14 +157,13 @@ val_id cardnum cardnum_1
     def test_ex7_goal1_step5_equate(self):
         # # Inner product
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get([cardnum["val_id"]]).infer(["val_id"], cardnum["cardnum"])
+        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
         t3 = t2.shift_right()
         t4 = t3.show("cardnum_1")
-        t5 = t4.mask(
-            "cardnum",
-            (t4["cardnum"] == t4["cardnum_1"]) & t4["bonus"].isnotnull(),
-            "is_cardnum_equal",
+        t5 = t4.mutate(
+            is_cardnum_equal=
+            t4["cardnum"].mask((t4["cardnum"] == t4["cardnum_1"]) & t4["bonus"].isnotnull()),
         )
         t6 = t5.filter("is_cardnum_equal")
         self.maxDiff = None

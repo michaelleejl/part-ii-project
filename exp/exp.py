@@ -184,7 +184,7 @@ class MaskExp(Exp):
         bexp: Bexp,
         exp_type: BaseType,
     ):
-        from bexp import Bexp
+        from exp.bexp import Bexp
 
         super().__init__("MSK", exp_type)
         self.keys: list[Domain] | list[int] = keys

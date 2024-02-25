@@ -159,6 +159,33 @@ def find_splice_point(
         return idx
 
 
+def compress_path_representation(
+    path: list[DerivationNode],
+) -> list[RepresentationStep]:
+    """
+    Compresses the intermediate representation of a path
+
+    Args:
+        path (list[DerivationNode]): The path to be compressed
+
+    Returns:
+        list[RepresentationStep]: The compressed intermediate representation
+    """
+    val_node = path[-1]
+    keys = val_node.find_strong_keys()
+    hidden_keys = val_node.find_hidden_keys()
+
+    intermediate_repr = intermediate_representation_for_path(path)
+
+    ents = [step for step in intermediate_repr if isinstance(step, EndTraversal)]
+    to_drop = functools.reduce(
+        lambda x, y: x.union(y), [step.end_columns for step in ents[:-1]], set()
+    )
+    to_keep = set(ents[-1].end_columns).union(set(hidden_keys)).union(set(keys))
+
+    return intermediate_repr + [Drop(list(to_drop.difference(to_keep)))]
+
+
 class DerivationNode:
     def __init__(
         self,
@@ -966,33 +993,6 @@ class DerivationNode:
         return copy
 
 
-def compress_path_representation(
-    path: list[DerivationNode],
-) -> list[RepresentationStep]:
-    """
-    Compresses the intermediate representation of a path
-
-    Args:
-        path (list[DerivationNode]): The path to be compressed
-
-    Returns:
-        list[RepresentationStep]: The compressed intermediate representation
-    """
-    val_node = path[-1]
-    keys = val_node.find_strong_keys()
-    hidden_keys = val_node.find_hidden_keys()
-
-    intermediate_repr = intermediate_representation_for_path(path)
-
-    ents = [step for step in intermediate_repr if isinstance(step, EndTraversal)]
-    to_drop = functools.reduce(
-        lambda x, y: x.union(y), [step.end_columns for step in ents[:-1]], set()
-    )
-    to_keep = set(ents[-1].end_columns).union(set(hidden_keys)).union(set(keys))
-
-    return intermediate_repr + [Drop(list(to_drop.difference(to_keep)))]
-
-
 class RootNode(DerivationNode):
 
     def __init__(self, keys: list[Domain]):
@@ -1137,7 +1137,6 @@ class RootNode(DerivationNode):
             for i, intermediate in enumerate(intermediates):
                 if intermediate.is_val_column():
                     i_keys = intermediate.get_strong_keys()
-                    key_node = self.find_node_with_domains(i_keys)
                     intermediate_steps = self.get_representation_of_values_from_keys(
                         i_keys, intermediate.domains
                     )

@@ -1,7 +1,7 @@
 import expecttest
 import pandas as pd
 
-from schema import Schema, SchemaNode
+from schema.schema import Schema
 
 
 class TestEx9(expecttest.TestCase):
@@ -28,7 +28,7 @@ class TestEx9(expecttest.TestCase):
     def test_ex9_goal1_step1_get_infer_compose(self):
         # GOAL 1: [k || v]
         s, l, v, L = self.initialise()
-        t1 = s.get([L]).infer(["L"], v["v"]).compose([l["k"]], "L")
+        t1 = s.get(L=L).infer(["L"], v["v"]).compose([l["k"]], "L")
         self.assertExpectedInline(
             str(t1),
             """\
@@ -51,7 +51,7 @@ C  2
 
     def test_ex9_goal2_step1_getAndInfer(self):
         s, l, v, L = self.initialise()
-        t11 = s.get([l["k"], L]).infer(["L"], v["v"])
+        t11 = s.get(k=l["k"], L=L).infer(["L"], v["v"])
         self.assertExpectedInline(
             str(t11),
             """\
@@ -83,7 +83,7 @@ C r  3
 
     def test_ex9_goal3_step1_getAndInfer(self):
         s, l, v, L = self.initialise()
-        t21 = s.get([l["k"], L]).infer(["k"], v["v"])
+        t21 = s.get(k = l["k"], L = L).infer(["k"], v["v"]).sort(["k", "L"])
         self.assertExpectedInline(
             str(t21),
             """\
@@ -115,7 +115,7 @@ C p  2
 
     def test_ex9_goal4_step1_getAndInfer(self):
         s, l, v, L = self.initialise()
-        t31 = s.get([l["k"]]).infer(["k"], L)
+        t31 = s.get(k = l["k"]).infer(["k"], L)
         self.assertExpectedInline(
             str(t31),
             """\
@@ -135,7 +135,7 @@ C  q
 
     def test_ex9_goal4_step2_setKey(self):
         s, l, v, L = self.initialise()
-        t31 = s.get([l["k"]]).infer(["k"], L)
+        t31 = s.get(k = l["k"]).infer(["k"], L)
         t32 = t31.shift_right()
         self.assertExpectedInline(
             str(t32),
@@ -155,7 +155,7 @@ Index: []
 
     def test_ex9_goal4_step3_infer(self):
         s, l, v, L = self.initialise()
-        t31 = s.get([l["k"]]).infer(["k"], L)
+        t31 = s.get(k = l["k"]).infer(["k"], L)
         t32 = t31.shift_right()
         t33 = t32.infer(["L"], v["v"])
         self.assertExpectedInline(

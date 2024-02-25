@@ -233,7 +233,7 @@ class Column:
     def count(self):
         keys = self.get_strong_keys()
         hids = self.get_hidden_keys()
-        return CountExp(keys, hids, self.get_domain(), self.node.exp_type)
+        return CountExp(keys, hids, self.get_domain(), self.get_type())
 
     def pop(self):
         keys = self.node.get_strong_keys()
@@ -266,6 +266,5 @@ class Column:
         return ExtendExp([], self.get_domain(), expr, expr.exp_type)
 
     def mask(self, with_condition):
-        expr = self.wrap_function(with_condition)
-        assert self.get_type() == expr.exp_type
+        expr = wrap_bexp(with_condition)
         return MaskExp([], self.get_domain(), expr, expr.exp_type)

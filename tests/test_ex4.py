@@ -2,7 +2,8 @@ import expecttest
 import numpy as np
 import pandas as pd
 
-from schema import Schema, SchemaNode
+from schema.schema import Schema
+from schema.node import SchemaNode
 
 
 class TestEx4(expecttest.TestCase):
@@ -31,7 +32,7 @@ class TestEx4(expecttest.TestCase):
 
     def test_ex4_goal1_step1_get(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get([person["person"]])
+        t1 = s.get(person = person["person"])
         self.assertExpectedInline(
             str(t1),
             """\
@@ -52,7 +53,7 @@ Index: []
 
     def test_ex4_goal1_step2_infer(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get([person["person"]])
+        t1 = s.get(person = person["person"])
         t2 = t1.infer(["person"], task["task"])
         self.assertExpectedInline(
             str(t2),
@@ -74,7 +75,7 @@ Steve   [funding, investment, budget]
 
     def test_ex4_goal1_step3_show(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get([person["person"]])
+        t1 = s.get(person = person["person"])
         t2 = t1.infer(["person"], task["task"])
         t3 = t2.show("task_1")
         self.assertExpectedInline(
@@ -100,10 +101,10 @@ Steve  funding        funding
 
     def test_ex4_goal1_step4_hideAfterShow(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get([person["person"]])
+        t1 = s.get(person = person["person"])
         t2 = t1.infer(["person"], task["task"])
         t3 = t2.show("task_1")
-        t4 = t3.hide("task_1")
+        t4 = t3.hide("task_1").sort("person")
         self.maxDiff = None
         print("T4 DERIVATION")
         print(t4.derivation)
@@ -114,8 +115,8 @@ Steve  funding        funding
                                  task
 person                               
 Dick                       [manpower]
-Tom                        [research]
 Steve   [funding, investment, budget]
+Tom                        [research]
 1 keys hidden
 
 """,
@@ -123,7 +124,7 @@ Steve   [funding, investment, budget]
 
     def test_ex4_goal1_step4_showAfterHideAfterShow(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get([person["person"]])
+        t1 = s.get(person = person["person"])
         t2 = t1.infer(["person"], task["task"])
         t3 = t2.show("task_1")
         t4 = t3.hide("task_1")

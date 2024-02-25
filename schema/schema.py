@@ -308,6 +308,9 @@ class Schema:
 
         return cardinality, edges
 
+    def map_atomic_node_to_data(self, node: AtomicNode, data):
+        self.backend.map_atomic_node_to_domain(node, data)
+
     def execute_query(self, table_id, derived_from, derivation):
         populated_table, new_backend = self.backend.execute_query(
             table_id, derived_from, derivation

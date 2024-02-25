@@ -1,7 +1,8 @@
 import expecttest
 import pandas as pd
 
-from schema import Schema, SchemaNode, NoShortestPathBetweenNodesException
+from schema.schema import Schema
+from schema.exceptions import NoShortestPathBetweenNodesException
 
 
 class TestEx5(expecttest.TestCase):
@@ -30,7 +31,7 @@ class TestEx5(expecttest.TestCase):
 
     def test_ex5_step1_get(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get([person["person"], task["task"]])
+        t1 = s.get(person = person["person"], task = task["task"])
         self.assertExpectedInline(
             str(t1),
             """\
@@ -52,7 +53,7 @@ Index: []
 
     def test_ex5_step2_infer(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get([person["person"], task["task"]])
+        t1 = s.get(person = person["person"], task = task["task"])
         t2 = t1.infer(["task"], Role)
         self.assertExpectedInline(
             str(t2),
@@ -106,42 +107,43 @@ Dick   budget      CFO
         # Or perhaps I can ask the other question - if I know person does task,
         # and I know their role, what can I infer about the role demanded by the task?
         s, person, task, Role = self.initialise()
-        t1 = s.get([person["person"], task["task"]])
-        t3 = t1.infer(["person"], Role)
+        t1 = s.get(person = person["person"], task = task["task"])
+        t3 = t1.infer(["person"], Role).sort(["person", "task"])
+        self.maxDiff = None
         self.assertExpectedInline(
             str(t3),
             """\
 [person task || Role]
                   Role
 person task           
-Steve  logistics   CFO
-       manpower    CFO
-       research    CFO
-       funding     CFO
-       marketing   CFO
-       investment  CFO
-       budget      CFO
-Tom    logistics   CTO
-       manpower    CTO
-       research    CTO
-       funding     CTO
-       marketing   CTO
-       investment  CTO
-       budget      CTO
-Harry  logistics   CAO
-       manpower    CAO
-       research    CAO
-       funding     CAO
-       marketing   CAO
-       investment  CAO
-       budget      CAO
-Dick   logistics   CEO
-       manpower    CEO
-       research    CEO
+Dick   budget      CEO
        funding     CEO
-       marketing   CEO
        investment  CEO
-       budget      CEO
+       logistics   CEO
+       manpower    CEO
+       marketing   CEO
+       research    CEO
+Harry  budget      CAO
+       funding     CAO
+       investment  CAO
+       logistics   CAO
+       manpower    CAO
+       marketing   CAO
+       research    CAO
+Steve  budget      CFO
+       funding     CFO
+       investment  CFO
+       logistics   CFO
+       manpower    CFO
+       marketing   CFO
+       research    CFO
+Tom    budget      CTO
+       funding     CTO
+       investment  CTO
+       logistics   CTO
+       manpower    CTO
+       marketing   CTO
+       research    CTO
 
 """,
         )
@@ -161,11 +163,11 @@ Dick   logistics   CEO
         s, person, task, Role = self.initialise()
         person["person"].id_prefix = 0
         task["task"].id_prefix = 0
-        t1 = s.get([person["person"], task["task"]])
+        t1 = s.get(person = person["person"], task = task["task"])
         self.assertExpectedRaisesInline(
             NoShortestPathBetweenNodesException,
             lambda: t1.infer(["person", "task"], Role),
-            """No paths found between nodes person;task and Role.If the path involves a projection that isn't the last edge in the path,The projection will need to be specified as a waypoint.""",
+            """No paths found between nodes person;task and Role. If the path involves a projection, the projection will need to be specified as a waypoint.""",
         )
         # There is no path from person.person x task.task to Role, only Role x Role.
         # This should throw an error

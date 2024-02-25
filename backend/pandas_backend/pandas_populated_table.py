@@ -131,7 +131,7 @@ class PandasPopulatedTable(PopulatedTable):
         assert len(val.columns) == 1
         val = val.rename(columns={val.columns[0]: n})
         df = df.join(val)
-        df = df[modified_keys + [n]]
+        df = df[modified_keys + [n]].rename({j: i for (i, j) in enumerate(modified_keys)} | {n: len(modified_keys)}, axis=1)
         return df
 
     def copy(self) -> PandasPopulatedTable:

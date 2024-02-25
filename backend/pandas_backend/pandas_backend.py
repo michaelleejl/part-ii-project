@@ -46,7 +46,9 @@ class PandasBackend(Backend):
         self.derived_tables = {}
         self.clones = {}
 
-    def map_atomic_node_to_domain(self, node, domain: pd.DataFrame) -> None:
+    def map_atomic_node_to_domain(self, node, domain: pd.DataFrame | pd.Series) -> None:
+        if isinstance(domain, pd.Series):
+            domain = pd.DataFrame(domain)
         cs = SchemaNode.get_constituents(node)
         assert len(cs) == 1
         domain = copy_data(domain)
@@ -80,7 +82,7 @@ class PandasBackend(Backend):
         f_node_c = SchemaNode.get_constituents(edge.from_node)
         t_node_c = SchemaNode.get_constituents(edge.to_node)
         assert len(f_node_c + t_node_c) == len(relation.columns)
-        df = copy_data(relation)
+        df = copy_data(relation.dropna())
         df.columns = list(range(len(df.columns)))
         self.edge_data[edge] = copy_data(df)
 
@@ -176,7 +178,7 @@ class PandasBackend(Backend):
 
         data = generate_hidden_keys(edge, data)
 
-        data, hks = transform_interpreter(data, hks, mapping.transform, self)
+        data, hks = transform_interpreter(data, hks, mapping.transform, lambda n, name: self.get_domain_from_atomic_node(n, name))
         data = data.rename({-i - 1: hk.name for (i, hk) in enumerate(hks)}, axis=1)
         return data
 

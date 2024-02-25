@@ -78,9 +78,8 @@ class FindingEdgeViaNodeMustRespectEquivalence(Exception):
 class NoShortestPathBetweenNodesException(Exception):
     def __init__(self, node1, node2):
         super().__init__(
-            f"No paths found between nodes {node1} and {node2}."
-            f"If the path involves a projection that isn't the last edge in the path. "
-            f"The projection will need to be specified as a waypoint."
+            f"No paths found between nodes {node1} and {node2}. "
+            f"If the path involves a projection, the projection will need to be specified as a waypoint."
         )
 
 
