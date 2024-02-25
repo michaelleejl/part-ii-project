@@ -51,7 +51,7 @@ class PandasBackend(Backend):
             domain = pd.DataFrame(domain)
         cs = SchemaNode.get_constituents(node)
         assert len(cs) == 1
-        domain = copy_data(domain)
+        domain = copy_data(domain).dropna().drop_duplicates()
         self.clones[node] = node
         self.node_data[node] = domain
 

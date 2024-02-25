@@ -26,5 +26,9 @@ class PopulatedTable(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def group_by(self, keys: list[Domain], val: Domain):
+        pass
+
+    @abc.abstractmethod
     def copy(self):
         pass

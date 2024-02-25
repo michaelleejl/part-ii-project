@@ -47,8 +47,8 @@ from schema.helpers.find_index import find_index
 from schema.helpers.is_sublist import is_sublist
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 
-existing_column = str | Column | ColumnNode
-new_column = AtomicNode | SchemaClass | Column | ColumnNode
+existing_column = str | Column | Domain | ColumnNode
+new_column = AtomicNode | SchemaClass | Column | Domain | ColumnNode
 
 
 def classify_groups(
@@ -105,6 +105,8 @@ def get_name_and_node(i: new_column) -> tuple[str, AtomicNode]:
         return i.name, i
     elif isinstance(i, Column):
         return i.name, i.get_schema_node()
+    elif isinstance(i, Domain):
+        return i.name, i.node
     elif isinstance(i, ColumnNode):
         return i.get_name(), i.get_schema_node()
 
@@ -286,6 +288,8 @@ class Table:
             return self.derivation.find_column_with_name(input)
         elif isinstance(input, Column):
             return input.node
+        elif isinstance(input, Domain):
+            return self.derivation.find_column_with_name(input.name)
         elif isinstance(input, ColumnNode):
             return input
 
@@ -808,6 +812,58 @@ class Table:
         t.execute()
         return t
 
+    def group_by(self, columns: list[existing_column]) -> Table:
+        """
+        Groups the table by a list of columns
+        """
+
+        columns = self.__get_existing_columns(columns)
+        self.verify_columns(columns, {Table.ColumnRequirements.IS_KEY_OR_VAL})
+        all_keys_and_vals = self.derivation.get_keys_and_values()
+        keys = [c for c in columns if c.is_key_column()]
+        key_doms = [c.get_domain() for c in keys]
+        vals = [c for c in columns if c.is_val_column()]
+        col_doms = [c.get_domain() for c in columns]
+        keys_to_invert_set = set()
+        keys_to_invert = {}
+        the_rest = set(all_keys_and_vals).difference(set(keys) | set(vals))
+
+        for val in vals:
+            keys_of_vals = val.get_strong_keys()
+            grouped_keys = set(keys_of_vals).intersection(set(key_doms))
+            remaining_keys = [k for k in keys_of_vals if k not in grouped_keys]
+            the_rest = [c for c in the_rest if c.get_domain() not in remaining_keys]
+            for k in remaining_keys:
+                if k not in keys_to_invert:
+                    keys_to_invert[k] = set()
+                keys_to_invert[k] |= set(grouped_keys).union({val.get_domain()})
+            keys_to_invert_set |= set(remaining_keys)
+
+        keys_to_invert = {k: list(sorted(list(v), key=lambda x: find_index(x, col_doms))) for k, v in keys_to_invert.items()}
+        keys_to_invert_list = list(sorted(list(keys_to_invert_set), key=lambda x: find_index(x.name, self.displayed_columns)))
+        the_rest = list(sorted(list(the_rest), key=lambda x: find_index(x.name, self.displayed_columns)))
+
+        t = Table.construct(col_doms, self.schema)
+
+        for k in keys_to_invert_list:
+            strong_keys = keys_to_invert[k]
+            data = self.populated_table.group_by(strong_keys, k)
+            # TODO: clone
+            start_node = SchemaNode.product([c.node for c in strong_keys])
+            end_node = k.node
+            edge = SchemaEdge(start_node, end_node, Cardinality.ONE_TO_MANY)
+            self.schema.add_edge(start_node, end_node, Cardinality.ONE_TO_MANY)
+            self.schema.map_edge_to_data(edge, data)
+            t = t.infer(strong_keys, k)
+
+        for c in the_rest:
+            strong_keys = c.get_strong_keys()
+            t = t.infer(strong_keys, c)
+
+        return t
+
+
+    ## TODO: Go through with Damon?
     def invert(self, keys: list[existing_column], vals: list[existing_column]) -> Table:
         """
         Inverts the keys and values

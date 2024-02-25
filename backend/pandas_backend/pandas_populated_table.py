@@ -134,5 +134,10 @@ class PandasPopulatedTable(PopulatedTable):
         df = df[modified_keys + [n]].rename({j: i for (i, j) in enumerate(modified_keys)} | {n: len(modified_keys)}, axis=1)
         return df
 
+    def group_by(self, keys: list[Domain], val: Domain) -> pd.DataFrame:
+        df = self.raw_table[[k.name for k in keys + [val]]].drop_duplicates()
+        df = df.rename({c: i for (i, c) in enumerate(df.columns)}, axis=1)
+        return df
+
     def copy(self) -> PandasPopulatedTable:
         return PandasPopulatedTable.create_from_table(self)
