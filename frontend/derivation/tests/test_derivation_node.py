@@ -689,7 +689,6 @@ class TestDerivationNode(expecttest.TestCase):
 
         m = Mapping.create_mapping_from_edge(e_u_to_v, [b1])
 
-
         b_node = DerivationNode(
             [b],
             [StartTraversal([a]), Traverse(m), EndTraversal([b])],
@@ -1694,7 +1693,9 @@ class TestDerivationNode(expecttest.TestCase):
         a_node = a_node.add_child(a_node, b_node).add_child(b_node, c_node)
         b_node = a_node.children[0]
         c_node = b_node.children[0]
-        _ = set_and_name_hidden_keys_along_path([a_node, b_node, c_node], a_node, frozenset(["v"]))
+        _ = set_and_name_hidden_keys_along_path(
+            [a_node, b_node, c_node], a_node, frozenset(["v"])
+        )
         self.assertExpectedInline(
             str(a_node),
             """\

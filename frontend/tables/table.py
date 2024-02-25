@@ -328,10 +328,8 @@ class Table:
         self.intermediate_representation += [End(left, hids, right)]
         print(self.derivation)
 
-        self.populated_table, self.schema = (
-            self.schema.execute_query(
-                self.table_id, self.derived_from, self.intermediate_representation
-            )
+        self.populated_table, self.schema = self.schema.execute_query(
+            self.table_id, self.derived_from, self.intermediate_representation
         )
 
     def verify_columns(
@@ -621,31 +619,25 @@ class Table:
                         end_node, modified_start_node, Cardinality.ONE_TO_MANY
                     )
         else:
-            if not self.schema.does_edge_exist_in_graph(
-                    start_node, end_node
-            ):
-                self.schema.add_edge(
-                    start_node, end_node, Cardinality.MANY_TO_ONE
-                )
+            if not self.schema.does_edge_exist_in_graph(start_node, end_node):
+                self.schema.add_edge(start_node, end_node, Cardinality.MANY_TO_ONE)
 
         if modified_start_node is None:
             modified_start_node = start_node
         if modified_start_cols is None:
             modified_start_cols = [i for i in range(len(start_columns))]
         edge = SchemaEdge(modified_start_node, end_node, Cardinality.MANY_TO_ONE)
-        data = self.populated_table.evaluate_exp(exp, start_columns, modified_start_cols)
-        self.schema.map_edge_to_data(
-            edge, data
+        data = self.populated_table.evaluate_exp(
+            exp, start_columns, modified_start_cols
         )
+        self.schema.map_edge_to_data(edge, data)
         t_new = self
         assumption = [
             start_columns[i].name
             for i in modified_start_cols
             if start_columns[i].name in t_new.displayed_columns
         ]
-        t_new = t_new.infer_internal(
-            assumption, end_node, with_name=with_name
-        )
+        t_new = t_new.infer_internal(assumption, end_node, with_name=with_name)
         return t_new
 
     def infer(
@@ -1106,7 +1098,11 @@ class Table:
         right = " ".join([r.get_name() for r in right])
         dropped_keys = f"\n{self.populated_table.get_num_dropped_keys()} keys hidden"
         dropped_vals = f"\n{self.populated_table.get_num_dropped_vals()} values hidden"
-        repr = f"[{left} || {right}]" + "\n" + str(self.populated_table.get_table_to_display())
+        repr = (
+            f"[{left} || {right}]"
+            + "\n"
+            + str(self.populated_table.get_table_to_display())
+        )
         if self.populated_table.get_num_dropped_keys() > 0:
             repr += dropped_keys
         if self.populated_table.get_num_dropped_vals() > 0:

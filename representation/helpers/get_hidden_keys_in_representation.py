@@ -2,7 +2,9 @@ from frontend.domain import Domain
 from representation.representation import RepresentationStep
 
 
-def get_hidden_keys_in_representation(representation: list[RepresentationStep]) -> list[Domain]:
+def get_hidden_keys_in_representation(
+    representation: list[RepresentationStep],
+) -> list[Domain]:
     """
     Returns the hidden keys in a representation
 

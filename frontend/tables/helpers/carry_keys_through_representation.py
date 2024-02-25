@@ -37,8 +37,15 @@ def carry_keys_through_representation(
             n = len(SchemaNode.get_constituents(command.end_node))
             m = len(nodes)
 
-            new_indices = [i for i in range(n, n+m)]
-            result += [Expand(from_node, to_node, command.indices + new_indices, command.hidden_keys)]
+            new_indices = [i for i in range(n, n + m)]
+            result += [
+                Expand(
+                    from_node,
+                    to_node,
+                    command.indices + new_indices,
+                    command.hidden_keys,
+                )
+            ]
 
         elif isinstance(command, Equate):
             from_node = SchemaNode.product([command.start_node, *nodes])

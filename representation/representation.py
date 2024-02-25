@@ -26,7 +26,9 @@ class RepresentationStep(abc.ABC):
     def __str__(self):
         pass
 
-    def invert(self, namespace: frozenset[str]) -> tuple[RepresentationStep, frozenset[str]]:
+    def invert(
+        self, namespace: frozenset[str]
+    ) -> tuple[RepresentationStep, frozenset[str]]:
         """
         Invert the representation step
         For example, if the representation step is a traversal, the inverted representation step will be the reverse traversal
@@ -92,7 +94,7 @@ class Traverse(RepresentationStep):
     and H are the hidden keys required to traverse the edge
     """
 
-    def __init__(self, edge: 'Mapping'):
+    def __init__(self, edge: "Mapping"):
         """
         Initialise a new Traverse representation step
 
@@ -368,13 +370,18 @@ class Project(RepresentationStep):
         from frontend.tables.table import new_domain_from_schema_node
 
         nodes = SchemaNode.get_constituents(self.start_node)
-        hidden_key_nodes = [n for (i, n) in enumerate(nodes) if i not in set(self.indices)]
+        hidden_key_nodes = [
+            n for (i, n) in enumerate(nodes) if i not in set(self.indices)
+        ]
         hidden_keys = []
         for node in hidden_key_nodes:
             d = new_domain_from_schema_node(namespace, node)
             hidden_keys += [d]
             namespace |= {d.name}
-        return Expand(self.end_node, self.start_node, self.indices, hidden_keys), namespace
+        return (
+            Expand(self.end_node, self.start_node, self.indices, hidden_keys),
+            namespace,
+        )
 
 
 class Drop(RepresentationStep):

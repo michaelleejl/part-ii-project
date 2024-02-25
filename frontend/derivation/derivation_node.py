@@ -7,7 +7,9 @@ import numpy as np
 
 from frontend.derivation.exceptions import *
 from frontend.tables.helpers.compose_cardinality import compose_cardinality
-from representation.helpers.get_hidden_keys_in_representation import get_hidden_keys_in_representation
+from representation.helpers.get_hidden_keys_in_representation import (
+    get_hidden_keys_in_representation,
+)
 from representation.helpers.show_key_in_representation import show_key_in_representation
 from schema.node import SchemaNode
 from schema.cardinality import Cardinality
@@ -64,8 +66,7 @@ def invert_derivation_path(
     curr: DerivationNode = path[-2].copy()
 
     intermediate_representation, namespace = invert_representation(
-        start.intermediate_representation,
-        namespace
+        start.intermediate_representation, namespace
     )
 
     hidden_keys = get_hidden_keys_in_representation(intermediate_representation)
@@ -82,7 +83,9 @@ def invert_derivation_path(
             child = path[i - 1]
         curr = curr.set_children([c for c in curr.children if c != parent])
 
-        inverted, namespace = invert_representation(curr.intermediate_representation, namespace)
+        inverted, namespace = invert_representation(
+            curr.intermediate_representation, namespace
+        )
         curr.hidden_keys = hidden_keys
         hidden_keys = get_hidden_keys_in_representation(inverted)
         curr.intermediate_representation = intermediate_representation
@@ -96,6 +99,7 @@ def invert_derivation_path(
         curr = child
         i -= 1
     return new_path
+
 
 def set_and_name_hidden_keys_along_path(
     path: list[DerivationNode], entry: DerivationNode, namespace: frozenset[str]
@@ -349,7 +353,9 @@ class DerivationNode:
         else:
             return clone.set_children([c.merge_subtree(subtree) for c in self.children])
 
-    def remove_child(self, parent: DerivationNode, child: DerivationNode) -> DerivationNode:
+    def remove_child(
+        self, parent: DerivationNode, child: DerivationNode
+    ) -> DerivationNode:
         """
         Removes a child from the parent node
 
@@ -379,7 +385,9 @@ class DerivationNode:
         return parent
 
     def remove_children(
-        self, parent: DerivationNode, children: list[DerivationNode] | OrderedSet[DerivationNode]
+        self,
+        parent: DerivationNode,
+        children: list[DerivationNode] | OrderedSet[DerivationNode],
     ) -> DerivationNode:
         """
         Removes children from the parent node
@@ -575,7 +583,9 @@ class DerivationNode:
             else:
                 new_child = child.copy()
                 new_child.hidden_keys = new_child.hidden_keys.remove(column)
-                new_ir = show_key_in_representation(column, new_child.intermediate_representation)
+                new_ir = show_key_in_representation(
+                    column, new_child.intermediate_representation
+                )
                 new_child = new_child.set_intermediate_representation(new_ir)
                 array = with_col
                 idxs = with_col_idxs
@@ -1090,13 +1100,13 @@ class RootNode(DerivationNode):
         splice_point_idx = find_splice_point(key_node, path)
         splice_point = root.find_node_with_domains(path[splice_point_idx].domains)
 
-        intermediate_representation = compress_path_representation(path[splice_point_idx+1:])
+        intermediate_representation = compress_path_representation(
+            path[splice_point_idx + 1 :]
+        )
         target = path[-1]
         target = target.set_intermediate_representation(intermediate_representation)
 
-        to_splice_in = set_and_name_hidden_keys_along_path(
-            [target], target, namespace
-        )
+        to_splice_in = set_and_name_hidden_keys_along_path([target], target, namespace)
 
         hidden_keys = to_splice_in.find_hidden_keys()
         to_splice_in.hidden_keys = hidden_keys
@@ -1322,7 +1332,10 @@ class RootNode(DerivationNode):
     def remove_children(self, parent, children):
         clone = self.copy()
         clone.children = OrderedSet(
-            [c.set_parent(clone).remove_children(parent, children) for c in self.children]
+            [
+                c.set_parent(clone).remove_children(parent, children)
+                for c in self.children
+            ]
         )
         return clone
 

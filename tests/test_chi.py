@@ -73,7 +73,9 @@ Edinburgh Cambridge     1.8
         s, City, from_city, to_city, volume = initialise()
         t1 = s.get(FromCity=City, ToCity=City)
         t2 = t1.infer(["FromCity", "ToCity"], volume)
-        t3 = t2.mutate(volume_fillna=t2["volume"].extend(0)).sort(["FromCity", "ToCity"])
+        t3 = t2.mutate(volume_fillna=t2["volume"].extend(0)).sort(
+            ["FromCity", "ToCity"]
+        )
         self.assertExpectedInline(
             str(t3),
             """\
@@ -296,9 +298,7 @@ London     [London, Edinburgh, Oxford, Cambridge]  ...           6.6
         t3 = t2.mutate(volume_fillna=t2["volume"].extend(0))
         t9 = t3.shift_left()
         t10 = t9.mutate(total_outflow=t9["volume_fillna"].sum())
-        t11 = t10.mutate(
-            relative_outflow=t10["volume_fillna"] / t10["total_outflow"]
-        )
+        t11 = t10.mutate(relative_outflow=t10["volume_fillna"] / t10["total_outflow"])
         self.assertExpectedInline(
             str(t11),
             """\
@@ -327,9 +327,7 @@ London     [London, Edinburgh, Oxford, Cambridge]  ...  [0.0, 0.0, 0.36363636363
 
         t9 = t3.shift_left()
         t10 = t9.mutate(total_outflow=t9["volume_fillna"].sum())
-        t11 = t10.mutate(
-            relative_outflow=t10["volume_fillna"] / t10["total_outflow"]
-        )
+        t11 = t10.mutate(relative_outflow=t10["volume_fillna"] / t10["total_outflow"])
 
         self.maxDiff = None
 
@@ -373,9 +371,7 @@ Edinburgh Cambridge                [0.0, 0.0, 0.3, 0.7000000000000001]
 
         t9 = t3.shift_left()
         t10 = t9.mutate(total_outflow=t9["volume_fillna"].sum())
-        t11 = t10.mutate(
-            relative_outflow=t10["volume_fillna"] / t10["total_outflow"]
-        )
+        t11 = t10.mutate(relative_outflow=t10["volume_fillna"] / t10["total_outflow"])
 
         t12 = t1.infer(["ToCity"], t7["relative_inflow"], with_name="expected_outflow")
         t13 = t12.show("FromCity_1").equate("FromCity", "FromCity_1")
@@ -417,14 +413,10 @@ London    London             0.000000
         t3 = t2.mutate(volume_fillna=t2["volume"].extend(0))
         t4 = t3.swap("FromCity", "ToCity")
         t5 = t4.shift_left()
-        t6 = t5.mutate(
-            relative_inflow = t5["volume_fillna"] / t5["volume_fillna"].sum()
-        )
+        t6 = t5.mutate(relative_inflow=t5["volume_fillna"] / t5["volume_fillna"].sum())
 
         t7 = t3.shift_left()
-        t8 = t7.mutate(
-            relative_outflow = t7["volume_fillna"] / t7["volume_fillna"].sum()
-        )
+        t8 = t7.mutate(relative_outflow=t7["volume_fillna"] / t7["volume_fillna"].sum())
 
         t9 = (
             t1.infer(["ToCity"], t6["relative_inflow"], with_name="expected_outflow")

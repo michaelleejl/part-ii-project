@@ -273,7 +273,9 @@ Val_id cardnum
         # (semantics - if you hide a key that's weak for all values, delete?)
         # (or explicit, guarded delete?)
         s, cardnum, tstart, Val_id = self.initialise()
-        t31 = s.get(Val_id=Val_id, cardnum=cardnum["cardnum"]).sort(["Val_id", "cardnum"])
+        t31 = s.get(Val_id=Val_id, cardnum=cardnum["cardnum"]).sort(
+            ["Val_id", "cardnum"]
+        )
         t32 = t31.infer(["Val_id"], tstart["tstart"])
         t33 = t32.hide("cardnum")
         self.assertExpectedInline(
@@ -308,7 +310,9 @@ Val_id
         # (semantics - if you hide a key that's weak for all values, delete?)
         # (or explicit, guarded delete?)
         s, cardnum, tstart, Val_id = self.initialise()
-        t31 = s.get(Val_id=Val_id, cardnum=cardnum["cardnum"]).sort(["Val_id", "cardnum"])
+        t31 = s.get(Val_id=Val_id, cardnum=cardnum["cardnum"]).sort(
+            ["Val_id", "cardnum"]
+        )
         t32 = t31.infer(["Val_id"], tstart["tstart"])
         t33 = t32.hide("cardnum")
         t34 = t33.show("cardnum").sort(["Val_id", "cardnum"])

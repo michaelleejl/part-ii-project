@@ -148,9 +148,7 @@ class Schema:
             None
         """
 
-        self.backend.map_edge_to_data_relation(
-            edge, data
-        )
+        self.backend.map_edge_to_data_relation(edge, data)
 
     def create_class(self, name: str) -> SchemaClass:
         """Returns a new class that may be added to the schema graph

@@ -30,7 +30,7 @@ class PandasPopulatedTable(PopulatedTable):
         return populated
 
     def display(
-            self, left: list[ColumnNode], right: list[ColumnNode], backend: 'PandasBackend'
+        self, left: list[ColumnNode], right: list[ColumnNode], backend: "PandasBackend"
     ):
         keys = left
         hidden = [c.get_hidden_keys() for c in keys if c.is_val_column()]
@@ -46,7 +46,8 @@ class PandasPopulatedTable(PopulatedTable):
 
         if len(values) == 0:
             keys_count = reduce(
-                operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in left]
+                operator.mul,
+                [backend.get_domain_size(c.get_schema_node()) for c in left],
             )
             self.to_display = pd.DataFrame()
             self.dropped_keys_count = keys_count
@@ -79,7 +80,9 @@ class PandasPopulatedTable(PopulatedTable):
 
             df[columns_with_hidden_keys_str] = df[columns_with_hidden_keys_str].map(
                 lambda d: (
-                    d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else np.nan
+                    d
+                    if isinstance(d, list) and not np.all(pd.isnull(np.array(d)))
+                    else np.nan
                 )
             )
             if len(values) > 0:
@@ -90,13 +93,17 @@ class PandasPopulatedTable(PopulatedTable):
 
             df3[columns_with_hidden_keys_str] = df3[columns_with_hidden_keys_str].map(
                 lambda d: (
-                    d if isinstance(d, list) and not np.all(pd.isnull(np.array(d))) else []
+                    d
+                    if isinstance(d, list) and not np.all(pd.isnull(np.array(d)))
+                    else []
                 )
             )
 
             df3 = df3.loc[df3.astype(str).drop_duplicates().index].set_index(keys_str)
             keys_count = reduce(
-                operator.mul, [backend.get_domain_size(c.get_schema_node()) for c in keys], 1
+                operator.mul,
+                [backend.get_domain_size(c.get_schema_node()) for c in keys],
+                1,
             )
             dropped_keys_cnt = keys_count - len(df3)
             self.to_display = df3
@@ -114,7 +121,9 @@ class PandasPopulatedTable(PopulatedTable):
     def get_num_dropped_vals(self):
         return self.dropped_vals_count
 
-    def evaluate_exp(self, exp: Exp, start: list[Domain], modified_keys: list[int]) -> pd.DataFrame:
+    def evaluate_exp(
+        self, exp: Exp, start: list[Domain], modified_keys: list[int]
+    ) -> pd.DataFrame:
         df = self.raw_table[[k.name for k in start]]
         df = df.rename({k.name: i for i, k in enumerate(start)}, axis=1)
         n = len(start)

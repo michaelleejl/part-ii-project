@@ -209,4 +209,3 @@ class PandasBackend(Backend):
         populated = PandasPopulatedTable(table)
         populated.display(last.left, last.right, self)
         return populated, self
-
