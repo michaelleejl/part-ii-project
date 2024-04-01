@@ -1,7 +1,6 @@
 import expecttest
 
-from frontend.domain import Domain
-from frontend.mapping import Mapping
+from representation.mapping import Mapping
 from representation.helpers.show_key_in_representation import *
 from representation.representation import StartTraversal, Traverse, Expand, EndTraversal
 from schema.cardinality import Cardinality

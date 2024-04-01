@@ -111,7 +111,6 @@ cardnum
         t1 = s.get(cardnum=cardnum["cardnum"])
         t2 = t1.infer(["cardnum"], person["person"])
         t3 = t2.compose([cardnum["val_id"]], "cardnum")
-        t4 = t3.infer([], person["person"])
         print(t3.intermediate_representation)
         print(t3.derivation)
         self.assertExpectedInline(
@@ -442,9 +441,9 @@ val_id
         cardnum  person.cardnum person person_fillna
 val_id                                              
 4.0      1111.0          1111.0  Steve         Steve
+3.0      1410.0          1410.0    Tom           Tom
 2.0      2354.0          2354.0  Steve         Steve
 5.0      2354.0          2354.0  Steve         Steve
-3.0      1410.0          1410.0    Tom           Tom
 1.0      5172.0          5172.0    NaN           Bob
 8.0      4412.0          4412.0    NaN           Bob
 

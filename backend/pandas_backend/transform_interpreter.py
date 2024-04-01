@@ -1,6 +1,6 @@
 import pandas as pd
 
-from frontend.transform import *
+from representation.transform import *
 
 
 def step(transform: Transform, get_fn):

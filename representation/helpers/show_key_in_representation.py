@@ -1,4 +1,4 @@
-from frontend.domain import Domain
+from representation.domain import Domain
 from frontend.tables.helpers.carry_keys_through_representation import (
     carry_keys_through_representation,
 )

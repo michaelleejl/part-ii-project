@@ -13,8 +13,7 @@ from backend.pandas_backend.interpreter import interpret
 from backend.pandas_backend.pandas_populated_table import PandasPopulatedTable
 from backend.pandas_backend.relation import DataRelation
 from backend.pandas_backend.transform_interpreter import transform_interpreter
-from frontend.domain import Domain
-from frontend.mapping import Mapping
+from representation.mapping import Mapping
 from schema.edge import SchemaEdge, reverse_cardinality
 from schema.node import SchemaNode, AtomicNode, SchemaClass
 from representation.representation import RepresentationStep, End

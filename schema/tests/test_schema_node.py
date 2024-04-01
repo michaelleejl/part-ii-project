@@ -1,7 +1,7 @@
 import expecttest
 
 from schema import SchemaNode, AtomicNode
-from union_find.union_find import UnionFind
+from schema.union_find import UnionFind
 
 
 class TestSchemaNode(expecttest.TestCase):

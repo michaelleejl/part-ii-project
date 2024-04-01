@@ -6,7 +6,7 @@ from exp.helpers.convert_key_to_idx_and_update_parameters import (
 )
 from exp.helpers.count_aggregation import count_aggregation
 from exp.helpers.count_usage import count_usages
-from frontend.domain import Domain
+from representation.domain import Domain
 from schema.base_types import BaseType
 from schema.helpers.find_index import find_index
 
@@ -161,6 +161,10 @@ class ExtendExp(Exp):
 
         for i in key_idxs + [idx]:
             usages = count_usages(i, usages)
+
+        if idx not in aggregated_over:
+            aggregated_over[idx] = 0
+        aggregated_over[idx] += 1
 
         new_fexp, new_params, aggregated_over, usages = self.fexp.to_closure(
             parameters, aggregated_over, usages

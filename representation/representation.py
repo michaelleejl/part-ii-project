@@ -1,7 +1,7 @@
 from __future__ import annotations
 import abc
 
-from frontend.domain import Domain
+from representation.domain import Domain
 
 
 class RepresentationStep(abc.ABC):

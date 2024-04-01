@@ -1,7 +1,7 @@
 import expecttest
 
-from frontend.domain import Domain
-from frontend.mapping import Mapping
+from representation.domain import Domain
+from representation.mapping import Mapping
 from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge
 from schema.node import AtomicNode, SchemaNode

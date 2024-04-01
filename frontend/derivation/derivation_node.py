@@ -23,7 +23,7 @@ from frontend.tables.helpers.rename_column_in_representation import (
 )
 from frontend.tables.helpers.transform_step import rename_hidden_keys_in_representation
 from representation.representation import *
-from frontend.domain import Domain
+from representation.domain import Domain
 
 
 def create_value(domain: Domain, repr, hidden_keys: list[Domain], cardinality):

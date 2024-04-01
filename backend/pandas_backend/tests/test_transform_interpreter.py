@@ -2,8 +2,7 @@ import expecttest
 import pandas as pd
 
 from backend.pandas_backend.transform_interpreter import step
-from frontend.domain import Domain
-from frontend.transform import *
+from representation.transform import *
 from schema.node import AtomicNode
 
 

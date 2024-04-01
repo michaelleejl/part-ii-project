@@ -18,7 +18,7 @@ from schema.exceptions import (
 )
 from schema.helpers.is_sublist import is_sublist
 from schema.node import SchemaNode, AtomicNode, SchemaClass
-from union_find.union_find import UnionFind
+from schema.union_find import UnionFind
 
 
 def compute_cardinality_of_path(path: list[SchemaEdge]):

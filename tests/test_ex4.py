@@ -147,3 +147,23 @@ Steve  funding        funding
 
 """,
         )
+
+    def test_ex4_goal2(self):
+        s, person, task, Role = self.initialise()
+        t1 = s.get(task=task["task"])
+        t2 = t1.infer(["task"], person["person"])
+        self.assertExpectedInline(
+            str(t2),
+            """\
+[task || person]
+             person
+task               
+funding     [Steve]
+investment  [Steve]
+budget      [Steve]
+research      [Tom]
+manpower     [Dick]
+2 keys hidden
+
+""",
+        )

@@ -1,7 +1,5 @@
-from typing import Callable
-
-from frontend.domain import Domain
-from frontend.mapping import Mapping
+from representation.domain import Domain
+from representation.mapping import Mapping
 from representation.representation import (
     Traverse,
     Project,

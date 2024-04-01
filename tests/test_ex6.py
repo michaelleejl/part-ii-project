@@ -106,8 +106,39 @@ order payment_method
 
         # This is the same as Ex5
 
+    def test_ex6_goal2_infer(self):
+        s, billing, delivery, payment, Address, Order, Payment_Method = (
+            self.initialise()
+        )
+        t1 = s.get(order=payment["order"], payment_method=payment["payment_method"])
+        t2 = t1.infer(["payment_method"], Address).sort(["order", "payment_method"])
+        self.assertExpectedInline(
+            str(t2),
+            """\
+[order payment_method || Address]
+                        Address
+order payment_method           
+1     1111.0          Cambridge
+      1410.0             London
+      2354.0          Singapore
+      5172.0             London
+2     1111.0          Cambridge
+      1410.0             London
+      2354.0          Singapore
+      5172.0             London
+4     1111.0          Cambridge
+      1410.0             London
+      2354.0          Singapore
+      5172.0             London
+5     1111.0          Cambridge
+      1410.0             London
+      2354.0          Singapore
+      5172.0             London
+
+""")
+        
     # STRESS TEST
-    def test_ex6_goal2_step1_getAndInfer(self):
+    def test_ex6_goal3_step1_getAndInfer(self):
         s, billing, delivery, payment, Address, Order, Payment_Method = (
             self.initialise()
         )
@@ -131,7 +162,7 @@ order
         #  4             || 1410
         #  5             || 1111
 
-    def test_ex6_goal2_step2_setKey(self):
+    def test_ex6_goal3_step2_setKey(self):
         s, billing, delivery, payment, Address, Order, Payment_Method = (
             self.initialise()
         )

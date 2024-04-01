@@ -17,7 +17,7 @@ from frontend.derivation.derivation_node import (
     invert_derivation_path,
     intermediate_representation_for_path,
 )
-from frontend.domain import Domain
+from representation.domain import Domain
 from frontend.tables.column import Column
 from frontend.tables.exceptions import (
     ColumnsNeedToBeUniqueException,

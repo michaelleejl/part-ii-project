@@ -5,7 +5,6 @@ from backend.pandas_backend.determine_base_type_of_columns import (
 )
 from backend.pandas_backend.exceptions import KeyDuplicationException
 from backend.pandas_backend.pandas_backend import PandasBackend
-from exp.exp import Exp
 from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge
 from schema.exceptions import (
@@ -19,8 +18,7 @@ from schema.exceptions import (
 )
 from schema.graph import SchemaGraph
 from schema.node import SchemaNode, AtomicNode, SchemaClass
-from representation.representation import StartTraversal, EndTraversal
-from frontend.domain import Domain
+from representation.domain import Domain
 from frontend.tables.table import Table
 
 

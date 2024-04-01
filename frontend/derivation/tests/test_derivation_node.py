@@ -5,8 +5,8 @@ from frontend.derivation.derivation_node import (
 )
 from frontend.derivation.ordered_set import OrderedSet
 from frontend.derivation.exceptions import *
-from frontend.domain import Domain
-from frontend.mapping import Mapping
+from representation.domain import Domain
+from representation.mapping import Mapping
 from frontend.tables.column_type import Val, Key, HiddenKey
 from schema.cardinality import Cardinality
 from schema.edge import SchemaEdge

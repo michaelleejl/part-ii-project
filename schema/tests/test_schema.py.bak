@@ -1,0 +1,350 @@
+import expecttest
+
+import pandas as pd
+
+from schema.exceptions import *
+from schema.schema import Schema
+from tables.domain import Domain
+
+
+class TestSchema(expecttest.TestCase):
+    # [cardnum trip_id || bonus t_start]
+
+    def test_schema_insert_dataframe_successfullyModifiesSchemaGraph(self):
+        test_df = pd.read_csv("./test_schema.csv").dropna()
+        test_df = test_df.set_index(["trip_id", "cardnum"])
+        schema = Schema()
+        test = schema.insert_dataframe(test_df)
+        test["trip_id"].id_prefix = 0
+        test["cardnum"].id_prefix = 0
+        test["person"].id_prefix = 0
+        test["bonus"].id_prefix = 0
+        self.assertExpectedInline(str(schema), """\
+ADJACENCY LIST 
+==========================
+
+==========================
+trip_id;cardnum
+--------------------------
+trip_id;cardnum ---> trip_id
+trip_id;cardnum ---> cardnum
+trip_id;cardnum ---> bonus
+trip_id;cardnum ---> person
+==========================
+
+==========================
+trip_id
+--------------------------
+trip_id;cardnum ---> trip_id
+==========================
+
+==========================
+cardnum
+--------------------------
+trip_id;cardnum ---> cardnum
+==========================
+
+==========================
+person
+--------------------------
+trip_id;cardnum ---> person
+==========================
+
+==========================
+bonus
+--------------------------
+trip_id;cardnum ---> bonus
+==========================
+
+==========================
+
+EQUIVALENCE CLASSES 
+==========================
+
+==========================
+Class 0
+--------------------------
+trip_id
+==========================
+
+==========================
+Class 1
+--------------------------
+cardnum
+==========================
+
+==========================
+Class 2
+--------------------------
+person
+==========================
+
+==========================
+Class 3
+--------------------------
+bonus
+==========================
+
+==========================
+""")
+
+    def test_schema_insert_dataframe_raisesExceptionIfBackendNotPandasBackend(self):
+        schema = Schema()
+
+        from backend.backend import Backend
+        class NovelBackend(Backend):
+            def execute_query(self, table_id, derived_from, query):
+                pass
+
+        schema.backend = NovelBackend()
+
+        bonus_df = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
+        self.assertExpectedRaisesInline(CannotInsertDataFrameIfSchemaBackedBySQLBackendException,
+                                        lambda: schema.insert_dataframe(bonus_df),
+                                        """Cannot insert dataframe if schema is backed by non-pandas backend""")
+
+    def test_add_node_successfullyAddsNodeIfNodeNotAlreadyInGraph(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        node = AtomicNode('node')
+        node.id_prefix = 0
+        self.assertExpectedInline(str(schema), """\
+ADJACENCY LIST 
+==========================
+
+
+==========================
+
+EQUIVALENCE CLASSES 
+==========================
+
+
+==========================
+""")
+        schema.add_node(node)
+        self.assertExpectedInline(str(schema), """\
+ADJACENCY LIST 
+==========================
+
+
+==========================
+
+EQUIVALENCE CLASSES 
+==========================
+
+==========================
+Class 0
+--------------------------
+node
+==========================
+
+==========================
+""")
+
+    def test_add_node_raisesExceptionIfNodeAlreadyInGraph(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        node = AtomicNode('node')
+        node.id_prefix = 0
+        schema.add_node(node)
+        self.assertExpectedRaisesInline(NodeAlreadyInSchemaGraphException, lambda: schema.add_node(node),
+                                        """Node node is already in schema graph.""")
+
+    def test_add_edge_succeedsWhenNodesAreInGraph(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        from schema.cardinality import Cardinality
+        u = AtomicNode('u')
+        v = AtomicNode('v')
+        u.id_prefix = 0
+        v.id_prefix = 0
+        schema.add_node(u)
+        schema.add_node(v)
+        schema.add_edge(u, v, Cardinality.MANY_TO_ONE)
+        self.assertExpectedInline(str(schema), """\
+ADJACENCY LIST 
+==========================
+
+==========================
+u
+--------------------------
+u ---> v
+==========================
+
+==========================
+v
+--------------------------
+v <--- u
+==========================
+
+==========================
+
+EQUIVALENCE CLASSES 
+==========================
+
+==========================
+Class 0
+--------------------------
+u
+==========================
+
+==========================
+Class 1
+--------------------------
+v
+==========================
+
+==========================
+""")
+
+    def test_add_edge_fails_whenOneOrMoreNodesNotInGraph(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        from schema.cardinality import Cardinality
+        u = AtomicNode('u')
+        v = AtomicNode('v')
+        u.id_prefix = 0
+        v.id_prefix = 0
+        self.assertExpectedRaisesInline(NodeNotInSchemaGraphException,
+                                        lambda: schema.add_edge(u, v, Cardinality.MANY_TO_ONE),
+                                        """Node u is not in schema graph.""")
+
+    def test_create_class_successfullyCreatesClass(self):
+        schema = Schema()
+        clss = schema.create_class("clss")
+        self.assertExpectedInline(str(clss), """clss""")
+
+    def test_schema_blend(self):
+        bonus_df = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
+        person_df = pd.read_csv("./person.csv").dropna().set_index(["cardnum"])
+        schema = Schema()
+        bonus = schema.insert_dataframe(bonus_df)
+        person = schema.insert_dataframe(person_df)
+        bonus["trip_id"].id_prefix = 0
+        bonus["cardnum"].id_prefix = 0
+        bonus["bonus"].id_prefix = 0
+        person["person"].id_prefix = 0
+        person["cardnum"].id_prefix = 0
+        cardnum_bonus = bonus["cardnum"]
+        cardnum_person = person["cardnum"]
+        Cardnum = schema.create_class("Cardnum")
+        schema.blend(cardnum_bonus, cardnum_person, Cardnum)
+        self.assertExpectedInline(str(schema), """\
+ADJACENCY LIST 
+==========================
+
+==========================
+trip_id;cardnum
+--------------------------
+trip_id;cardnum ---> cardnum
+trip_id;cardnum ---> bonus
+trip_id;cardnum ---> trip_id
+==========================
+
+==========================
+trip_id
+--------------------------
+trip_id <--- trip_id;cardnum
+==========================
+
+==========================
+cardnum
+--------------------------
+cardnum <--- trip_id;cardnum
+==========================
+
+==========================
+bonus
+--------------------------
+bonus <--- trip_id;cardnum
+==========================
+
+==========================
+cardnum
+--------------------------
+cardnum ---> person
+==========================
+
+==========================
+person
+--------------------------
+person <--- cardnum
+==========================
+
+==========================
+
+EQUIVALENCE CLASSES 
+==========================
+
+==========================
+Class 0
+--------------------------
+trip_id
+==========================
+
+==========================
+Class 1
+--------------------------
+Cardnum
+cardnum
+cardnum
+==========================
+
+==========================
+Class 2
+--------------------------
+bonus
+==========================
+
+==========================
+Class 3
+--------------------------
+person
+==========================
+
+==========================
+""")
+
+    def test_schema_get(self):
+        bonus_df = pd.read_csv("./bonus.csv").dropna().set_index(["trip_id", "cardnum"])
+        person_df = pd.read_csv("./person.csv").dropna().set_index(["cardnum"])
+        schema = Schema()
+        bonus = schema.insert_dataframe(bonus_df)
+        person = schema.insert_dataframe(person_df)
+        cardnum_bonus = bonus["cardnum"]
+        cardnum_person = person["cardnum"]
+        Cardnum = schema.create_class("Cardnum")
+        schema.blend(cardnum_bonus, cardnum_person, Cardnum)
+        t = schema.get(cardnum=cardnum_person,
+                       cardnum_bonus=cardnum_bonus)
+        self.assertExpectedInline(str(t), """\
+[cardnum cardnum_bonus || ]
+Empty DataFrame
+Columns: []
+Index: []
+6 keys hidden
+
+""")
+
+    def test_find_shortest_path_successfullyFindsShortestPath(self):
+        schema = Schema()
+        from schema.node import AtomicNode
+        from schema.cardinality import Cardinality
+        u = AtomicNode('u')
+        v = AtomicNode('v')
+        w = AtomicNode('w')
+        u.id_prefix = 0
+        v.id_prefix = 0
+        w.id_prefix = 0
+        schema.add_node(u)
+        schema.add_node(v)
+        schema.add_node(w)
+        schema.add_edge(u, v, Cardinality.MANY_TO_ONE)
+        schema.add_edge(v, w, Cardinality.MANY_TO_ONE)
+        domain1 = Domain("u", u)
+        domain2 = Domain("w", w)
+        cardinality, path, hidden_keys = schema.find_shortest_path([domain1], [domain2])
+        self.assertExpectedInline(str(cardinality), """""")
+        self.assertExpectedInline(str(path), """""")
+        self.assertExpectedInline(str(hidden_keys), """""")
+

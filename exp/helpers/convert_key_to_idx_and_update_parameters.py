@@ -1,4 +1,4 @@
-from frontend.domain import Domain
+from representation.domain import Domain
 from schema.helpers.find_index import find_index
 
 

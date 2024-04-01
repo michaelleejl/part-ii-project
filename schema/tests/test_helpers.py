@@ -122,7 +122,7 @@ class TestSchemaHelpers(expecttest.TestCase):
 
     def test_invert_representation_steps_successfullyInvertsSeriesOfSteps(self):
         from representation.representation import Traverse, StartTraversal, EndTraversal
-        from frontend.domain import Domain
+        from representation.domain import Domain
 
         u = AtomicNode("u")
         u.id_prefix = 0

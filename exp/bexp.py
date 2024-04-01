@@ -8,7 +8,7 @@ from exp.helpers.convert_key_to_idx_and_update_parameters import (
 )
 from exp.helpers.count_aggregation import count_aggregation
 from exp.helpers.count_usage import count_usages
-from frontend.domain import Domain
+from representation.domain import Domain
 from schema.base_types import BaseType
 from exp.exp import Exp
 from exp.helpers.wrap_bexp import wrap_bexp

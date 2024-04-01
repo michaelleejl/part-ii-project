@@ -9,7 +9,7 @@ from representation.representation import (
     Project,
     Equate,
 )
-from frontend.domain import Domain
+from representation.domain import Domain
 from frontend.tables.column_type import ColumnType
 
 

@@ -9,7 +9,7 @@ import pandas as pd
 from backend.pandas_backend.exp_interpreter import exp_interpreter
 from exp.exp import Exp
 from frontend.derivation.derivation_node import ColumnNode
-from frontend.domain import Domain
+from representation.domain import Domain
 from backend.populated_table import PopulatedTable
 
 

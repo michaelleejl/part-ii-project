@@ -1,0 +1,20 @@
+import unittest
+
+import expecttest
+import pandas as pd
+
+from schema import Schema
+
+
+class SchemaTest(expecttest.TestCase):
+
+    def test_schema(self):
+        test = pd.read_csv("schema/tests/test_schema.csv").dropna()
+        test = test.set_index(["trip_id", "cardnum"])
+        schema = Schema()
+        schema.insert_dataframe(test, "test_schema")
+        self.assertExpectedInline(str(schema), """""")
+
+
+if __name__ == '__main__':
+    unittest.main()

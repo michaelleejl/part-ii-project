@@ -1,4 +1,4 @@
-from frontend.domain import Domain
+from representation.domain import Domain
 
 
 class KeysMustBeUniqueException(Exception):

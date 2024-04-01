@@ -6,7 +6,7 @@ import uuid
 import numpy as np
 
 from schema.base_types import BaseType
-from union_find.union_find import UnionFind
+from schema.union_find import UnionFind
 
 
 class SchemaNode(abc.ABC):

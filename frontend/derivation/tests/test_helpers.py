@@ -2,7 +2,7 @@ import expecttest
 
 from frontend.derivation.derivation_node import intermediate_representation_for_path, DerivationNode, ColumnNode, \
     invert_derivation_path, set_and_name_hidden_keys_along_path, find_splice_point, compress_path_representation
-from frontend.mapping import Mapping
+from representation.mapping import Mapping
 from frontend.tables.column_type import Val
 from representation.representation import *
 from schema.cardinality import Cardinality
