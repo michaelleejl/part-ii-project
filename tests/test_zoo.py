@@ -15,6 +15,9 @@ class TestZoo(expecttest.TestCase):
 
     def test_zoo_1(self):
         schema, trip_id, hr, destination = self.initialise()
+        # Assume you have trip id
+        # From tripid you can infer (join) hour and infer (join) destination
+        # infer is just a join that preserves derivation information (what it was joined on)
         t1 = schema.get(trip_id=trip_id).infer(["trip_id"], hr).infer(["trip_id"], destination)
         self.assertExpectedInline(
             str(t1),
@@ -48,6 +51,9 @@ trip_id
     def test_zoo_2(self):
         schema, trip_id, hr, destination = self.initialise()
         t1 = schema.get(trip_id=trip_id).infer(["trip_id"], hr).infer(["trip_id"], destination)
+        # mutate is a way to create new inferences.
+        # here we are creating a new inference from destination --> is_tourist that maps zoo to true and everything
+        # else to false
         t2 = t1.mutate(is_tourist=t1["destination"] == "Zoo").hide("destination")
         self.assertExpectedInline(
             str(t2),
@@ -82,6 +88,8 @@ trip_id
         schema, trip_id, hr, destination = self.initialise()
         t1 = schema.get(trip_id=trip_id).infer(["trip_id"], hr).infer(["trip_id"], destination)
         t2 = t1.mutate(is_tourist=t1["destination"] == "Zoo").hide("destination")
+        # group by changes the derivation information. Now we are inferring trip_id from hr and is_tourist,
+        # this is basically like an inversion.
         t3 = t2.group_by(["hr", "is_tourist"])
         self.assertExpectedInline(
             str(t3),
@@ -115,6 +123,7 @@ hr is_tourist
         t1 = schema.get(trip_id=trip_id).infer(["trip_id"], hr).infer(["trip_id"], destination)
         t2 = t1.mutate(is_tourist=t1["destination"] == "Zoo").hide("destination")
         t3 = t2.group_by(["hr", "is_tourist"])
+        # mutate once again adds an inference
         t4 = t3.mutate(num_trips = t3["trip_id"].count()).hide("trip_id").sort(["hr", "is_tourist"])
         self.assertExpectedInline(
             str(t4),
