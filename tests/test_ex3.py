@@ -248,7 +248,9 @@ Val_id Cardnum
         t3 = t2.infer(["Val_id"], tstart["tstart"])
         t4 = t3.infer(["Val_id"], cardnum["cardnum"])
         t5 = t4.mutate(
-            Cardnum_filtered = t4["Cardnum"].mask((t4["Cardnum"] == t4["cardnum"]) & t4["bonus"].isnotnull())
+            Cardnum_filtered=t4["Cardnum"].mask(
+                (t4["Cardnum"] == t4["cardnum"]) & t4["bonus"].isnotnull()
+            )
         )
         t6 = t5.filter(t5["Cardnum_filtered"])
         self.maxDiff = None

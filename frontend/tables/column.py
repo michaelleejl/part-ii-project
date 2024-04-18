@@ -263,7 +263,12 @@ class Column:
         assert self.node.is_val_column()
         expr = self.wrap_function(with_function)
         assert self.get_type() == expr.exp_type
-        return ExtendExp(self.get_strong_keys() + self.get_hidden_keys().to_list(), self.get_domain(), expr, expr.exp_type)
+        return ExtendExp(
+            self.get_strong_keys() + self.get_hidden_keys().to_list(),
+            self.get_domain(),
+            expr,
+            expr.exp_type,
+        )
 
     def mask(self, with_condition):
         expr = wrap_bexp(with_condition)

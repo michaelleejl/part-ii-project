@@ -18,7 +18,11 @@ class TestZoo(expecttest.TestCase):
         # Assume you have trip id
         # From tripid you can infer (join) hour and infer (join) destination
         # infer is just a join that preserves derivation information (what it was joined on)
-        t1 = schema.get(trip_id=trip_id).infer(["trip_id"], hr).infer(["trip_id"], destination)
+        t1 = (
+            schema.get(trip_id=trip_id)
+            .infer(["trip_id"], hr)
+            .infer(["trip_id"], destination)
+        )
         self.assertExpectedInline(
             str(t1),
             """\
@@ -46,11 +50,16 @@ trip_id
 19       19  Restaurant
 20       20         Bar
 
-""")
+""",
+        )
 
     def test_zoo_2(self):
         schema, trip_id, hr, destination = self.initialise()
-        t1 = schema.get(trip_id=trip_id).infer(["trip_id"], hr).infer(["trip_id"], destination)
+        t1 = (
+            schema.get(trip_id=trip_id)
+            .infer(["trip_id"], hr)
+            .infer(["trip_id"], destination)
+        )
         # mutate is a way to create new inferences.
         # here we are creating a new inference from destination --> is_tourist that maps zoo to true and everything
         # else to false
@@ -82,11 +91,16 @@ trip_id
 18       18       False
 20       20       False
 
-""")
+""",
+        )
 
     def test_zoo_3(self):
         schema, trip_id, hr, destination = self.initialise()
-        t1 = schema.get(trip_id=trip_id).infer(["trip_id"], hr).infer(["trip_id"], destination)
+        t1 = (
+            schema.get(trip_id=trip_id)
+            .infer(["trip_id"], hr)
+            .infer(["trip_id"], destination)
+        )
         t2 = t1.mutate(is_tourist=t1["destination"] == "Zoo").hide("destination")
         # group by changes the derivation information. Now we are inferring trip_id from hr and is_tourist,
         # this is basically like an inversion.
@@ -116,15 +130,24 @@ hr is_tourist
 20 False             [20.0]
 263 keys hidden
 
-""")
+""",
+        )
 
     def test_zoo_4(self):
         schema, trip_id, hr, destination = self.initialise()
-        t1 = schema.get(trip_id=trip_id).infer(["trip_id"], hr).infer(["trip_id"], destination)
+        t1 = (
+            schema.get(trip_id=trip_id)
+            .infer(["trip_id"], hr)
+            .infer(["trip_id"], destination)
+        )
         t2 = t1.mutate(is_tourist=t1["destination"] == "Zoo").hide("destination")
         t3 = t2.group_by(["hr", "is_tourist"])
         # mutate once again adds an inference
-        t4 = t3.mutate(num_trips = t3["trip_id"].count()).hide("trip_id").sort(["hr", "is_tourist"])
+        t4 = (
+            t3.mutate(num_trips=t3["trip_id"].count())
+            .hide("trip_id")
+            .sort(["hr", "is_tourist"])
+        )
         self.assertExpectedInline(
             str(t4),
             """\
@@ -150,4 +173,5 @@ hr is_tourist
 20 False             1.0
 11 keys hidden
 
-""")
+""",
+        )

@@ -31,7 +31,7 @@ class TestEx5(expecttest.TestCase):
 
     def test_ex5_step1_get(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get(person = person["person"], task = task["task"])
+        t1 = s.get(person=person["person"], task=task["task"])
         self.assertExpectedInline(
             str(t1),
             """\
@@ -53,7 +53,7 @@ Index: []
 
     def test_ex5_step2_infer(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get(person = person["person"], task = task["task"])
+        t1 = s.get(person=person["person"], task=task["task"])
         t2 = t1.infer(["task"], Role)
         self.assertExpectedInline(
             str(t2),
@@ -107,7 +107,7 @@ Dick   budget      CFO
         # Or perhaps I can ask the other question - if I know person does task,
         # and I know their role, what can I infer about the role demanded by the task?
         s, person, task, Role = self.initialise()
-        t1 = s.get(person = person["person"], task = task["task"])
+        t1 = s.get(person=person["person"], task=task["task"])
         t3 = t1.infer(["person"], Role).sort(["person", "task"])
         self.maxDiff = None
         self.assertExpectedInline(
@@ -163,7 +163,7 @@ Tom    budget      CTO
         s, person, task, Role = self.initialise()
         person["person"].id_prefix = 0
         task["task"].id_prefix = 0
-        t1 = s.get(person = person["person"], task = task["task"])
+        t1 = s.get(person=person["person"], task=task["task"])
         self.assertExpectedRaisesInline(
             NoShortestPathBetweenNodesException,
             lambda: t1.infer(["person", "task"], Role),

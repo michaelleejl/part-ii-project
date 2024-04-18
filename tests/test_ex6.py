@@ -135,14 +135,15 @@ order payment_method
       2354.0          Singapore
       5172.0             London
 
-""")
-        
+""",
+        )
+
     # STRESS TEST
     def test_ex6_goal3_step1_getAndInfer(self):
         s, billing, delivery, payment, Address, Order, Payment_Method = (
             self.initialise()
         )
-        t11 = s.get(order = payment["order"]).infer(["order"], payment["payment_method"])
+        t11 = s.get(order=payment["order"]).infer(["order"], payment["payment_method"])
         self.assertExpectedInline(
             str(t11),
             """\
@@ -166,7 +167,7 @@ order
         s, billing, delivery, payment, Address, Order, Payment_Method = (
             self.initialise()
         )
-        t11 = s.get(order = payment["order"]).infer(["order"], payment["payment_method"])
+        t11 = s.get(order=payment["order"]).infer(["order"], payment["payment_method"])
         t12 = t11.shift_right()
         self.assertExpectedInline(
             str(t12),

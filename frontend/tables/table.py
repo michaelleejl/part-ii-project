@@ -662,6 +662,7 @@ class Table:
                 Table.ColumnRequirements.IS_UNIQUE,
             },
         )
+
         return self.infer_internal(assumption_columns, to_column, via, with_name)
 
     def infer_internal(
@@ -706,9 +707,23 @@ class Table:
             else:
                 col = to_column
             root = col.find_root_of_tree()
+
+            domains = []
+            for from_col, assum_col in zip(col.get_strong_keys(), assumption_columns):
+                # from_col = from_col.column
+
+                assum_col = assum_col.get_domain()
+                if from_col != assum_col:
+                    ns = set([d.name for d in root.get_keys_and_values() + root.get_hidden()])
+                    cardinality, repr, hidden_columns = self.get_representation([assum_col], [from_col], [], namespace=ns)
+                    root = root.compose([assum_col], from_col, hidden_columns, repr, cardinality=cardinality)
+                    domains += [Domain(assum_col.name, assum_col.node)]
+                else:
+                    domains += [Domain(from_col.name, from_col.node)]
+
             if to_column.name != to_column_name:
                 root = root.rename(to_column.name, to_column_name)
-            key_node = root.find_node_with_domains(col.get_strong_keys())
+            key_node = root.find_node_with_domains(domains)
             val_node = root.find_node_with_domains(
                 [Domain(to_column_name, to_column_node)]
             )
@@ -839,9 +854,21 @@ class Table:
                 keys_to_invert[k] |= set(grouped_keys).union({val.get_domain()})
             keys_to_invert_set |= set(remaining_keys)
 
-        keys_to_invert = {k: list(sorted(list(v), key=lambda x: find_index(x, col_doms))) for k, v in keys_to_invert.items()}
-        keys_to_invert_list = list(sorted(list(keys_to_invert_set), key=lambda x: find_index(x.name, self.displayed_columns)))
-        the_rest = list(sorted(list(the_rest), key=lambda x: find_index(x.name, self.displayed_columns)))
+        keys_to_invert = {
+            k: list(sorted(list(v), key=lambda x: find_index(x, col_doms)))
+            for k, v in keys_to_invert.items()
+        }
+        keys_to_invert_list = list(
+            sorted(
+                list(keys_to_invert_set),
+                key=lambda x: find_index(x.name, self.displayed_columns),
+            )
+        )
+        the_rest = list(
+            sorted(
+                list(the_rest), key=lambda x: find_index(x.name, self.displayed_columns)
+            )
+        )
 
         t = Table.construct(col_doms, self.schema)
 
@@ -861,7 +888,6 @@ class Table:
             t = t.infer(strong_keys, c)
 
         return t
-
 
     ## TODO: Go through with Damon?
     def invert(self, keys: list[existing_column], vals: list[existing_column]) -> Table:

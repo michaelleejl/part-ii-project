@@ -177,7 +177,12 @@ class PandasBackend(Backend):
 
         data = generate_hidden_keys(edge, data)
 
-        data, hks = transform_interpreter(data, hks, mapping.transform, lambda n, name: self.get_domain_from_atomic_node(n, name))
+        data, hks = transform_interpreter(
+            data,
+            hks,
+            mapping.transform,
+            lambda n, name: self.get_domain_from_atomic_node(n, name),
+        )
         data = data.rename({-i - 1: hk.name for (i, hk) in enumerate(hks)}, axis=1)
         return data
 

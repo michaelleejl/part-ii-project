@@ -1,8 +1,5 @@
 import expecttest
-from frontend.derivation.derivation_node import (
-    DerivationNode,
-    ColumnNode
-)
+from frontend.derivation.derivation_node import DerivationNode, ColumnNode
 from frontend.derivation.ordered_set import OrderedSet
 from frontend.derivation.exceptions import *
 from representation.domain import Domain

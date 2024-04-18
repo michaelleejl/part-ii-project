@@ -16,7 +16,21 @@ def initialise():
     return s, City, from_city, to_city, volume
 
 
-class TestChi(expecttest.TestCase):
+class TestFlows(expecttest.TestCase):
+
+    def test(self):
+        s, City, from_city, to_city, volume = initialise()
+
+        f = s.get(from_city=from_city, to_city=to_city)
+        flows = f.infer(["from_city", "to_city"], volume)
+        outf = flows.hide("to_city")
+        outf = outf.mutate(outflow = outf["volume"].sum())
+        inf = flows.hide("from_city")
+        inf = inf.mutate(inflow = inf["volume"].sum())
+        join = (s.get(city=City).infer(["city"], outf["outflow"])
+                                .infer(["city"], inf["inflow"]))
+        netflow = join.mutate(net_outflow = join["outflow"] - join["inflow"])
+        print(netflow)
 
     def test1(self):
         s, City, from_city, to_city, volume = initialise()

@@ -38,9 +38,11 @@ class TestEx8(expecttest.TestCase):
     # GOAL 1: [person pet || age]
     def test_ex8_goal1_step1_getThenInfer(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t1 = s.get(person = persons["person"], pet = persons["pet"]).infer(
-            ["person"], persons["age"]
-        ).sort(["person", "pet"])
+        t1 = (
+            s.get(person=persons["person"], pet=persons["pet"])
+            .infer(["person"], persons["age"])
+            .sort(["person", "pet"])
+        )
         self.assertExpectedInline(
             str(t1),
             """\
@@ -76,7 +78,7 @@ Ringo  Buster   29
     def test_ex8_goal2_step1_getThenInfer(self):
         s, allergies, persons, Person, Pet = self.initialise()
         t11 = (
-            s.get(person = persons["person"])
+            s.get(person=persons["person"])
             .infer(["person"], persons["pet"])
             .infer(["person"], persons["age"])
         )
@@ -102,7 +104,7 @@ Ringo   Buster   29
     def test_ex8_goal2_step2_setKey(self):
         s, allergies, persons, Person, Pet = self.initialise()
         t11 = (
-            s.get(person = persons["person"])
+            s.get(person=persons["person"])
             .infer(["person"], persons["pet"])
             .infer(["person"], persons["age"])
         )
@@ -132,7 +134,7 @@ Ringo  Buster   29
     # CAN I CONVERT BETWEEN THE TWO?
     def test_ex8_conversion1_step1_infer(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t1 = s.get(person = persons["person"], pet = persons["pet"]).infer(
+        t1 = s.get(person=persons["person"], pet=persons["pet"]).infer(
             ["person"], persons["age"]
         )
         t2 = t1.infer(["person"], persons["pet"]).sort(["person", "pet"])
@@ -171,7 +173,7 @@ Ringo  Buster   29  Buster
 
     def test_ex8_conversion1_step2_setKey(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t1 = s.get(person = persons["person"], pet = persons["pet"]).infer(
+        t1 = s.get(person=persons["person"], pet=persons["pet"]).infer(
             ["person"], persons["age"]
         )
         t2 = t1.infer(["person"], persons["pet"])
@@ -214,13 +216,15 @@ Ringo  Buster Buster   29
     # I can equate
     def test_ex8_conversion1_step3_equate(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t1 = s.get(person = persons["person"], pet = persons["pet"]).infer(
+        t1 = s.get(person=persons["person"], pet=persons["pet"]).infer(
             ["person"], persons["age"]
         )
         t2 = t1.infer(["person"], persons["pet"])
         t3 = t2.swap("age", "pet_1")
         t4 = t3.shift_right()
-        t5 = t4.mutate(is_own_pet = t4["pet"].mask(t4["pet"] == t4["pet_1"])).filter("is_own_pet")
+        t5 = t4.mutate(is_own_pet=t4["pet"].mask(t4["pet"] == t4["pet_1"])).filter(
+            "is_own_pet"
+        )
         self.maxDiff = None
         self.assertExpectedInline(
             str(t5),
@@ -250,7 +254,7 @@ Ringo  Buster Buster   29     Buster
     # GOAL 2: [person pet || age allergy]
     def test_ex8_goal3_step1_get(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t21 = s.get(Person = Person, Pet = Pet).sort(["Person", "Pet"])
+        t21 = s.get(Person=Person, Pet=Pet).sort(["Person", "Pet"])
         self.maxDiff = None
         self.assertExpectedInline(
             str(t21),
@@ -275,7 +279,7 @@ Index: []
 
     def test_ex8_goal3_step2_infer(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t21 = s.get(Person = Person, Pet = Pet)
+        t21 = s.get(Person=Person, Pet=Pet)
         t22 = t21.infer(["Person", "Pet"], allergies["allergy"])
         self.assertExpectedInline(
             str(t22),
@@ -299,7 +303,7 @@ George Corky             Dust
 
     def test_ex8_goal3_step3_infer(self):
         s, allergies, persons, Person, Pet = self.initialise()
-        t21 = s.get(Person = Person, Pet = Pet)
+        t21 = s.get(Person=Person, Pet=Pet)
         t22 = t21.infer(["Person", "Pet"], allergies["allergy"])
         t23 = t22.infer(["Person"], persons["age"]).sort(["Person", "Pet"])
         self.maxDiff = None

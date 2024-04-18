@@ -306,6 +306,9 @@ class Schema:
 
         return cardinality, edges
 
+    def are_nodes_equal(self, node1: SchemaNode, node2: SchemaNode) -> bool:
+        return self.schema_graph.are_nodes_equal(node1, node2)
+
     def map_atomic_node_to_data(self, node: AtomicNode, data):
         self.backend.map_atomic_node_to_domain(node, data)
 

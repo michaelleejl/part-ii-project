@@ -545,26 +545,28 @@ class DerivationNode:
 
             if len(new_columns) == 0:
                 new_node = new_node.to_derivation_node()
-
+            new_node.set_children([])
+            new_children = []
             for child in self.children:
                 new_child = child.hide(column)
-                old_columns = self.domains
-                if len(new_columns) == 0:
-                    intermediate_representation = [Pop(), Get(old_columns)]
-                else:
-                    start_node = SchemaNode.product([d.node for d in new_columns])
-                    end_node = SchemaNode.product([d.node for d in old_columns])
-                    indices = [i for i in range(len(old_columns)) if i != idx]
-                    intermediate_representation = [
-                        StartTraversal(new_columns),
-                        Expand(start_node, end_node, indices, [column]),
-                        EndTraversal(old_columns),
-                    ]
-                intermediate_node = DerivationNode(
-                    old_columns, intermediate_representation, [column]
-                )
-                new_node = new_node.set_children([intermediate_node])
-                new_node = new_node.add_child(intermediate_node, new_child)
+                new_children += [new_child]
+            old_columns = self.domains
+            if len(new_columns) == 0:
+                intermediate_representation = [Pop(), Get(old_columns)]
+            else:
+                start_node = SchemaNode.product([d.node for d in new_columns])
+                end_node = SchemaNode.product([d.node for d in old_columns])
+                indices = [i for i in range(len(old_columns)) if i != idx]
+                intermediate_representation = [
+                    StartTraversal(new_columns),
+                    Expand(start_node, end_node, indices, [column]),
+                    EndTraversal(old_columns),
+                ]
+            intermediate_node = DerivationNode(
+                old_columns, intermediate_representation, [column]
+            )
+            new_node = new_node.set_children([intermediate_node])
+            new_node = new_node.add_children(intermediate_node, new_children)
         else:
             new_node = self.copy()
             new_children = [c.hide(column) for c in self.children]

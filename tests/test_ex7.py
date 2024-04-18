@@ -41,7 +41,7 @@ class TestEx7(expecttest.TestCase):
     def test_ex7_goal1_step1_get(self):
         # Get every Val_id, Cardnum pair
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
+        t1 = s.get(val_id=cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
         self.assertExpectedInline(
             str(t1),
             """\
@@ -67,7 +67,7 @@ val_id
 
     def test_ex7_goal1_step2_infer(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
+        t1 = s.get(val_id=cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"]).sort(["val_id"])
         self.maxDiff = None
         self.assertExpectedInline(
@@ -95,7 +95,7 @@ val_id
 
     def test_ex7_goal1_step3_setKey(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
+        t1 = s.get(val_id=cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
         t3 = t2.shift_right().sort(["val_id"])
         self.assertExpectedInline(
@@ -124,7 +124,7 @@ val_id cardnum
 
     def test_ex7_goal1_step4_show(self):
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
+        t1 = s.get(val_id=cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
         t3 = t2.shift_right()
         t4 = t3.show("cardnum_1")
@@ -157,13 +157,14 @@ val_id cardnum cardnum_1
     def test_ex7_goal1_step5_equate(self):
         # # Inner product
         s, bonus, cardnum, tstart, Cardnum, Val_id = self.initialise()
-        t1 = s.get(val_id = cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
+        t1 = s.get(val_id=cardnum["val_id"]).infer(["val_id"], cardnum["cardnum"])
         t2 = t1.infer(["val_id"], bonus["bonus"])
         t3 = t2.shift_right()
         t4 = t3.show("cardnum_1")
         t5 = t4.mutate(
-            is_cardnum_equal=
-            t4["cardnum"].mask((t4["cardnum"] == t4["cardnum_1"]) & t4["bonus"].isnotnull()),
+            is_cardnum_equal=t4["cardnum"].mask(
+                (t4["cardnum"] == t4["cardnum_1"]) & t4["bonus"].isnotnull()
+            ),
         )
         t6 = t5.filter("is_cardnum_equal")
         self.maxDiff = None

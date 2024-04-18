@@ -32,7 +32,7 @@ class TestEx4(expecttest.TestCase):
 
     def test_ex4_goal1_step1_get(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get(person = person["person"])
+        t1 = s.get(person=person["person"])
         self.assertExpectedInline(
             str(t1),
             """\
@@ -53,7 +53,7 @@ Index: []
 
     def test_ex4_goal1_step2_infer(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get(person = person["person"])
+        t1 = s.get(person=person["person"])
         t2 = t1.infer(["person"], task["task"])
         self.assertExpectedInline(
             str(t2),
@@ -75,7 +75,7 @@ Steve   [funding, investment, budget]
 
     def test_ex4_goal1_step3_show(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get(person = person["person"])
+        t1 = s.get(person=person["person"])
         t2 = t1.infer(["person"], task["task"])
         t3 = t2.show("task_1")
         self.assertExpectedInline(
@@ -101,7 +101,7 @@ Steve  funding        funding
 
     def test_ex4_goal1_step4_hideAfterShow(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get(person = person["person"])
+        t1 = s.get(person=person["person"])
         t2 = t1.infer(["person"], task["task"])
         t3 = t2.show("task_1")
         t4 = t3.hide("task_1").sort("person")
@@ -124,7 +124,7 @@ Tom                        [research]
 
     def test_ex4_goal1_step4_showAfterHideAfterShow(self):
         s, person, task, Role = self.initialise()
-        t1 = s.get(person = person["person"])
+        t1 = s.get(person=person["person"])
         t2 = t1.infer(["person"], task["task"])
         t3 = t2.show("task_1")
         t4 = t3.hide("task_1")

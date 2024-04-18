@@ -1,7 +1,14 @@
 import expecttest
 
-from frontend.derivation.derivation_node import intermediate_representation_for_path, DerivationNode, ColumnNode, \
-    invert_derivation_path, set_and_name_hidden_keys_along_path, find_splice_point, compress_path_representation
+from frontend.derivation.derivation_node import (
+    intermediate_representation_for_path,
+    DerivationNode,
+    ColumnNode,
+    invert_derivation_path,
+    set_and_name_hidden_keys_along_path,
+    find_splice_point,
+    compress_path_representation,
+)
 from representation.mapping import Mapping
 from frontend.tables.column_type import Val
 from representation.representation import *
@@ -350,7 +357,9 @@ class TestHelpers(expecttest.TestCase):
         self.assertEqual(splice_point_1, 0)
         self.assertEqual(splice_point_2, 1)
 
-    def test_compress_path_representation_successfullyCompressesPathRepresentation(self):
+    def test_compress_path_representation_successfullyCompressesPathRepresentation(
+        self,
+    ):
         u = AtomicNode("u")
         v = AtomicNode("v")
         w = AtomicNode("w")
@@ -377,8 +386,21 @@ class TestHelpers(expecttest.TestCase):
 
         root = DerivationNode.create_root([a])
         a_node = root.children[1]
-        bc_node = DerivationNode([b, c], [StartTraversal([a]), Traverse(m1), EndTraversal([b]), StartTraversal([a]), Traverse(m2), EndTraversal([c]), Merge()])
-        d_node = DerivationNode([d], [StartTraversal([b, c]), Traverse(m3), EndTraversal([d])])
+        bc_node = DerivationNode(
+            [b, c],
+            [
+                StartTraversal([a]),
+                Traverse(m1),
+                EndTraversal([b]),
+                StartTraversal([a]),
+                Traverse(m2),
+                EndTraversal([c]),
+                Merge(),
+            ],
+        )
+        d_node = DerivationNode(
+            [d], [StartTraversal([b, c]), Traverse(m3), EndTraversal([d])]
+        )
 
         a_node = a_node.add_child(a_node, bc_node).add_child(bc_node, d_node)
         bc_node = a_node.children[0]
@@ -391,4 +413,5 @@ class TestHelpers(expecttest.TestCase):
 
         self.assertExpectedInline(
             str(compressed),
-            """[STT <[a]>, TRV <u ---> v, []>, ENT <[b]>, STT <[a]>, TRV <v ---> w, []>, ENT <[c]>, MER, STT <[b, c]>, TRV <v;w ---> x, []>, ENT <[d]>, DRP <[b, c]>]""")
+            """[STT <[a]>, TRV <u ---> v, []>, ENT <[b]>, STT <[a]>, TRV <v ---> w, []>, ENT <[c]>, MER, STT <[b, c]>, TRV <v;w ---> x, []>, ENT <[d]>, DRP <[b, c]>]""",
+        )
