@@ -29,6 +29,9 @@ class PandasPopulatedTable(PopulatedTable):
         populated.dropped_vals_count = table.dropped_vals_count
         return populated
 
+    def get_raw_table(self):
+        return self.raw_table
+
     def display(
         self, left: list[ColumnNode], right: list[ColumnNode], backend: "PandasBackend"
     ):

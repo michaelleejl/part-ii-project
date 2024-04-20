@@ -31,7 +31,7 @@ class TestPolling(expecttest.TestCase):
         expt = join.mutate(expt = join["h_sum"] * join["l_sum"] / join["t_sum"])
         devn = expt.mutate(d = expt["count"] - expt["expt"])
         stat = devn.mutate(stat = devn["d"] * devn["d"] / devn["expt"])
-        print(stat)
+        print(stat["d"])
         scre = stat.hide("lean").hide("home")
         scre = scre.mutate(score = scre["stat"].sum())
         print(scre)

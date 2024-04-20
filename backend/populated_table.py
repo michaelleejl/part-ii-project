@@ -14,6 +14,10 @@ class PopulatedTable(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_raw_table(self):
+        pass
+
+    @abc.abstractmethod
     def get_num_dropped_keys(self):
         pass
 

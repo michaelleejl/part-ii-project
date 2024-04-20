@@ -44,9 +44,10 @@ def get_arguments_for_binary_bexp(x, y):
 
 
 class Column:
-    def __init__(self, node):
+    def __init__(self, node, repr):
         self.name = node.get_name()
         self.node = node
+        self.repr = repr
 
     # Boolean expressions
 
@@ -273,3 +274,9 @@ class Column:
     def mask(self, with_condition):
         expr = wrap_bexp(with_condition)
         return MaskExp([], self.get_domain(), expr, expr.exp_type)
+
+    def __repr__(self):
+        return self.repr
+
+    def __str__(self):
+        return self.__repr__()

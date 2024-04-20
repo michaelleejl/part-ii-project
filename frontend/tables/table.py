@@ -1197,6 +1197,32 @@ class Table:
 
     def __getitem__(self, item):
         col = self.derivation.find_column_with_name(item)
+        pt = self.populated_table.copy()
+        keys = col.get_strong_keys()
+        nodes = [self.derivation.find_node_with_domains([k]) for k in keys]
+
+        if col.is_key_column():
+            left = [col]
+            right = []
+        else:
+            left = nodes
+            right = [col]
+
+        pt.display(left, right, self.schema.backend)
+        left = " ".join([l.get_name() for l in left])
+        right = " ".join([r.get_name() for r in right])
+        dropped_keys = f"\n{pt.get_num_dropped_keys()} keys hidden"
+        dropped_vals = f"\n{pt.get_num_dropped_vals()} values hidden"
+        repr = (
+                f"[{left} || {right}]"
+                + "\n"
+                + str(pt.get_table_to_display())
+        )
+        if pt.get_num_dropped_keys() > 0:
+            repr += dropped_keys
+        if pt.get_num_dropped_vals() > 0:
+            repr += dropped_vals
+
         if col is not None:
-            return Column(col)
+            return Column(col, repr)
         raise KeyError
