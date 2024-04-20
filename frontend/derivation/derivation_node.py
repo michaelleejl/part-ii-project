@@ -1102,13 +1102,23 @@ class RootNode(DerivationNode):
         splice_point_idx = find_splice_point(key_node, path)
         splice_point = root.find_node_with_domains(path[splice_point_idx].domains)
 
-        intermediate_representation = compress_path_representation(
+        end = compress_path_representation(
             path[splice_point_idx + 1 :]
-        )
+        )[-1]
         target = path[-1]
-        target = target.set_intermediate_representation(intermediate_representation)
+        target = target.append_to_intermediate_representation([end])
+        target = target.set_children([])
+        child = target
+        parent = None
 
-        to_splice_in = set_and_name_hidden_keys_along_path([target], target, namespace)
+        for parent in path[-2:splice_point_idx:-1]:
+            parent = parent.set_children([child])
+            child = parent
+
+        if parent is None:
+            parent = target
+
+        to_splice_in = set_and_name_hidden_keys_along_path(path[splice_point_idx+1:], parent, namespace)
 
         hidden_keys = to_splice_in.find_hidden_keys()
         to_splice_in.hidden_keys = hidden_keys
