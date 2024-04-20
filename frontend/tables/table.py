@@ -409,7 +409,7 @@ class Table:
         keys_and_values = self.derivation.get_keys_and_values()
         visible = list(
             sorted(
-                keys_and_values,
+                filter(lambda c: find_index(c.name, self.displayed_columns) >=0, keys_and_values),
                 key=lambda c: find_index(c.name, self.displayed_columns),
             )
         )
