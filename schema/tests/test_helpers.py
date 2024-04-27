@@ -1,13 +1,15 @@
 import expecttest
 
-from schema import (
-    compose_cardinality,
+from representation.mapping import Mapping
+from schema.helpers.is_sublist import is_sublist
+from schema.schema import (
     Cardinality,
-    get_indices_of_sublist,
-    is_sublist,
     AtomicNode,
     SchemaEdge,
 )
+
+from schema.helpers.compose_cardinality import compose_cardinality
+from schema.helpers.get_indices_of_sublist import get_indices_of_sublist
 from schema.helpers.find_index import find_index
 from schema.helpers.get_indices_of_sublist import SubListMustBeFullyContainedInList
 from representation.helpers.invert_representation import invert_representation
@@ -131,8 +133,8 @@ class TestSchemaHelpers(expecttest.TestCase):
         w = AtomicNode("w")
         w.id_prefix = 0
 
-        e1 = SchemaEdge(u, v, Cardinality.MANY_TO_ONE)
-        e2 = SchemaEdge(v, w, Cardinality.MANY_TO_ONE)
+        e1 = Mapping(SchemaEdge(u, v, Cardinality.MANY_TO_ONE))
+        e2 = Mapping(SchemaEdge(v, w, Cardinality.MANY_TO_ONE))
 
         start_columns = [Domain("start", u)]
         end_columns = [Domain("end", w)]
@@ -140,9 +142,10 @@ class TestSchemaHelpers(expecttest.TestCase):
         trv1 = Traverse(e1)
         trv2 = Traverse(e2)
         ent = EndTraversal(end_columns)
+        expected, _ = invert_representation([stt, trv1, trv2, ent], frozenset())
         self.assertExpectedInline(
-            str(invert_representation([stt, trv1, trv2, ent])),
-            """[STT <[end]>, TRV <w <--- v, [v]>, TRV <v <--- u, [u]>, ENT <[end], [start]>]"""
+            str(expected),
+            """[STT <[end]>, TRV <w <--- v, [v]>, TRV <v <--- u, [u]>, ENT <[start]>]"""
             "",
         )
 

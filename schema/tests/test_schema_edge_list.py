@@ -1,12 +1,10 @@
 import expecttest
 
-from schema import (
-    AtomicNode,
-    SchemaEdge,
-    Cardinality,
-    SchemaEdgeList,
-    EdgeAlreadyExistsException,
-)
+from schema.cardinality import Cardinality
+from schema.edge import SchemaEdge
+from schema.edge_list import SchemaEdgeList
+from schema.exceptions import EdgeAlreadyExistsException
+from schema.node import AtomicNode
 
 
 class TestSchemaEdgeList(expecttest.TestCase):

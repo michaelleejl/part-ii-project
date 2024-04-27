@@ -37,25 +37,25 @@ trip_id;cardnum ---> person
 ==========================
 trip_id
 --------------------------
-trip_id;cardnum ---> trip_id
+trip_id <--- trip_id;cardnum
 ==========================
 
 ==========================
 cardnum
 --------------------------
-trip_id;cardnum ---> cardnum
+cardnum <--- trip_id;cardnum
 ==========================
 
 ==========================
 person
 --------------------------
-trip_id;cardnum ---> person
+person <--- trip_id;cardnum
 ==========================
 
 ==========================
 bonus
 --------------------------
-trip_id;cardnum ---> bonus
+bonus <--- trip_id;cardnum
 ==========================
 
 ==========================
@@ -242,9 +242,9 @@ v
 
     def test_schema_blend(self):
         bonus_df = (
-            pd.read_csv("csv/bonus.csv").dropna().set_index(["trip_id", "cardnum"])
+            pd.read_csv("./csv/bonus.csv").dropna().set_index(["trip_id", "cardnum"])
         )
-        person_df = pd.read_csv("csv/person.csv").dropna().set_index(["cardnum"])
+        person_df = pd.read_csv("./csv/person.csv").dropna().set_index(["cardnum"])
         schema = Schema()
         bonus = schema.insert_dataframe(bonus_df)
         person = schema.insert_dataframe(person_df)
@@ -266,9 +266,9 @@ ADJACENCY LIST
 ==========================
 trip_id;cardnum
 --------------------------
-trip_id;cardnum ---> cardnum
 trip_id;cardnum ---> bonus
 trip_id;cardnum ---> trip_id
+trip_id;cardnum ---> cardnum
 ==========================
 
 ==========================
@@ -379,10 +379,9 @@ Index: []
         schema.add_edge(v, w, Cardinality.MANY_TO_ONE)
         domain1 = Domain("u", u)
         domain2 = Domain("w", w)
-        cardinality, path, hidden_keys = schema.find_shortest_path([domain1], [domain2])
+        cardinality, path = schema.find_shortest_path([domain1], [domain2])
         self.assertExpectedInline(str(cardinality), """Cardinality.MANY_TO_ONE""")
         self.assertExpectedInline(
             str(path),
-            """[STT <[u]>, TRV <u ---> v, []>, TRV <v ---> w, []>, ENT <[u], [w]>]""",
+            """[u ---> v, v ---> w]""",
         )
-        self.assertExpectedInline(str(hidden_keys), """[]""")

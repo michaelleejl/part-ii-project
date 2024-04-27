@@ -333,7 +333,7 @@ class TestMapping(expecttest.TestCase):
         edge = SchemaEdge(u, v, cardinality=Cardinality.MANY_TO_ONE)
         mapping = Mapping(edge)
 
-        new_mapping, namespace = mapping.invert()(set(), lambda x, y: y)
+        new_mapping, namespace = mapping.invert()(frozenset())
 
         self.assertExpectedInline(str(new_mapping), """v <--- u""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[u]""")
@@ -351,7 +351,7 @@ class TestMapping(expecttest.TestCase):
         edge = SchemaEdge(u, v, cardinality=Cardinality.ONE_TO_ONE)
         mapping = Mapping(edge)
 
-        new_mapping, namespace = mapping.invert()(set(), lambda x, y: y)
+        new_mapping, namespace = mapping.invert()(frozenset())
 
         self.assertExpectedInline(str(new_mapping), """v <--> u""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[]""")
@@ -377,7 +377,7 @@ class TestMapping(expecttest.TestCase):
 
         new_mapping = mapping.carry(Domain("c", x))
 
-        new_mapping, namespace = new_mapping.invert()(set(), lambda x, y: y)
+        new_mapping, namespace = new_mapping.invert()(frozenset())
 
         self.assertExpectedInline(str(new_mapping), """w;x <--- u;v;x""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[u, v]""")
@@ -403,7 +403,7 @@ class TestMapping(expecttest.TestCase):
 
         new_mapping = mapping.carry(Domain("c", x)).curry(2, Domain("c", x))
 
-        new_mapping, namespace = new_mapping.invert()(set(), lambda x, y: y)
+        new_mapping, namespace = new_mapping.invert()(frozenset())
 
         self.assertExpectedInline(str(new_mapping), """w;x --- u;v""")
         self.assertExpectedInline(str(new_mapping.hidden_keys), """[u, v]""")

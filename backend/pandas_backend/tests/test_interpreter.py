@@ -1,7 +1,7 @@
 import expecttest
 import pandas as pd
 
-from schema import Schema, SchemaNode
+from schema.schema import Schema, SchemaNode
 from representation.representation import (
     StartTraversal,
     Traverse,

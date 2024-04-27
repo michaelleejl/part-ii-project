@@ -2,6 +2,7 @@ from __future__ import annotations
 import abc
 
 from representation.domain import Domain
+from schema.edge import SchemaEdge
 
 
 class RepresentationStep(abc.ABC):

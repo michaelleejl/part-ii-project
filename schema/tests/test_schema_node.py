@@ -1,6 +1,6 @@
 import expecttest
 
-from schema import SchemaNode, AtomicNode
+from schema.node import SchemaNode, AtomicNode
 from schema.union_find import UnionFind
 
 
