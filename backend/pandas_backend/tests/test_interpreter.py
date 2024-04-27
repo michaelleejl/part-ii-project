@@ -1,13 +1,18 @@
 import expecttest
 import pandas as pd
 
+from backend.pandas_backend.interpreter import StackPointer
+from representation.mapping import Mapping
+from schema.edge import SchemaEdge
+from schema.equality import SchemaEquality
+from schema.node import AtomicNode, SchemaClass
 from schema.schema import Schema, SchemaNode
 from representation.representation import (
     StartTraversal,
     Traverse,
     Expand,
     Project,
-    Equate,
+    Equate, EndTraversal,
 )
 from representation.domain import Domain
 from frontend.tables.column_type import ColumnType
@@ -61,85 +66,66 @@ class TestInterpreter(expecttest.TestCase):
         characters = s.insert_dataframe(characters_df)
         sectors = s.insert_dataframe(sectors_df)
         trilogies = s.insert_dataframe(trilogies_df)
+        World = SchemaClass("world")
         s.blend(
-            SchemaNode("homeworld", cluster="characters"),
-            SchemaNode("world", cluster="sectors"),
+            characters["homeworld"],
+            sectors["world"],
+            World
         )
-        return s
+        return s, characters, sectors, trilogies
 
     def test_interpreter_startTraversal(self):
         from backend.pandas_backend.interpreter import stt
 
-        s = self.initialise()
-        character_column = Domain(
-            "character", SchemaNode("name", cluster="characters"), [], ColumnType.KEY
-        )
+        s, characters, sectors, trilogies = self.initialise()
+
         homeworld_column = Domain(
             "homeworld",
-            SchemaNode("homeworld", cluster="characters"),
-            [character_column],
-            ColumnType.VALUE,
+            characters["homeworld"]
         )
         start_columns = [homeworld_column]
-        explicit_keys = [character_column, homeworld_column]
         df = pd.DataFrame(
             {
                 "character": ["Luke Skywalker", "Chewbacca", "Han Solo"],
                 "homeworld": ["Tatooine", "Kashyyk", "Corellia"],
             }
         )
-        step = StartTraversal(start_columns, explicit_keys)
-        result = stt(step, s.backend, df, lambda x: x, [], [])
+        step = StartTraversal(start_columns)
+        sp = StackPointer(0)
+        stack, sp = stt(step, s.backend, [df], sp)
         self.assertExpectedInline(
-            str(result[0]),
+            str(stack[-1]),
             """\
   homeworld         0
 0  Tatooine  Tatooine
 1   Kashyyk   Kashyyk
 2  Corellia  Corellia""",
         )
-        self.assertExpectedInline(
-            str(result[2]),
-            """\
-[        character homeworld
-0  Luke Skywalker  Tatooine
-1       Chewbacca   Kashyyk
-2        Han Solo  Corellia]""",
-        )
-        self.assertExpectedInline(str(result[3]), """['character', 'homeworld']""")
+        self.assertExpectedInline(str(sp), """SP<0>""")
 
     def test_traversal_ofEdge_withNoHiddenKeys(self):
         from backend.pandas_backend.interpreter import trv
 
-        s = self.initialise()
-        start_node = SchemaNode("world", cluster="sectors")
-        end_node = SchemaNode("sector", cluster="sectors")
-        step = Traverse(start_node, end_node)
-        character_column = Domain(
-            "character", SchemaNode("name", cluster="characters"), [], ColumnType.KEY
-        )
-        homeworld_column = Domain(
-            "homeworld",
-            SchemaNode("homeworld", cluster="characters"),
-            [character_column],
-            ColumnType.VALUE,
-        )
+        s, characters, sectors, trilogies = self.initialise()
+        start_node = sectors["world"]
+        end_node = sectors["sector"]
+        edge = Mapping(SchemaEquality(start_node, end_node))
+        step = Traverse(edge)
         df = pd.DataFrame(
             {
                 "homeworld": ["Tatooine", "Kashyyk", "Corellia"],
                 0: ["Tatooine", "Kashyyk", "Corellia"],
             }
         )
-        result = trv(
+        sp = StackPointer(0)
+        stack, sp = trv(
             step,
             s.backend,
-            df,
-            lambda x: x,
             [df],
-            [character_column.name, homeworld_column.name],
+            sp
         )
         self.assertExpectedInline(
-            str(result[0]),
+            str(stack[0]),
             """\
   homeworld      0
 0       NaN   Core
@@ -148,355 +134,98 @@ class TestInterpreter(expecttest.TestCase):
 3       NaN    Mid
 4  Tatooine  Outer""",
         )
-        self.assertExpectedInline(
-            str(result[2]),
-            """\
-[  homeworld         0
-0  Tatooine  Tatooine
-1   Kashyyk   Kashyyk
-2  Corellia  Corellia]""",
-        )
-        self.assertExpectedInline(str(result[3]), """['character', 'homeworld']""")
+        self.assertExpectedInline(str(sp), """SP<0>""")
 
-    def test_expansion_ofDomain_withNoHiddenKey(self):
+    def test_traversal_ofEdge_withHiddenKeys(self):
         from backend.pandas_backend.interpreter import trv
 
-        s = self.initialise()
-        start_node = SchemaNode("sector", cluster="sectors")
-        end_node = SchemaNode("world", cluster="sectors")
+        s, characters, sectors, trilogies = self.initialise()
+        start_node = sectors["sector"]
+        end_node = sectors["world"]
         step = Traverse(
-            start_node,
-            end_node,
-            [end_node],
-            [Domain("world_hidden", end_node, [], ColumnType.KEY)],
-        )
-        sectors_column = Domain(
-            "sectors", SchemaNode("sector", cluster="sectors"), [], ColumnType.KEY
+            Mapping(SchemaEdge(start_node, end_node), hidden_keys=[Domain("hiddenWorld", sectors["world"])]),
         )
         df = pd.DataFrame(
             {"sectors": ["Core", "Mid", "Outer"], 0: ["Core", "Mid", "Outer"]}
         )
-        result = trv(step, s.backend, df, lambda x: x, [df], [sectors_column])
+        stack, sp = trv(step, s.backend, [df], None)
         self.assertExpectedInline(
-            str(result[0]),
+            str(stack[-1]),
             """\
-  sectors          0 world_hidden
-0    Core  Coruscant    Coruscant
-1    Core   Corellia     Corellia
-2     Mid    Kashyyk      Kashyyk
-3     Mid      Naboo        Naboo
-4   Outer   Tatooine     Tatooine""",
+  sectors          0 hiddenWorld
+0    Core  Coruscant   Coruscant
+1    Core   Corellia    Corellia
+2     Mid    Kashyyk     Kashyyk
+3     Mid      Naboo       Naboo
+4   Outer   Tatooine    Tatooine""",
         )
-        self.assertExpectedInline(
-            str(result[2]),
-            """\
-[  sectors      0
-0    Core   Core
-1     Mid    Mid
-2   Outer  Outer]""",
-        )
-        self.assertExpectedInline(str(result[3]), """[sectors, 'world_hidden']""")
-
-    def test_proj_ofEdge_withNoHiddenKey(self):
-        from backend.pandas_backend.interpreter import prj
-
-        s = self.initialise()
-        trilogy_column = Domain(
-            "trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY
-        )
-        episode_column = Domain(
-            "trilogy", SchemaNode("episode", cluster="trilogies"), [], ColumnType.KEY
-        )
-        df = pd.DataFrame(
-            {
-                "trilogy": [
-                    "Prequel",
-                    "Prequel",
-                    "Prequel",
-                    "Original",
-                    "Original",
-                    "Original",
-                    "Sequel",
-                    "Sequel",
-                    "Sequel",
-                ],
-                "episode": [1, 2, 3, 4, 5, 6, 7, 8, 9],
-                0: [
-                    "Prequel",
-                    "Prequel",
-                    "Prequel",
-                    "Original",
-                    "Original",
-                    "Original",
-                    "Sequel",
-                    "Sequel",
-                    "Sequel",
-                ],
-                1: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-            }
-        )
-        start_node = SchemaNode.product(
-            [
-                SchemaNode("trilogy", cluster="trilogies"),
-                SchemaNode("episode", cluster="trilogies"),
-            ]
-        )
-        end_node = SchemaNode("episode", cluster="trilogies")
-        step = Project(start_node, end_node)
-        result = prj(step, s.backend, df, lambda x: x, [df], [trilogy_column])
-        self.assertExpectedInline(
-            str(result[0]),
-            """\
-    trilogy  episode  0
-0   Prequel        1  1
-1   Prequel        2  2
-2   Prequel        3  3
-3  Original        4  4
-4  Original        5  5
-5  Original        6  6
-6    Sequel        7  7
-7    Sequel        8  8
-8    Sequel        9  9""",
-        )
-        self.assertExpectedInline(
-            str(result[2]),
-            """\
-[    trilogy  episode         0  1
-0   Prequel        1   Prequel  1
-1   Prequel        2   Prequel  2
-2   Prequel        3   Prequel  3
-3  Original        4  Original  4
-4  Original        5  Original  5
-5  Original        6  Original  6
-6    Sequel        7    Sequel  7
-7    Sequel        8    Sequel  8
-8    Sequel        9    Sequel  9]""",
-        )
-        self.assertExpectedInline(str(result[3]), """[trilogy]""")
-
-    def test_proj_ofEdge_withHiddenKey(self):
-        from backend.pandas_backend.interpreter import prj
-
-        s = self.initialise()
-        trilogy_column = Domain(
-            "trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY
-        )
-        episode_column = Domain(
-            "trilogy", SchemaNode("episode", cluster="trilogies"), [], ColumnType.KEY
-        )
-        df = pd.DataFrame(
-            {
-                0: [
-                    "Prequel",
-                    "Prequel",
-                    "Prequel",
-                    "Original",
-                    "Original",
-                    "Original",
-                    "Sequel",
-                    "Sequel",
-                    "Sequel",
-                ],
-                1: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-            }
-        )
-        start_node = SchemaNode.product(
-            [
-                SchemaNode("trilogy", cluster="trilogies"),
-                SchemaNode("episode", cluster="trilogies"),
-            ]
-        )
-        end_node = SchemaNode("episode", cluster="trilogies")
-        step = Project(
-            start_node,
-            end_node,
-            [SchemaNode("trilogy", cluster="trilogies")],
-            [trilogy_column],
-        )
-        result = prj(step, s.backend, df, lambda x: x, [df], [])
-        self.assertExpectedInline(
-            str(result[0]),
-            """\
-   0   trilogy
-0  1   Prequel
-1  2   Prequel
-2  3   Prequel
-3  4  Original
-4  5  Original
-5  6  Original
-6  7    Sequel
-7  8    Sequel
-8  9    Sequel""",
-        )
-        self.assertExpectedInline(
-            str(result[2]),
-            """\
-[          0  1
-0   Prequel  1
-1   Prequel  2
-2   Prequel  3
-3  Original  4
-4  Original  5
-5  Original  6
-6    Sequel  7
-7    Sequel  8
-8    Sequel  9]""",
-        )
-        self.assertExpectedInline(str(result[3]), """['trilogy']""")
-
-    def test_exp_ofEdge_withNoHiddenKey(self):
-        from backend.pandas_backend.interpreter import exp
-
-        s = self.initialise()
-        trilogy_column = Domain(
-            "trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY
-        )
-        df = pd.DataFrame(
-            {
-                "trilogy": ["Prequel", "Original", "Sequel"],
-                0: ["Prequel", "Original", "Sequel"],
-            }
-        )
-        start_node = SchemaNode("trilogy", cluster="trilogies")
-        end_node = SchemaNode.product(
-            [start_node, SchemaNode("episode", cluster="trilogies")]
-        )
-        step = Expand(start_node, end_node)
-        result = exp(step, s.backend, df, lambda x: x, [df], [trilogy_column])
-        self.assertExpectedInline(
-            str(result[0]),
-            """\
-     trilogy         0  1
-0    Prequel   Prequel  1
-1    Prequel   Prequel  2
-2    Prequel   Prequel  3
-3    Prequel   Prequel  4
-4    Prequel   Prequel  5
-5    Prequel   Prequel  6
-6    Prequel   Prequel  7
-7    Prequel   Prequel  8
-8    Prequel   Prequel  9
-9   Original  Original  1
-10  Original  Original  2
-11  Original  Original  3
-12  Original  Original  4
-13  Original  Original  5
-14  Original  Original  6
-15  Original  Original  7
-16  Original  Original  8
-17  Original  Original  9
-18    Sequel    Sequel  1
-19    Sequel    Sequel  2
-20    Sequel    Sequel  3
-21    Sequel    Sequel  4
-22    Sequel    Sequel  5
-23    Sequel    Sequel  6
-24    Sequel    Sequel  7
-25    Sequel    Sequel  8
-26    Sequel    Sequel  9""",
-        )
-        self.assertExpectedInline(
-            str(result[2]),
-            """\
-[    trilogy         0
-0   Prequel   Prequel
-1  Original  Original
-2    Sequel    Sequel]""",
-        )
-        self.assertExpectedInline(str(result[3]), """[trilogy]""")
-
-    def test_exp_ofEdge_withHiddenKey(self):
-        from backend.pandas_backend.interpreter import exp
-
-        s = self.initialise()
-        trilogy_column = Domain(
-            "trilogy", SchemaNode("trilogy", cluster="trilogies"), [], ColumnType.KEY
-        )
-        episode_column = Domain(
-            "episode", SchemaNode("episode", cluster="trilogies"), [], ColumnType.KEY
-        )
-        df = pd.DataFrame(
-            {
-                "trilogy": ["Prequel", "Original", "Sequel"],
-                0: ["Prequel", "Original", "Sequel"],
-            }
-        )
-        start_node = SchemaNode("trilogy", cluster="trilogies")
-        end_node = SchemaNode.product(
-            [start_node, SchemaNode("episode", cluster="trilogies")]
-        )
-        step = Expand(
-            start_node,
-            end_node,
-            [SchemaNode("episode", cluster="trilogies")],
-            [episode_column],
-        )
-        result = exp(step, s.backend, df, lambda x: x, [df], [trilogy_column])
-        self.assertExpectedInline(
-            str(result[0]),
-            """\
-     trilogy         0  1  episode
-0    Prequel   Prequel  1        1
-1    Prequel   Prequel  2        2
-2    Prequel   Prequel  3        3
-3    Prequel   Prequel  4        4
-4    Prequel   Prequel  5        5
-5    Prequel   Prequel  6        6
-6    Prequel   Prequel  7        7
-7    Prequel   Prequel  8        8
-8    Prequel   Prequel  9        9
-9   Original  Original  1        1
-10  Original  Original  2        2
-11  Original  Original  3        3
-12  Original  Original  4        4
-13  Original  Original  5        5
-14  Original  Original  6        6
-15  Original  Original  7        7
-16  Original  Original  8        8
-17  Original  Original  9        9
-18    Sequel    Sequel  1        1
-19    Sequel    Sequel  2        2
-20    Sequel    Sequel  3        3
-21    Sequel    Sequel  4        4
-22    Sequel    Sequel  5        5
-23    Sequel    Sequel  6        6
-24    Sequel    Sequel  7        7
-25    Sequel    Sequel  8        8
-26    Sequel    Sequel  9        9""",
-        )
-        self.assertExpectedInline(
-            str(result[2]),
-            """\
-[    trilogy         0
-0   Prequel   Prequel
-1  Original  Original
-2    Sequel    Sequel]""",
-        )
-        self.assertExpectedInline(str(result[3]), """[trilogy, 'episode']""")
 
     def test_equ_does_nothing(self):
         from backend.pandas_backend.interpreter import equ
 
-        s = self.initialise()
+        s, characters, sectors, trilogies = self.initialise()
         df = pd.DataFrame({0: ["Tatooine", "Kashyyk", "Corellia"]})
-        start_node = SchemaNode("homeworld", cluster="characters")
-        end_node = SchemaNode("world", cluster="sectors")
+        start_node = AtomicNode("homeworld")
+        end_node = AtomicNode("world")
         step = Equate(start_node, end_node)
-        result = equ(step, s.backend, df, lambda x: x, [df], [])
+        stack, sp = equ(step, s.backend, [df], None)
         self.assertExpectedInline(
-            str(result[0]),
+            str(stack[-1]),
             """\
           0
 0  Tatooine
 1   Kashyyk
 2  Corellia""",
         )
-        self.assertExpectedInline(
-            str(result[2]),
-            """\
-[          0
-0  Tatooine
-1   Kashyyk
-2  Corellia]""",
+
+    def test_ent(self):
+        from backend.pandas_backend.interpreter import ent
+        s, characters, sectors, trilogies = self.initialise()
+        step = EndTraversal(
+            [Domain("world", sectors["world"])],
         )
-        self.assertExpectedInline(str(result[3]), """[]""")
+        df = pd.DataFrame(
+            {"sectors": ["Core", "Core", "Mid", "Mid", "Outer"],
+             0: ["Coruscant", "Corellia", "Kashyyk", "Naboo", "Tatooine"],
+             "hiddenWorld": ["Coruscant", "Corellia", "Kashyyk", "Naboo", "Tatooine"]}
+        )
+        bs = pd.DataFrame(
+            {"sectors": ["Core", "Mid", "Outer"]}
+        )
+        stack, sp = ent(step, s.backend, [bs, df], None)
+        self.assertExpectedInline(
+            str(stack[-1]),
+            """\
+  sectors      world hiddenWorld
+0    Core  Coruscant   Coruscant
+1    Core   Corellia    Corellia
+2     Mid    Kashyyk     Kashyyk
+3     Mid      Naboo       Naboo
+4   Outer   Tatooine    Tatooine""",
+        )
+
+    def test_mer(self):
+        from backend.pandas_backend.interpreter import mer
+        s, characters, sectors, trilogies = self.initialise()
+        step = EndTraversal(
+            [Domain("world", sectors["world"])],
+        )
+        df = pd.DataFrame(
+            {"world": ["Coruscant", "Corellia", "Kashyyk", "Naboo", "Tatooine"],
+             "sector": ["Core", "Core", "Mid", "Mid", "Outer"]}
+        )
+        bs = pd.DataFrame(
+            {"world": ["Tatooine", "Kashyyk", "Corellia"],
+             "character": ["Luke Skywalker", "Chewbacca", "Han Solo"]}
+        )
+        stack, sp = mer(step, s.backend, [bs, df], None)
+        self.assertExpectedInline(
+            str(stack[-1]),
+            """\
+       world sector       character
+0  Coruscant   Core             NaN
+1   Corellia   Core        Han Solo
+2    Kashyyk    Mid       Chewbacca
+3      Naboo    Mid             NaN
+4   Tatooine  Outer  Luke Skywalker""",
+        )

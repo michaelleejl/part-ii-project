@@ -15,6 +15,12 @@ class StackPointer:
         self.idx = idx
         self.prev = prev
 
+    def __repr__(self):
+        return f"SP<{self.idx}>"
+
+    def __str__(self):
+        return self.__repr__()
+
 
 interp = tuple[list, StackPointer]
 
