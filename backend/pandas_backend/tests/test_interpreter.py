@@ -12,7 +12,8 @@ from representation.representation import (
     Traverse,
     Expand,
     Project,
-    Equate, EndTraversal,
+    Equate,
+    EndTraversal,
 )
 from representation.domain import Domain
 from frontend.tables.column_type import ColumnType
@@ -67,11 +68,7 @@ class TestInterpreter(expecttest.TestCase):
         sectors = s.insert_dataframe(sectors_df)
         trilogies = s.insert_dataframe(trilogies_df)
         World = SchemaClass("world")
-        s.blend(
-            characters["homeworld"],
-            sectors["world"],
-            World
-        )
+        s.blend(characters["homeworld"], sectors["world"], World)
         return s, characters, sectors, trilogies
 
     def test_interpreter_startTraversal(self):
@@ -79,10 +76,7 @@ class TestInterpreter(expecttest.TestCase):
 
         s, characters, sectors, trilogies = self.initialise()
 
-        homeworld_column = Domain(
-            "homeworld",
-            characters["homeworld"]
-        )
+        homeworld_column = Domain("homeworld", characters["homeworld"])
         start_columns = [homeworld_column]
         df = pd.DataFrame(
             {
@@ -118,12 +112,7 @@ class TestInterpreter(expecttest.TestCase):
             }
         )
         sp = StackPointer(0)
-        stack, sp = trv(
-            step,
-            s.backend,
-            [df],
-            sp
-        )
+        stack, sp = trv(step, s.backend, [df], sp)
         self.assertExpectedInline(
             str(stack[0]),
             """\
@@ -143,7 +132,10 @@ class TestInterpreter(expecttest.TestCase):
         start_node = sectors["sector"]
         end_node = sectors["world"]
         step = Traverse(
-            Mapping(SchemaEdge(start_node, end_node), hidden_keys=[Domain("hiddenWorld", sectors["world"])]),
+            Mapping(
+                SchemaEdge(start_node, end_node),
+                hidden_keys=[Domain("hiddenWorld", sectors["world"])],
+            ),
         )
         df = pd.DataFrame(
             {"sectors": ["Core", "Mid", "Outer"], 0: ["Core", "Mid", "Outer"]}
@@ -180,18 +172,25 @@ class TestInterpreter(expecttest.TestCase):
 
     def test_ent(self):
         from backend.pandas_backend.interpreter import ent
+
         s, characters, sectors, trilogies = self.initialise()
         step = EndTraversal(
             [Domain("world", sectors["world"])],
         )
         df = pd.DataFrame(
-            {"sectors": ["Core", "Core", "Mid", "Mid", "Outer"],
-             0: ["Coruscant", "Corellia", "Kashyyk", "Naboo", "Tatooine"],
-             "hiddenWorld": ["Coruscant", "Corellia", "Kashyyk", "Naboo", "Tatooine"]}
+            {
+                "sectors": ["Core", "Core", "Mid", "Mid", "Outer"],
+                0: ["Coruscant", "Corellia", "Kashyyk", "Naboo", "Tatooine"],
+                "hiddenWorld": [
+                    "Coruscant",
+                    "Corellia",
+                    "Kashyyk",
+                    "Naboo",
+                    "Tatooine",
+                ],
+            }
         )
-        bs = pd.DataFrame(
-            {"sectors": ["Core", "Mid", "Outer"]}
-        )
+        bs = pd.DataFrame({"sectors": ["Core", "Mid", "Outer"]})
         stack, sp = ent(step, s.backend, [bs, df], None)
         self.assertExpectedInline(
             str(stack[-1]),
@@ -206,17 +205,22 @@ class TestInterpreter(expecttest.TestCase):
 
     def test_mer(self):
         from backend.pandas_backend.interpreter import mer
+
         s, characters, sectors, trilogies = self.initialise()
         step = EndTraversal(
             [Domain("world", sectors["world"])],
         )
         df = pd.DataFrame(
-            {"world": ["Coruscant", "Corellia", "Kashyyk", "Naboo", "Tatooine"],
-             "sector": ["Core", "Core", "Mid", "Mid", "Outer"]}
+            {
+                "world": ["Coruscant", "Corellia", "Kashyyk", "Naboo", "Tatooine"],
+                "sector": ["Core", "Core", "Mid", "Mid", "Outer"],
+            }
         )
         bs = pd.DataFrame(
-            {"world": ["Tatooine", "Kashyyk", "Corellia"],
-             "character": ["Luke Skywalker", "Chewbacca", "Han Solo"]}
+            {
+                "world": ["Tatooine", "Kashyyk", "Corellia"],
+                "character": ["Luke Skywalker", "Chewbacca", "Han Solo"],
+            }
         )
         stack, sp = mer(step, s.backend, [bs, df], None)
         self.assertExpectedInline(

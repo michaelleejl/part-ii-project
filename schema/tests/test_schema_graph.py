@@ -2,8 +2,13 @@ import expecttest
 
 
 from schema.cardinality import Cardinality
-from schema.exceptions import AllNodesInClusterMustAlreadyBeInGraphException, NodeNotInSchemaGraphException, \
-    MultipleShortestPathsBetweenNodesException, NoShortestPathBetweenNodesException, CycleDetectedInPathException
+from schema.exceptions import (
+    AllNodesInClusterMustAlreadyBeInGraphException,
+    NodeNotInSchemaGraphException,
+    MultipleShortestPathsBetweenNodesException,
+    NoShortestPathBetweenNodesException,
+    CycleDetectedInPathException,
+)
 from schema.graph import SchemaGraph
 from schema.node import AtomicNode, SchemaNode, SchemaClass
 

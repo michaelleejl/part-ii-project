@@ -3,9 +3,12 @@ import pandas as pd
 
 from schema.schema import Schema
 
+
 def initialise():
     s = Schema()
-    votes = pd.read_csv("./csv/polling/polling.csv").set_index(["city", "home_owner", "lean"])
+    votes = pd.read_csv("./csv/polling/polling.csv").set_index(
+        ["city", "home_owner", "lean"]
+    )
     votes = s.insert_dataframe(votes)
     city = votes["city"]
     home_owner = votes["home_owner"]
@@ -13,25 +16,29 @@ def initialise():
     count = votes["count"]
     return s, city, home_owner, lean, count
 
+
 class TestPolling(expecttest.TestCase):
 
     def test(self):
         s, city, home_owner, lean, count = initialise()
-        votes = (s.get(city=city, home=home_owner, lean=lean)
-                   .infer(["city", "home", "lean"], count))
+        votes = s.get(city=city, home=home_owner, lean=lean).infer(
+            ["city", "home", "lean"], count
+        )
         home = votes.hide("lean")
         home = home.mutate(h_sum=home["count"].sum())
         lean = votes.hide("home")
         lean = lean.mutate(l_sum=lean["count"].sum())
         totl = votes.hide("home").hide("lean")
         totl = totl.mutate(t_sum=totl["count"].sum())
-        join = (votes.infer(["city", "home"], home["h_sum"])
-                     .infer(["city", "lean"], lean["l_sum"])
-                     .infer(["city"], totl["t_sum"]))
-        expt = join.mutate(expt = join["h_sum"] * join["l_sum"] / join["t_sum"])
-        devn = expt.mutate(d = expt["count"] - expt["expt"])
-        stat = devn.mutate(stat = devn["d"] * devn["d"] / devn["expt"])
+        join = (
+            votes.infer(["city", "home"], home["h_sum"])
+            .infer(["city", "lean"], lean["l_sum"])
+            .infer(["city"], totl["t_sum"])
+        )
+        expt = join.mutate(expt=join["h_sum"] * join["l_sum"] / join["t_sum"])
+        devn = expt.mutate(d=expt["count"] - expt["expt"])
+        stat = devn.mutate(stat=devn["d"] * devn["d"] / devn["expt"])
         print(stat["d"])
         scre = stat.hide("lean").hide("home")
-        scre = scre.mutate(score = scre["stat"].sum())
+        scre = scre.mutate(score=scre["stat"].sum())
         print(scre)

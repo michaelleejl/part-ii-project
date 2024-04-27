@@ -409,7 +409,10 @@ class Table:
         keys_and_values = self.derivation.get_keys_and_values()
         visible = list(
             sorted(
-                filter(lambda c: find_index(c.name, self.displayed_columns) >=0, keys_and_values),
+                filter(
+                    lambda c: find_index(c.name, self.displayed_columns) >= 0,
+                    keys_and_values,
+                ),
                 key=lambda c: find_index(c.name, self.displayed_columns),
             )
         )
@@ -714,9 +717,19 @@ class Table:
 
                 assum_col = assum_col.get_domain()
                 if from_col != assum_col:
-                    ns = set([d.name for d in root.get_keys_and_values() + root.get_hidden()])
-                    cardinality, repr, hidden_columns = self.get_representation([assum_col], [from_col], [], namespace=ns)
-                    root = root.compose([assum_col], from_col, hidden_columns, repr, cardinality=cardinality)
+                    ns = set(
+                        [d.name for d in root.get_keys_and_values() + root.get_hidden()]
+                    )
+                    cardinality, repr, hidden_columns = self.get_representation(
+                        [assum_col], [from_col], [], namespace=ns
+                    )
+                    root = root.compose(
+                        [assum_col],
+                        from_col,
+                        hidden_columns,
+                        repr,
+                        cardinality=cardinality,
+                    )
                     domains += [Domain(assum_col.name, assum_col.node)]
                 else:
                     domains += [Domain(from_col.name, from_col.node)]
@@ -1213,11 +1226,7 @@ class Table:
         right = " ".join([r.get_name() for r in right])
         dropped_keys = f"\n{pt.get_num_dropped_keys()} keys hidden"
         dropped_vals = f"\n{pt.get_num_dropped_vals()} values hidden"
-        repr = (
-                f"[{left} || {right}]"
-                + "\n"
-                + str(pt.get_table_to_display())
-        )
+        repr = f"[{left} || {right}]" + "\n" + str(pt.get_table_to_display())
         if pt.get_num_dropped_keys() > 0:
             repr += dropped_keys
         if pt.get_num_dropped_vals() > 0:
