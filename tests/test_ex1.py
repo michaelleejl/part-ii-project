@@ -61,10 +61,7 @@ Index: []
     def test_ex1_goal1_step2(self):
         s, cardnum, person = self.initialise()
         t1 = s.get(cardnum=cardnum["cardnum"])
-        print(t1.derivation.to_intermediate_representation())
         t2 = t1.infer(["cardnum"], person["person"])
-        print(t2.intermediate_representation)
-        print(t2.derivation)
         self.assertExpectedInline(
             str(t2),
             """\
