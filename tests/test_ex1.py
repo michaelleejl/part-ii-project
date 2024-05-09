@@ -82,6 +82,7 @@ cardnum
         #  1410            || Tom
         #  1111            || Steve
 
+    #Note: Different technique! Making sure my solution remains viable.
     def test_ex1_goal1_step3(self):
         s, cardnum, person = self.initialise()
         t1 = s.get(cardnum=cardnum["cardnum"])
@@ -103,6 +104,8 @@ cardnum
 """,
         )
 
+    # Note: not the most concise. Can just infer from val_id to person, but want to
+    # test compose
     def test_ex1_goal1_step4(self):
         s, cardnum, person = self.initialise()
         t1 = s.get(cardnum=cardnum["cardnum"])
