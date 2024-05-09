@@ -33,7 +33,9 @@ class TestFlows(expecttest.TestCase):
             .infer(["city"], inf["inflow"])
         )
         netflow = join.mutate(net_outflow=join["outflow"] - join["inflow"])
-        self.assertExpectedInline(str(netflow), """\
+        self.assertExpectedInline(
+            str(netflow),
+            """\
 [city || outflow inflow net_outflow]
            outflow  inflow  net_outflow
 city                                   
@@ -42,7 +44,8 @@ Edinburgh      4.2     4.2          0.0
 Oxford         3.0     3.0          0.0
 Cambridge      6.0     6.0          0.0
 
-""")
+""",
+        )
 
     def test1(self):
         s, City, from_city, to_city, volume = initialise()

@@ -40,7 +40,9 @@ class TestPolling(expecttest.TestCase):
         stat = devn.mutate(stat=devn["d"] * devn["d"] / devn["expt"])
         scre = stat.hide("lean").hide("home")
         scre = scre.mutate(score=scre["stat"].sum())
-        self.assertExpectedInline(str(scre), """\
+        self.assertExpectedInline(
+            str(scre),
+            """\
 [city || count h_sum l_sum t_sum expt d stat score]
                         count  ...      score
 city                           ...           
@@ -49,4 +51,5 @@ London      [120, 50, 80, 50]  ...   2.714932
 
 [2 rows x 8 columns]
 
-""")
+""",
+        )
